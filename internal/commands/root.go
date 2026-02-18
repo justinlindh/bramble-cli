@@ -1,0 +1,92 @@
+// Package commands provides all CLI subcommands for the bramble tool.
+package commands
+
+import (
+	"context"
+	"fmt"
+	"os"
+
+	bramble "github.com/justinlindh/bramble-go"
+	"github.com/justinlindh/bramble-go/transport"
+	"github.com/justinlindh/bramble-cli/internal/discovery"
+	"github.com/spf13/cobra"
+)
+
+var (
+	flagPort      string
+	flagTransport string
+	flagJSON      bool
+)
+
+// rootCmd is the top-level command.
+var rootCmd = &cobra.Command{
+	Use:   "bramble",
+	Short: "CLI for Bramble mesh nodes",
+	Long: `bramble — command-line interface for Bramble LoRa mesh nodes.
+
+Connects via USB serial (auto-detected or --port) or WebSocket (--transport).
+
+Examples:
+  bramble status
+  bramble --port /dev/ttyUSB0 peers
+  bramble --transport ws://192.168.4.1/rpc status
+  bramble send DEADBEEF "hello world"
+  bramble monitor`,
+	SilenceUsage: true,
+}
+
+// Execute runs the root command. Call this from main.
+func Execute() error {
+	return rootCmd.Execute()
+}
+
+func init() {
+	rootCmd.PersistentFlags().StringVarP(&flagPort, "port", "p", "", "serial port path (e.g. /dev/ttyUSB0)")
+	rootCmd.PersistentFlags().StringVarP(&flagTransport, "transport", "t", "", "WebSocket transport URL (e.g. ws://192.168.4.1/rpc)")
+	rootCmd.PersistentFlags().BoolVar(&flagJSON, "json", false, "output results as JSON")
+
+	rootCmd.AddCommand(
+		newStatusCmd(),
+		newPeersCmd(),
+		newRoutesCmd(),
+		newPingCmd(),
+		newSendCmd(),
+		newBroadcastCmd(),
+		newMonitorCmd(),
+		newConfigCmd(),
+		newChannelsCmd(),
+		newProbeCmd(),
+		newRebootCmd(),
+		newLocationCmd(),
+	)
+}
+
+// getClient resolves the transport and returns a connected Bramble client.
+// Priority: --transport > --port > auto-detect USB.
+func getClient(ctx context.Context) (*bramble.Client, error) {
+	var t transport.Transport
+
+	switch {
+	case flagTransport != "":
+		t = transport.NewWebSocket(flagTransport)
+
+	case flagPort != "":
+		t = transport.NewSerial(flagPort)
+
+	default:
+		port, err := discovery.Detect()
+		if err != nil {
+			return nil, err
+		}
+		if !flagJSON {
+			fmt.Fprintf(os.Stderr, "Auto-detected device: %s\n", port)
+		}
+		t = transport.NewSerial(port)
+	}
+
+	client := bramble.NewClient(t)
+	if err := client.Connect(ctx); err != nil {
+		return nil, fmt.Errorf("connect: %w", err)
+	}
+	return client, nil
+}
