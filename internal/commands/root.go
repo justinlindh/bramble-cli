@@ -15,6 +15,7 @@ import (
 var (
 	flagPort      string
 	flagTransport string
+	flagBLE       string
 	flagJSON      bool
 )
 
@@ -24,12 +25,14 @@ var rootCmd = &cobra.Command{
 	Short: "CLI for Bramble mesh nodes",
 	Long: `bramble — command-line interface for Bramble LoRa mesh nodes.
 
-Connects via USB serial (auto-detected or --port) or WebSocket (--transport).
+Connects via USB serial (auto-detected or --port), WebSocket (--transport),
+or Bluetooth Low Energy (--ble).
 
 Examples:
   bramble status
   bramble --port /dev/ttyUSB0 peers
-  bramble --transport ws://192.168.4.1/rpc status
+  bramble --transport ws://192.168.4.1/ws status
+  bramble --ble Bramble status
   bramble send DEADBEEF "hello world"
   bramble monitor`,
 	SilenceUsage: true,
@@ -42,7 +45,8 @@ func Execute() error {
 
 func init() {
 	rootCmd.PersistentFlags().StringVarP(&flagPort, "port", "p", "", "serial port path (e.g. /dev/ttyUSB0)")
-	rootCmd.PersistentFlags().StringVarP(&flagTransport, "transport", "t", "", "WebSocket transport URL (e.g. ws://192.168.4.1/rpc)")
+	rootCmd.PersistentFlags().StringVarP(&flagTransport, "transport", "t", "", "WebSocket transport URL (e.g. ws://192.168.4.1/ws)")
+	rootCmd.PersistentFlags().StringVarP(&flagBLE, "ble", "b", "", "BLE device name to scan for (e.g. Bramble)")
 	rootCmd.PersistentFlags().BoolVar(&flagJSON, "json", false, "output results as JSON")
 
 	rootCmd.AddCommand(
@@ -62,11 +66,14 @@ func init() {
 }
 
 // getClient resolves the transport and returns a connected Bramble client.
-// Priority: --transport > --port > auto-detect USB.
+// Priority: --ble > --transport > --port > auto-detect USB.
 func getClient(ctx context.Context) (*bramble.Client, error) {
 	var t transport.Transport
 
 	switch {
+	case flagBLE != "":
+		t = transport.NewBLE(transport.BLEConfig{DeviceName: flagBLE})
+
 	case flagTransport != "":
 		t = transport.NewWebSocket(flagTransport)
 
