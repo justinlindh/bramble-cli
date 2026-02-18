@@ -39,11 +39,11 @@ func runBroadcast(cmd *cobra.Command, args []string) error {
 
 	if flagJSON {
 		return output.PrintJSON(os.Stdout, map[string]any{
-			"text":      text,
-			"packet_id": result.PacketID,
+			"text":   text,
+			"status": result.Status,
 		})
 	}
 
-	fmt.Fprintf(os.Stdout, "Broadcast: packet#%d\n", result.PacketID)
+	fmt.Fprintf(os.Stdout, "Broadcast sent (%s)\n", result.Status)
 	return nil
 }

@@ -44,8 +44,8 @@ func runRoutes(cmd *cobra.Command, args []string) error {
 	rows := make([][]string, len(routes))
 	for i, r := range routes {
 		rows[i] = []string{
-			output.Addr(r.Dest),
-			output.Addr(r.NextHop),
+			r.Dest,
+			r.NextHop,
 			fmt.Sprintf("%d", r.HopCount),
 			fmt.Sprintf("%d", r.Metric),
 			r.State,

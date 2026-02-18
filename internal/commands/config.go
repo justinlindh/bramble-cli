@@ -50,30 +50,22 @@ func runConfigGet(cmd *cobra.Command, args []string) error {
 	}
 
 	w := os.Stdout
-	fmt.Fprintf(w, "Identity:\n")
-	fmt.Fprintf(w, "  Address:  %08X\n", cfg.Identity.Address)
-	fmt.Fprintf(w, "  Name:     %s\n", cfg.Identity.Name)
-	fmt.Fprintf(w, "  PubkeyH:  %08X\n", cfg.Identity.PubkeyHash)
+	fmt.Fprintf(w, "Node:       %s\n", cfg.NodeName)
+	fmt.Fprintf(w, "Address:    %s\n", cfg.Address)
 	fmt.Fprintf(w, "Radio:\n")
-	fmt.Fprintf(w, "  Freq:     %.3f MHz\n", cfg.Radio.FreqMhz)
+	fmt.Fprintf(w, "  Freq:     %d MHz\n", cfg.Radio.FrequencyMhz)
 	fmt.Fprintf(w, "  SF:       %d\n", cfg.Radio.SF)
-	fmt.Fprintf(w, "  BW:       %d kHz\n", cfg.Radio.BwKhz)
-	fmt.Fprintf(w, "  CR:       %d\n", cfg.Radio.CR)
+	fmt.Fprintf(w, "  BW:       %d Hz\n", cfg.Radio.BwHz)
 	fmt.Fprintf(w, "  TXPower:  %d dBm\n", cfg.Radio.TxPowerDbm)
-	fmt.Fprintf(w, "Mailbox:    %v\n", cfg.MailboxEnabled)
+	fmt.Fprintf(w, "  Profile:  %s\n", cfg.Radio.Profile)
 	fmt.Fprintf(w, "Channels:\n")
 	for _, ch := range cfg.Channels {
 		def := ""
 		if ch.IsDefault {
 			def = " (default)"
 		}
-		fmt.Fprintf(w, "  [%d] %-16s PSK=%v%s\n", ch.Index, ch.Name, ch.HasPsk, def)
+		fmt.Fprintf(w, "  [%d] %s%s\n", ch.ID, ch.Name, def)
 	}
-	fmt.Fprintf(w, "Location:\n")
-	fmt.Fprintf(w, "  Enabled:        %v\n", cfg.Location.Enabled)
-	fmt.Fprintf(w, "  Interval:       %ds\n", cfg.Location.DefaultIntervalSec)
-	fmt.Fprintf(w, "  Dist trigger:   %dm\n", cfg.Location.DefaultDistanceTriggerM)
-	fmt.Fprintf(w, "  Contacts:       %d\n", len(cfg.Location.Contacts))
 	return nil
 }
 

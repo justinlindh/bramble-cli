@@ -73,7 +73,7 @@ func runLocationStatus(cmd *cobra.Command, args []string) error {
 			updated = t.Format("15:04:05")
 		}
 		rows[i] = []string{
-			output.Addr(p.Addr),
+			p.Addr,
 			p.Name,
 			p.Tier,
 			lat,

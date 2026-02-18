@@ -55,22 +55,16 @@ func runChannelsList(cmd *cobra.Command, args []string) error {
 		return nil
 	}
 
-	headers := []string{"INDEX", "NAME", "PSK", "EPOCH", "DEFAULT"}
+	headers := []string{"ID", "NAME", "DEFAULT"}
 	rows := make([][]string, len(cfg.Channels))
 	for i, ch := range cfg.Channels {
 		def := ""
 		if ch.IsDefault {
 			def = "✓"
 		}
-		hasPsk := "no"
-		if ch.HasPsk {
-			hasPsk = "yes"
-		}
 		rows[i] = []string{
-			strconv.Itoa(ch.Index),
+			strconv.Itoa(ch.ID),
 			ch.Name,
-			hasPsk,
-			strconv.Itoa(ch.Epoch),
 			def,
 		}
 	}
