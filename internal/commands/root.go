@@ -62,6 +62,8 @@ func init() {
 		newProbeCmd(),
 		newRebootCmd(),
 		newLocationCmd(),
+		newDiscoverCmd(),
+		newCompletionCmd(),
 	)
 }
 
