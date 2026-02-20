@@ -1,7 +1,6 @@
 package commands
 
 import (
-	"context"
 	"fmt"
 	"os"
 
@@ -19,7 +18,8 @@ func newPingCmd() *cobra.Command {
 }
 
 func runPing(cmd *cobra.Command, args []string) error {
-	ctx := context.Background()
+	ctx, cancel := commandContext()
+	defer cancel()
 
 	// For ping, we need the full version info.
 	// Connect first, then call Version + Ping.
@@ -31,16 +31,16 @@ func runPing(cmd *cobra.Command, args []string) error {
 
 	ver, err := client.Version(ctx)
 	if err != nil {
-		return fmt.Errorf("get version: %w", err)
+		return fmt.Errorf("bramble-cli: get version: %w", err)
 	}
 
 	identity, err := client.Identity(ctx)
 	if err != nil {
-		return fmt.Errorf("get identity: %w", err)
+		return fmt.Errorf("bramble-cli: get identity: %w", err)
 	}
 
 	if err := client.Ping(ctx); err != nil {
-		return fmt.Errorf("ping: %w", err)
+		return fmt.Errorf("bramble-cli: ping: %w", err)
 	}
 
 	if flagJSON {

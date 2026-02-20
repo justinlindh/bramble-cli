@@ -1,7 +1,6 @@
 package commands
 
 import (
-	"context"
 	"fmt"
 	"os"
 
@@ -21,7 +20,8 @@ Use 'bramble monitor' to see responses as they arrive.`,
 }
 
 func runProbe(cmd *cobra.Command, args []string) error {
-	ctx := context.Background()
+	ctx, cancel := commandContext()
+	defer cancel()
 	client, err := getClient(ctx)
 	if err != nil {
 		return err
@@ -30,7 +30,7 @@ func runProbe(cmd *cobra.Command, args []string) error {
 
 	result, err := client.SendProbe(ctx)
 	if err != nil {
-		return fmt.Errorf("probe: %w", err)
+		return fmt.Errorf("bramble-cli: probe: %w", err)
 	}
 
 	if flagJSON {

@@ -1,7 +1,6 @@
 package commands
 
 import (
-	"context"
 	"fmt"
 	"os"
 	"strconv"
@@ -34,7 +33,8 @@ func newChannelsListCmd() *cobra.Command {
 }
 
 func runChannelsList(cmd *cobra.Command, args []string) error {
-	ctx := context.Background()
+	ctx, cancel := commandContext()
+	defer cancel()
 	client, err := getClient(ctx)
 	if err != nil {
 		return err
@@ -43,7 +43,7 @@ func runChannelsList(cmd *cobra.Command, args []string) error {
 
 	cfg, err := client.Config(ctx)
 	if err != nil {
-		return fmt.Errorf("get config: %w", err)
+		return fmt.Errorf("bramble-cli: get config: %w", err)
 	}
 
 	if flagJSON {
@@ -94,7 +94,8 @@ func runChannelsAdd(cmd *cobra.Command, args []string) error {
 		psk = args[1]
 	}
 
-	ctx := context.Background()
+	ctx, cancel := commandContext()
+	defer cancel()
 	client, err := getClient(ctx)
 	if err != nil {
 		return err
@@ -103,7 +104,7 @@ func runChannelsAdd(cmd *cobra.Command, args []string) error {
 
 	result, err := client.AddChannel(ctx, name, psk)
 	if err != nil {
-		return fmt.Errorf("add channel: %w", err)
+		return fmt.Errorf("bramble-cli: add channel: %w", err)
 	}
 
 	if flagJSON {
@@ -128,10 +129,11 @@ func newChannelsRemoveCmd() *cobra.Command {
 func runChannelsRemove(cmd *cobra.Command, args []string) error {
 	idx, err := strconv.Atoi(args[0])
 	if err != nil {
-		return fmt.Errorf("invalid channel index %q: must be an integer", args[0])
+		return fmt.Errorf("bramble-cli: invalid channel index %q: must be an integer", args[0])
 	}
 
-	ctx := context.Background()
+	ctx, cancel := commandContext()
+	defer cancel()
 	client, err := getClient(ctx)
 	if err != nil {
 		return err
@@ -139,7 +141,7 @@ func runChannelsRemove(cmd *cobra.Command, args []string) error {
 	defer client.Close()
 
 	if err := client.RemoveChannel(ctx, idx); err != nil {
-		return fmt.Errorf("remove channel: %w", err)
+		return fmt.Errorf("bramble-cli: remove channel: %w", err)
 	}
 
 	if flagJSON {
@@ -161,10 +163,11 @@ func newChannelsSetDefaultCmd() *cobra.Command {
 func runChannelsSetDefault(cmd *cobra.Command, args []string) error {
 	idx, err := strconv.Atoi(args[0])
 	if err != nil {
-		return fmt.Errorf("invalid channel index %q: must be an integer", args[0])
+		return fmt.Errorf("bramble-cli: invalid channel index %q: must be an integer", args[0])
 	}
 
-	ctx := context.Background()
+	ctx, cancel := commandContext()
+	defer cancel()
 	client, err := getClient(ctx)
 	if err != nil {
 		return err
@@ -172,7 +175,7 @@ func runChannelsSetDefault(cmd *cobra.Command, args []string) error {
 	defer client.Close()
 
 	if err := client.SetDefaultChannel(ctx, idx); err != nil {
-		return fmt.Errorf("set-default: %w", err)
+		return fmt.Errorf("bramble-cli: set-default: %w", err)
 	}
 
 	if flagJSON {

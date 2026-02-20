@@ -1,7 +1,6 @@
 package commands
 
 import (
-	"context"
 	"fmt"
 	"os"
 	"time"
@@ -34,7 +33,8 @@ func newLocationStatusCmd() *cobra.Command {
 }
 
 func runLocationStatus(cmd *cobra.Command, args []string) error {
-	ctx := context.Background()
+	ctx, cancel := commandContext()
+	defer cancel()
 	client, err := getClient(ctx)
 	if err != nil {
 		return err
@@ -43,7 +43,7 @@ func runLocationStatus(cmd *cobra.Command, args []string) error {
 
 	peers, err := client.PeerLocations(ctx)
 	if err != nil {
-		return fmt.Errorf("get peer locations: %w", err)
+		return fmt.Errorf("bramble-cli: get peer locations: %w", err)
 	}
 
 	if flagJSON {
@@ -103,13 +103,14 @@ Example:
 }
 
 func runLocationSetContact(cmd *cobra.Command, args []string) error {
-	addr, err := parseAddr(args[0])
+	addr, err := ParseAddress(args[0])
 	if err != nil {
-		return fmt.Errorf("invalid address %q: %w", args[0], err)
+		return fmt.Errorf("bramble-cli: invalid address %q: %w", args[0], err)
 	}
 	tier := args[1]
 
-	ctx := context.Background()
+	ctx, cancel := commandContext()
+	defer cancel()
 	client, err := getClient(ctx)
 	if err != nil {
 		return err
@@ -117,13 +118,13 @@ func runLocationSetContact(cmd *cobra.Command, args []string) error {
 	defer client.Close()
 
 	if err := client.SetLocationContact(ctx, addr, tier); err != nil {
-		return fmt.Errorf("set-contact: %w", err)
+		return fmt.Errorf("bramble-cli: set-contact: %w", err)
 	}
 
 	if flagJSON {
 		return output.PrintJSON(os.Stdout, map[string]any{
-			"addr": output.Addr(addr),
-			"tier": tier,
+			"addr":   output.Addr(addr),
+			"tier":   tier,
 			"status": "ok",
 		})
 	}
@@ -141,12 +142,13 @@ func newLocationRemoveContactCmd() *cobra.Command {
 }
 
 func runLocationRemoveContact(cmd *cobra.Command, args []string) error {
-	addr, err := parseAddr(args[0])
+	addr, err := ParseAddress(args[0])
 	if err != nil {
-		return fmt.Errorf("invalid address %q: %w", args[0], err)
+		return fmt.Errorf("bramble-cli: invalid address %q: %w", args[0], err)
 	}
 
-	ctx := context.Background()
+	ctx, cancel := commandContext()
+	defer cancel()
 	client, err := getClient(ctx)
 	if err != nil {
 		return err
@@ -154,7 +156,7 @@ func runLocationRemoveContact(cmd *cobra.Command, args []string) error {
 	defer client.Close()
 
 	if err := client.RemoveLocationContact(ctx, addr); err != nil {
-		return fmt.Errorf("remove-contact: %w", err)
+		return fmt.Errorf("bramble-cli: remove-contact: %w", err)
 	}
 
 	if flagJSON {
@@ -174,12 +176,13 @@ func newLocationShareOnceCmd() *cobra.Command {
 }
 
 func runLocationShareOnce(cmd *cobra.Command, args []string) error {
-	addr, err := parseAddr(args[0])
+	addr, err := ParseAddress(args[0])
 	if err != nil {
-		return fmt.Errorf("invalid address %q: %w", args[0], err)
+		return fmt.Errorf("bramble-cli: invalid address %q: %w", args[0], err)
 	}
 
-	ctx := context.Background()
+	ctx, cancel := commandContext()
+	defer cancel()
 	client, err := getClient(ctx)
 	if err != nil {
 		return err
@@ -187,7 +190,7 @@ func runLocationShareOnce(cmd *cobra.Command, args []string) error {
 	defer client.Close()
 
 	if err := client.ShareLocationOnce(ctx, addr); err != nil {
-		return fmt.Errorf("share-once: %w", err)
+		return fmt.Errorf("bramble-cli: share-once: %w", err)
 	}
 
 	if flagJSON {

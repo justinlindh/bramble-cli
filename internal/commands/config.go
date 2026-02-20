@@ -1,12 +1,11 @@
 package commands
 
 import (
-	"context"
 	"fmt"
 	"os"
 
-	bramble "github.com/justinlindh/bramble-go"
 	"github.com/justinlindh/bramble-cli/internal/output"
+	bramble "github.com/justinlindh/bramble-go"
 	"github.com/spf13/cobra"
 )
 
@@ -33,7 +32,8 @@ func newConfigGetCmd() *cobra.Command {
 }
 
 func runConfigGet(cmd *cobra.Command, args []string) error {
-	ctx := context.Background()
+	ctx, cancel := commandContext()
+	defer cancel()
 	client, err := getClient(ctx)
 	if err != nil {
 		return err
@@ -42,7 +42,7 @@ func runConfigGet(cmd *cobra.Command, args []string) error {
 
 	cfg, err := client.Config(ctx)
 	if err != nil {
-		return fmt.Errorf("get config: %w", err)
+		return fmt.Errorf("bramble-cli: get config: %w", err)
 	}
 
 	if flagJSON {
@@ -81,10 +81,11 @@ func newConfigSetNameCmd() *cobra.Command {
 func runConfigSetName(cmd *cobra.Command, args []string) error {
 	name := args[0]
 	if len(name) > 8 {
-		return fmt.Errorf("name %q is too long (max 8 characters)", name)
+		return fmt.Errorf("bramble-cli: name %q is too long (max 8 characters)", name)
 	}
 
-	ctx := context.Background()
+	ctx, cancel := commandContext()
+	defer cancel()
 	client, err := getClient(ctx)
 	if err != nil {
 		return err
@@ -92,7 +93,7 @@ func runConfigSetName(cmd *cobra.Command, args []string) error {
 	defer client.Close()
 
 	if err := client.SetNodeName(ctx, name); err != nil {
-		return fmt.Errorf("set-name: %w", err)
+		return fmt.Errorf("bramble-cli: set-name: %w", err)
 	}
 
 	if flagJSON {
@@ -151,10 +152,11 @@ func runConfigSetRadio(cmd *cobra.Command, args []string) error {
 	}
 
 	if !changed {
-		return fmt.Errorf("specify at least one radio parameter (--freq, --sf, --bw, --cr, --txpower)")
+		return fmt.Errorf("bramble-cli: specify at least one radio parameter (--freq, --sf, --bw, --cr, --txpower)")
 	}
 
-	ctx := context.Background()
+	ctx, cancel := commandContext()
+	defer cancel()
 	client, err := getClient(ctx)
 	if err != nil {
 		return err
@@ -162,7 +164,7 @@ func runConfigSetRadio(cmd *cobra.Command, args []string) error {
 	defer client.Close()
 
 	if err := client.SetRadio(ctx, config); err != nil {
-		return fmt.Errorf("set-radio: %w", err)
+		return fmt.Errorf("bramble-cli: set-radio: %w", err)
 	}
 
 	if flagJSON {

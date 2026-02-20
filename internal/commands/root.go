@@ -5,10 +5,11 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"time"
 
+	"github.com/justinlindh/bramble-cli/internal/discovery"
 	bramble "github.com/justinlindh/bramble-go"
 	"github.com/justinlindh/bramble-go/transport"
-	"github.com/justinlindh/bramble-cli/internal/discovery"
 	"github.com/spf13/cobra"
 )
 
@@ -18,6 +19,15 @@ var (
 	flagBLE       string
 	flagJSON      bool
 )
+
+const (
+	connectTimeout = 30 * time.Second
+	requestTimeout = 10 * time.Second
+)
+
+func commandContext() (context.Context, context.CancelFunc) {
+	return context.WithTimeout(context.Background(), requestTimeout)
+}
 
 // rootCmd is the top-level command.
 var rootCmd = &cobra.Command{
@@ -94,8 +104,14 @@ func getClient(ctx context.Context) (*bramble.Client, error) {
 	}
 
 	client := bramble.NewClient(t)
-	if err := client.Connect(ctx); err != nil {
-		return nil, fmt.Errorf("connect: %w", err)
+	connectCtx := ctx
+	if _, hasDeadline := ctx.Deadline(); !hasDeadline {
+		var cancel context.CancelFunc
+		connectCtx, cancel = context.WithTimeout(ctx, connectTimeout)
+		defer cancel()
+	}
+	if err := client.Connect(connectCtx); err != nil {
+		return nil, fmt.Errorf("bramble-cli: connect: %w", err)
 	}
 	return client, nil
 }

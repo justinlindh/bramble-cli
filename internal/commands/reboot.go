@@ -1,7 +1,6 @@
 package commands
 
 import (
-	"context"
 	"fmt"
 	"os"
 
@@ -19,7 +18,8 @@ func newRebootCmd() *cobra.Command {
 }
 
 func runReboot(cmd *cobra.Command, args []string) error {
-	ctx := context.Background()
+	ctx, cancel := commandContext()
+	defer cancel()
 	client, err := getClient(ctx)
 	if err != nil {
 		return err
@@ -27,7 +27,7 @@ func runReboot(cmd *cobra.Command, args []string) error {
 	defer client.Close()
 
 	if err := client.Reboot(ctx); err != nil {
-		return fmt.Errorf("reboot: %w", err)
+		return fmt.Errorf("bramble-cli: reboot: %w", err)
 	}
 
 	if flagJSON {

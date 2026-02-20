@@ -1,7 +1,6 @@
 package commands
 
 import (
-	"context"
 	"fmt"
 	"os"
 
@@ -23,7 +22,8 @@ Example:
 }
 
 func runBroadcast(cmd *cobra.Command, args []string) error {
-	ctx := context.Background()
+	ctx, cancel := commandContext()
+	defer cancel()
 	text := args[0]
 
 	client, err := getClient(ctx)
@@ -34,7 +34,7 @@ func runBroadcast(cmd *cobra.Command, args []string) error {
 
 	result, err := client.Broadcast(ctx, text)
 	if err != nil {
-		return fmt.Errorf("broadcast: %w", err)
+		return fmt.Errorf("bramble-cli: broadcast: %w", err)
 	}
 
 	if flagJSON {

@@ -1,7 +1,6 @@
 package commands
 
 import (
-	"context"
 	"encoding/json"
 	"fmt"
 	"time"
@@ -24,7 +23,8 @@ Examples:
   bramble discover --timeout 5s
   bramble discover --json`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			ctx := context.Background()
+			ctx, cancel := commandContext()
+			defer cancel()
 
 			if !flagJSON {
 				fmt.Fprintf(cmd.ErrOrStderr(), "Scanning for Bramble nodes (%s)...\n", timeout)
@@ -32,7 +32,7 @@ Examples:
 
 			nodes, err := discovery.DiscoverMDNS(ctx, timeout)
 			if err != nil {
-				return fmt.Errorf("discovery failed: %w", err)
+				return fmt.Errorf("bramble-cli: discovery failed: %w", err)
 			}
 
 			if flagJSON {

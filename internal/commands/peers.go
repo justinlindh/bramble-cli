@@ -1,7 +1,6 @@
 package commands
 
 import (
-	"context"
 	"fmt"
 	"os"
 
@@ -19,7 +18,8 @@ func newPeersCmd() *cobra.Command {
 }
 
 func runPeers(cmd *cobra.Command, args []string) error {
-	ctx := context.Background()
+	ctx, cancel := commandContext()
+	defer cancel()
 	client, err := getClient(ctx)
 	if err != nil {
 		return err
@@ -28,7 +28,7 @@ func runPeers(cmd *cobra.Command, args []string) error {
 
 	neighbors, err := client.Neighbors(ctx)
 	if err != nil {
-		return fmt.Errorf("get neighbors: %w", err)
+		return fmt.Errorf("bramble-cli: get neighbors: %w", err)
 	}
 
 	if flagJSON {
@@ -47,7 +47,7 @@ func runPeers(cmd *cobra.Command, args []string) error {
 			n.Address,
 			fmt.Sprintf("%d dBm", n.RSSI),
 			fmt.Sprintf("%.1f dB", n.SNR),
-			output.FormatMs(n.LastHeardMs),
+			output.FormatMs(n.LastSeenAgoMs),
 		}
 	}
 	output.Table(os.Stdout, headers, rows)

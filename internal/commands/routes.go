@@ -1,7 +1,6 @@
 package commands
 
 import (
-	"context"
 	"fmt"
 	"os"
 
@@ -19,7 +18,8 @@ func newRoutesCmd() *cobra.Command {
 }
 
 func runRoutes(cmd *cobra.Command, args []string) error {
-	ctx := context.Background()
+	ctx, cancel := commandContext()
+	defer cancel()
 	client, err := getClient(ctx)
 	if err != nil {
 		return err
@@ -28,7 +28,7 @@ func runRoutes(cmd *cobra.Command, args []string) error {
 
 	routes, err := client.Routes(ctx)
 	if err != nil {
-		return fmt.Errorf("get routes: %w", err)
+		return fmt.Errorf("bramble-cli: get routes: %w", err)
 	}
 
 	if flagJSON {

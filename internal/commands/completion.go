@@ -44,7 +44,7 @@ PowerShell:
 			case "powershell":
 				return rootCmd.GenPowerShellCompletionWithDesc(os.Stdout)
 			default:
-				return fmt.Errorf("unsupported shell: %s", args[0])
+				return fmt.Errorf("bramble-cli: unsupported shell: %s", args[0])
 			}
 		},
 	}
