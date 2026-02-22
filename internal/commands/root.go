@@ -74,6 +74,7 @@ func init() {
 		newLocationCmd(),
 		newDiscoverCmd(),
 		newCompletionCmd(),
+		newTrafficCmd(),
 	)
 }
 
