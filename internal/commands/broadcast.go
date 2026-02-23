@@ -58,12 +58,11 @@ func runBroadcast(cmd *cobra.Command, args []string) error {
 		if broadcastChannel >= 0 {
 			payload["channel"] = broadcastChannel
 		}
+		if r.BroadcastID != "" {
+			payload["broadcast_id"] = r.BroadcastID
+		}
 		return output.PrintJSON(os.Stdout, payload)
 	}
-	if broadcastChannel >= 0 {
-		fmt.Fprintf(os.Stdout, "Channel %d broadcast sent (%s)\n", broadcastChannel, r.Status)
-	} else {
-		fmt.Fprintf(os.Stdout, "Broadcast sent (%s)\n", r.Status)
-	}
+	fmt.Fprintln(os.Stdout, output.FormatBroadcastSendStatus(broadcastChannel, r.Status, r.BroadcastID))
 	return nil
 }
