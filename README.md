@@ -18,7 +18,7 @@ go build -o bramble ./cmd/bramble
 
 > **Private module note:** This depends on `github.com/justinlindh/bramble-go`, a private Gitea module. The `go.mod` uses a `replace` directive pointing to a local checkout. Configure SSH access and set `GOPRIVATE=github.com/*`.
 
-## Connection
+## Connection / Transport
 
 Auto-detect USB serial (scans `/dev/ttyUSB*` and `/dev/ttyACM*`):
 ```bash
@@ -32,16 +32,22 @@ bramble --port /dev/ttyUSB0 status
 
 WebSocket transport (e.g. ESP32 in AP mode):
 ```bash
-bramble --transport ws://192.168.4.1/rpc status
+bramble --transport ws://192.168.4.1/ws status
+```
+
+Bluetooth Low Energy transport (scan by advertised name):
+```bash
+bramble --ble Bramble status
 ```
 
 ## Global Flags
 
 | Flag | Short | Description |
 |------|-------|-------------|
-| `--port` | `-p` | Serial port path |
-| `--transport` | `-t` | WebSocket URL |
-| `--json` | | Output as JSON |
+| `--ble <name>` | `-b` | BLE device name to scan for (example: `Bramble`) |
+| `--port <path>` | `-p` | Serial port path (example: `/dev/ttyUSB0`) |
+| `--transport <url>` | `-t` | WebSocket transport URL (example: `ws://192.168.4.1/ws`) |
+| `--json` | | Output command results as JSON |
 
 ## Commands
 
@@ -67,17 +73,40 @@ bramble send CAFEBABE "hello there"
 Send a mesh-wide message.
 - Default: public Broadcast channel
 - Use `--channel <index>` to send on a specific channel
+- Use `--wait-delivery <seconds>` to wait for delivery telemetry after send
+
 ```bash
 bramble broadcast "hello everyone"
 bramble broadcast --channel 2 "hello channel 2"
+bramble broadcast --wait-delivery 10 "delivery telemetry please"
 ```
 
-### `bramble monitor [--messages] [--neighbors]`
-Stream real-time events. Press `Ctrl+C` to stop.
+### `bramble monitor`
+Stream real-time node events. Press `Ctrl+C` to stop.
+
+Event types: `message`, `ack`, `neighbor`, `broadcast-delivery`
+
 ```bash
-bramble monitor              # all events
-bramble monitor --messages   # only messages
-bramble monitor --neighbors  # only neighbor changes
+bramble monitor                                # all events
+bramble monitor --messages                     # only message events
+bramble monitor --neighbors                    # only neighbor changes
+bramble monitor --events message,ack           # explicit event filter
+bramble monitor --events broadcast-delivery    # delivery telemetry events only
+```
+
+### `bramble traffic`
+Traffic debug telemetry commands:
+- `bramble traffic monitor`: live TX/RX telemetry stream
+- `bramble traffic export`: export ring-buffer events to JSONL
+
+```bash
+bramble traffic monitor
+bramble traffic monitor --tx-only
+bramble traffic monitor --rx-only --category routing
+
+bramble traffic export
+bramble traffic export --since 12345 --limit 100
+bramble traffic export --format jsonl > traffic-events.jsonl
 ```
 
 ### `bramble config get`
@@ -106,6 +135,9 @@ Set the default outgoing channel.
 
 ### `bramble probe`
 Send a network probe. Responses appear in `bramble monitor`.
+
+### `bramble discover`
+Scan for Bramble nodes on the local network via mDNS.
 
 ### `bramble reboot`
 Reboot the node.
@@ -144,6 +176,20 @@ bramble completion zsh > "${fpath[1]}/_bramble"
 # Fish
 bramble completion fish > ~/.config/fish/completions/bramble.fish
 ```
+
+## Docs Maintenance / Drift Check
+
+CLI help text (`./bramble <command> --help`) is the source of truth. After adding/changing flags or commands:
+
+1. Rebuild the CLI: `go build -o bramble ./cmd/bramble`
+2. Update README command snippets and flag tables.
+3. Run doc drift guard:
+
+```bash
+scripts/check-doc-drift.sh
+```
+
+This script validates a small set of critical README snippets and help flags (global transport flags, `broadcast --wait-delivery`, `monitor --events`, and traffic monitor/export flags).
 
 ## License
 
