@@ -6,9 +6,11 @@ import (
 	"fmt"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 	"time"
 
+	"github.com/justinlindh/bramble-cli/internal/output"
 	bramble "github.com/justinlindh/bramble-go"
 	"github.com/spf13/cobra"
 )
@@ -23,11 +25,13 @@ Press Ctrl+C to stop.
 
 Flags:
   --messages    Only show message events
-  --neighbors   Only show neighbor change events`,
+  --neighbors   Only show neighbor change events
+  --events      Comma-separated event filter (message, ack, neighbor, broadcast-delivery)`,
 		RunE: runMonitor,
 	}
 	cmd.Flags().Bool("messages", false, "only show message events")
 	cmd.Flags().Bool("neighbors", false, "only show neighbor-change events")
+	cmd.Flags().StringSlice("events", nil, "event filter (message, ack, neighbor, broadcast-delivery)")
 	return cmd
 }
 
@@ -37,11 +41,32 @@ func runMonitor(cmd *cobra.Command, args []string) error {
 
 	onlyMessages, _ := cmd.Flags().GetBool("messages")
 	onlyNeighbors, _ := cmd.Flags().GetBool("neighbors")
+	eventFilters, _ := cmd.Flags().GetStringSlice("events")
 
 	// Default: show everything.
 	showMessages := !onlyNeighbors || onlyMessages
 	showNeighbors := !onlyMessages || onlyNeighbors
 	showAcks := !onlyMessages && !onlyNeighbors
+	showBroadcastDeliveries := !onlyMessages && !onlyNeighbors
+
+	if len(eventFilters) > 0 {
+		showMessages = false
+		showNeighbors = false
+		showAcks = false
+		showBroadcastDeliveries = false
+		for _, raw := range eventFilters {
+			switch strings.TrimSpace(strings.ToLower(raw)) {
+			case "message", "messages":
+				showMessages = true
+			case "ack", "acks":
+				showAcks = true
+			case "neighbor", "neighbors", "neighbor-change":
+				showNeighbors = true
+			case "broadcast-delivery", "broadcast_delivery", "broadcastdelivery":
+				showBroadcastDeliveries = true
+			}
+		}
+	}
 
 	client, err := getClient(ctx)
 	if err != nil {
@@ -103,6 +128,17 @@ func runMonitor(cmd *cobra.Command, args []string) error {
 		})
 	}
 
+	if showBroadcastDeliveries {
+		client.OnBroadcastDelivery(func(evt bramble.BroadcastDelivery) {
+			if flagJSON {
+				b, _ := monitorBroadcastDeliveryJSON(evt)
+				fmt.Fprintln(os.Stdout, string(b))
+			} else {
+				fmt.Fprintln(os.Stdout, monitorBroadcastDeliveryLine(time.Now(), evt))
+			}
+		})
+	}
+
 	// Wait for Ctrl+C.
 	sigCh := make(chan os.Signal, 1)
 	signal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM)
@@ -110,4 +146,15 @@ func runMonitor(cmd *cobra.Command, args []string) error {
 
 	fmt.Fprintln(os.Stderr, "\nStopping monitor.")
 	return nil
+}
+
+func monitorBroadcastDeliveryLine(now time.Time, evt bramble.BroadcastDelivery) string {
+	return output.FormatBroadcastDeliveryLine(now, evt)
+}
+
+func monitorBroadcastDeliveryJSON(evt bramble.BroadcastDelivery) ([]byte, error) {
+	return json.Marshal(map[string]any{
+		"event":   "broadcast_delivery",
+		"payload": evt,
+	})
 }
