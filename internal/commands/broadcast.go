@@ -3,6 +3,7 @@ package commands
 import (
 	"fmt"
 	"os"
+	"time"
 
 	"github.com/justinlindh/bramble-cli/internal/output"
 	bramble "github.com/justinlindh/bramble-go"
@@ -10,6 +11,7 @@ import (
 )
 
 var broadcastChannel int
+var broadcastWaitDeliverySec int
 
 func newBroadcastCmd() *cobra.Command {
 	cmd := &cobra.Command{
@@ -27,6 +29,7 @@ Examples:
 		RunE: runBroadcast,
 	}
 	cmd.Flags().IntVar(&broadcastChannel, "channel", -1, "channel index for channel-scoped broadcast")
+	cmd.Flags().IntVar(&broadcastWaitDeliverySec, "wait-delivery", 0, "seconds to wait for broadcast delivery telemetry after send")
 	return cmd
 }
 
@@ -41,6 +44,15 @@ func runBroadcast(cmd *cobra.Command, args []string) error {
 	}
 	defer client.Close()
 
+	deliveries := make([]bramble.BroadcastDelivery, 0, 8)
+	deliveryCh := make(chan bramble.BroadcastDelivery, 32)
+	client.OnBroadcastDelivery(func(evt bramble.BroadcastDelivery) {
+		select {
+		case deliveryCh <- evt:
+		default:
+		}
+	})
+
 	var r *bramble.SendResult
 	if broadcastChannel >= 0 {
 		r, err = client.BroadcastOnChannel(ctx, broadcastChannel, text)
@@ -53,6 +65,23 @@ func runBroadcast(cmd *cobra.Command, args []string) error {
 			return fmt.Errorf("bramble-cli: broadcast: %w", err)
 		}
 	}
+
+	if broadcastWaitDeliverySec > 0 {
+		timer := time.NewTimer(time.Duration(broadcastWaitDeliverySec) * time.Second)
+		defer timer.Stop()
+		for {
+			select {
+			case evt := <-deliveryCh:
+				if r.BroadcastID == "" || evt.BroadcastID == "" || evt.BroadcastID == r.BroadcastID {
+					deliveries = append(deliveries, evt)
+				}
+			case <-timer.C:
+				goto done
+			}
+		}
+	}
+
+done:
 	if flagJSON {
 		payload := map[string]any{"text": text, "status": r.Status}
 		if broadcastChannel >= 0 {
@@ -61,8 +90,22 @@ func runBroadcast(cmd *cobra.Command, args []string) error {
 		if r.BroadcastID != "" {
 			payload["broadcast_id"] = r.BroadcastID
 		}
+		if len(deliveries) > 0 {
+			payload["deliveries"] = deliveries
+		}
+		if broadcastWaitDeliverySec > 0 {
+			payload["delivery_window_s"] = broadcastWaitDeliverySec
+			payload["delivery_count"] = len(deliveries)
+		}
 		return output.PrintJSON(os.Stdout, payload)
 	}
+
 	fmt.Fprintln(os.Stdout, output.FormatBroadcastSendStatus(broadcastChannel, r.Status, r.BroadcastID))
+	if broadcastWaitDeliverySec > 0 {
+		fmt.Fprintf(os.Stdout, "Observed %d broadcast delivery events in %ds\n", len(deliveries), broadcastWaitDeliverySec)
+		for _, evt := range deliveries {
+			fmt.Fprintln(os.Stdout, output.FormatBroadcastDeliveryLine(time.Now(), evt))
+		}
+	}
 	return nil
 }
