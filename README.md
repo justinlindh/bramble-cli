@@ -64,9 +64,12 @@ bramble send CAFEBABE "hello there"
 ```
 
 ### `bramble broadcast <message>`
-Broadcast a message to all reachable nodes.
+Send a mesh-wide message.
+- Default: public Broadcast channel
+- Use `--channel <index>` to send on a specific channel
 ```bash
 bramble broadcast "hello everyone"
+bramble broadcast --channel 2 "hello channel 2"
 ```
 
 ### `bramble monitor [--messages] [--neighbors]`
