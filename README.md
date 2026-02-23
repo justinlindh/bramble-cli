@@ -90,7 +90,7 @@ bramble config set-radio --freq 915.0 --sf 10 --bw 125 --cr 5 --txpower 20
 ```
 
 ### `bramble channels list`
-List configured channels.
+List configured channels (shows 🔒 for channels with a PSK).
 
 ### `bramble channels add <name> [psk]`
 Add a channel with an optional pre-shared key.

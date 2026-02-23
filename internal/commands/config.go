@@ -64,7 +64,11 @@ func runConfigGet(cmd *cobra.Command, args []string) error {
 		if ch.IsDefault {
 			def = " (default)"
 		}
-		fmt.Fprintf(w, "  [%d] %s%s\n", ch.ID, ch.Name, def)
+		lock := ""
+		if ch.HasPsk {
+			lock = " 🔒"
+		}
+		fmt.Fprintf(w, "  [%d] %s%s%s\n", ch.ID, ch.Name, lock, def)
 	}
 	return nil
 }
