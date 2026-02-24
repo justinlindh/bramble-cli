@@ -84,14 +84,16 @@ bramble broadcast --wait-delivery 10 "delivery telemetry please"
 ### `bramble monitor`
 Stream real-time node events. Press `Ctrl+C` to stop.
 
-Event types: `message`, `ack`, `neighbor`, `broadcast-delivery`
+Event types include protocol-native mesh + telemetry streams. Topic filtering is supported.
 
 ```bash
-bramble monitor                                # all events
-bramble monitor --messages                     # only message events
-bramble monitor --neighbors                    # only neighbor changes
-bramble monitor --events message,ack           # explicit event filter
-bramble monitor --events broadcast-delivery    # delivery telemetry events only
+bramble monitor                                      # all events
+bramble monitor --events message,ack                 # legacy event filter set
+bramble monitor --topic wifi,gps,location            # topic filter
+bramble monitor --topic traffic --grep route         # grep filter
+bramble monitor --topic gps,location --json          # structured JSON output
+bramble monitor --follow=false --topic gps           # stop after first matching event
+bramble monitor --since 30s --topic location         # recent window hint
 ```
 
 ### `bramble traffic`
@@ -145,11 +147,26 @@ Reboot the node.
 ### `bramble location status`
 Show location data for all known peers.
 
+### `bramble location set-config`
+Set canonical location policy fields (`enabled`, `default_tier`, `interval_s`, `source`, `contact_rules`, `channel_targets`).
+
+```bash
+bramble location set-config --enabled --default-tier full --interval-s 30 --source gps \
+  --contact-rules '[{"address":"6CBF8FE3","enabled":true,"tier":"full","interval_s":30}]'
+```
+
+### `bramble location get-config`
+Get canonical location policy block from node config.
+
+```bash
+bramble location get-config --json
+```
+
 ### `bramble location set-contact <address> <tier>`
-Configure location sharing (tiers: `exact`, `city`, `region`).
+Set a per-peer location contact rule quickly.
 
 ### `bramble location remove-contact <address>`
-Stop sharing location with a peer.
+Remove a location contact rule for a peer.
 
 ### `bramble location share-once <address>`
 Send a one-time location update.
