@@ -94,6 +94,9 @@ func runMonitor(cmd *cobra.Command, args []string) error {
 	showAcks := !onlyMessages && !onlyNeighbors
 	showBroadcastDeliveries := !onlyMessages && !onlyNeighbors
 	showTraffic := true
+	showWifi := true
+	showGps := true
+	showLocation := true
 
 	if len(eventFilters) > 0 {
 		showMessages = false
@@ -101,6 +104,9 @@ func runMonitor(cmd *cobra.Command, args []string) error {
 		showAcks = false
 		showBroadcastDeliveries = false
 		showTraffic = false
+		showWifi = false
+		showGps = false
+		showLocation = false
 		for _, raw := range eventFilters {
 			switch strings.TrimSpace(strings.ToLower(raw)) {
 			case "message", "messages":
@@ -113,6 +119,12 @@ func runMonitor(cmd *cobra.Command, args []string) error {
 				showBroadcastDeliveries = true
 			case "traffic":
 				showTraffic = true
+			case "wifi":
+				showWifi = true
+			case "gps":
+				showGps = true
+			case "location":
+				showLocation = true
 			}
 		}
 	}
@@ -250,6 +262,30 @@ func runMonitor(cmd *cobra.Command, args []string) error {
 				},
 				Line: fmt.Sprintf("[%s] TRAFFIC %-2s %-10s pkt=%d len=%d tier=%s", now.Format("15:04:05"), direction, evt.Category, evt.PktType, evt.PacketLen, evt.AirtimeTier),
 			})
+		})
+	}
+
+	if showWifi {
+		client.OnWifiEvent(func(evt bramble.WifiEvent) {
+			now := time.Now()
+			emit(monitorEvent{Type: "wifi", Topic: "wifi", Timestamp: now, SearchText: fmt.Sprintf("%s %s %s", evt.Event, evt.Mode, evt.IP), Payload: map[string]any{"event": evt.Event, "mode": evt.Mode, "connected": evt.Connected, "ssid": evt.SSID, "ip": evt.IP, "rssi": evt.RSSI}, Line: fmt.Sprintf("[%s] WIFI event=%s mode=%s ip=%s", now.Format("15:04:05"), evt.Event, evt.Mode, evt.IP)})
+		})
+	}
+
+	if showGps {
+		client.OnGpsEvent(func(evt bramble.GpsEvent) {
+			now := time.Now()
+			emit(monitorEvent{Type: "gps", Topic: "gps", Timestamp: now, SearchText: fmt.Sprintf("%s valid=%t", evt.Event, evt.Valid), Payload: map[string]any{"event": evt.Event, "valid": evt.Valid, "lat": evt.Lat, "lon": evt.Lon, "alt_m": evt.AltM, "sats": evt.Sats}, Line: fmt.Sprintf("[%s] GPS event=%s valid=%t", now.Format("15:04:05"), evt.Event, evt.Valid)})
+		})
+	}
+
+	if showLocation {
+		client.OnLocationEvent(func(evt bramble.LocationEvent) {
+			ts := time.Now()
+			if evt.TimestampMs > 0 {
+				ts = time.UnixMilli(int64(evt.TimestampMs))
+			}
+			emit(monitorEvent{Type: "location", Topic: "location", Timestamp: ts, SearchText: fmt.Sprintf("%s peer=%s tier=%d", evt.Event, evt.Peer, evt.Tier), Payload: map[string]any{"event": evt.Event, "peer": evt.Peer, "tier": evt.Tier, "timestamp_ms": evt.TimestampMs, "rssi": evt.RSSI, "snr": evt.SNR, "count": evt.Count}, Line: fmt.Sprintf("[%s] LOCATION event=%s peer=%s tier=%d", ts.Format("15:04:05"), evt.Event, evt.Peer, evt.Tier)})
 		})
 	}
 
