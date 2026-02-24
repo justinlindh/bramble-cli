@@ -4,6 +4,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"net"
+	"net/url"
 	"os"
 	"time"
 
@@ -32,7 +34,40 @@ var runStatusCheck = func(ctx context.Context) error {
 	return err
 }
 
+var runStatusUptime = func(ctx context.Context) (int64, error) {
+	client, err := getClient(ctx)
+	if err != nil {
+		return 0, err
+	}
+	defer client.Close()
+	s, err := client.Status(ctx)
+	if err != nil {
+		return 0, err
+	}
+	return int64(s.UptimeSec), nil
+}
+
 var otaSleep = time.Sleep
+
+func transportReachable() bool {
+	if flagTransport == "" {
+		return false
+	}
+	u, err := url.Parse(flagTransport)
+	if err != nil || u.Host == "" {
+		return false
+	}
+	host := u.Host
+	if _, _, err := net.SplitHostPort(host); err != nil {
+		host = net.JoinHostPort(host, "80")
+	}
+	conn, err := net.DialTimeout("tcp", host, 1200*time.Millisecond)
+	if err != nil {
+		return false
+	}
+	_ = conn.Close()
+	return true
+}
 
 func newOTACmd() *cobra.Command {
 	var firmwareURL string
@@ -47,6 +82,13 @@ func newOTACmd() *cobra.Command {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ctx, cancel := commandContext()
 			defer cancel()
+
+			var baselineUptime int64
+			if waitForReboot {
+				baseCtx, baseCancel := context.WithTimeout(context.Background(), 2*time.Second)
+				baselineUptime, _ = runStatusUptime(baseCtx)
+				baseCancel()
+			}
 
 			resp, err := runOTAUpdate(ctx, firmwareURL)
 			if err != nil {
@@ -77,11 +119,28 @@ func newOTACmd() *cobra.Command {
 			deadline := time.Now().Add(rebootTimeout)
 			sawDisconnect := false
 			for time.Now().Before(deadline) {
-				err := runStatusCheck(ctx)
+				checkCtx, checkCancel := context.WithTimeout(context.Background(), requestTimeout)
+				err := runStatusCheck(checkCtx)
+				checkCancel()
 				if err != nil {
 					sawDisconnect = true
-				} else if sawDisconnect {
-					fmt.Fprintln(os.Stdout, "OTA outcome: success (node rebooted and reconnected)")
+				} else {
+					if sawDisconnect {
+						fmt.Fprintln(os.Stdout, "OTA outcome: success (node rebooted and reconnected)")
+						return nil
+					}
+					if baselineUptime > 0 {
+						uCtx, uCancel := context.WithTimeout(context.Background(), 2*time.Second)
+						u, uErr := runStatusUptime(uCtx)
+						uCancel()
+						if uErr == nil && u+5 < baselineUptime {
+							fmt.Fprintln(os.Stdout, "OTA outcome: success (node uptime reset detected)")
+							return nil
+						}
+					}
+				}
+				if sawDisconnect && transportReachable() {
+					fmt.Fprintln(os.Stdout, "OTA outcome: success (node transport reachable after disconnect)")
 					return nil
 				}
 				otaSleep(pollInterval)
