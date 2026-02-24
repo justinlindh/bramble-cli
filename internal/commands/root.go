@@ -71,6 +71,7 @@ func init() {
 		newChannelsCmd(),
 		newProbeCmd(),
 		newRebootCmd(),
+		newOTACmd(),
 		newLocationCmd(),
 		newDiscoverCmd(),
 		newCompletionCmd(),
