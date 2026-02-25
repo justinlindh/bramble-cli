@@ -117,7 +117,7 @@ bramble traffic export --format jsonl > traffic-events.jsonl
 Print the full node configuration.
 
 ### `bramble config set-name <name>`
-Set the node display name (max 8 characters).
+Set the node display name (max 32 characters).
 
 ### `bramble config set-radio`
 Update radio parameters:
