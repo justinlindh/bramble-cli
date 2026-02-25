@@ -40,6 +40,7 @@ func runStatus(cmd *cobra.Command, args []string) error {
 	fmt.Fprintf(w, "Firmware:  %s\n", status.FirmwareVersion)
 	fmt.Fprintf(w, "Protocol:  %s\n", status.ProtocolVersion)
 	fmt.Fprintf(w, "Hardware:  %s\n", status.Hardware)
+	fmt.Fprintf(w, "Delivery replay sync: %s\n", boolStr(status.SupportsDeliveryEventSync, "yes", "no"))
 	fmt.Fprintf(w, "Radio:     %s\n", boolStr(status.RadioOk, "OK", "ERROR"))
 	fmt.Fprintf(w, "Uptime:    %s\n", output.FormatUptime(status.UptimeSec))
 	fmt.Fprintf(w, "Peers:     %d\n", status.Peers)

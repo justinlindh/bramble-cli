@@ -2,6 +2,8 @@
 
 Command-line interface for [Bramble](https://github.com/justinlindh/bramble) LoRa mesh nodes, built on [bramble-go](https://github.com/justinlindh/bramble-go).
 
+Current SDK protocol compatibility follows `bramble-go` (`MinProtocolVersion=0.1.0`, `MaxProtocolVersion=0.5.0`).
+
 ## Install
 
 ```bash
