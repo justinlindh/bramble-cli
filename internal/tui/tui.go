@@ -465,7 +465,10 @@ func (m Model) View() tea.View {
 	if contentHeight < 1 {
 		contentHeight = 1
 	}
-	sb.WriteString(m.renderContent(contentHeight))
+	content := m.renderContent(contentHeight)
+	// Pad content to exactly contentHeight lines and full width
+	content = padToSize(content, m.width, contentHeight)
+	sb.WriteString(content)
 
 	// Footer / status line
 	sb.WriteString(m.renderStatusLine())
@@ -526,7 +529,14 @@ func (m Model) renderTabBar() string {
 			parts = append(parts, t.TabInactive.Render(label))
 		}
 	}
-	return strings.Join(parts, "")
+	bar := strings.Join(parts, "")
+	// Pad to full width with the tab bar background
+	barLen := lipgloss.Width(bar)
+	if barLen < m.width {
+		pad := strings.Repeat(" ", m.width-barLen)
+		bar += t.TabInactive.Render(pad)
+	}
+	return bar
 }
 
 func (m Model) renderContent(height int) string {
@@ -564,6 +574,29 @@ func (m Model) renderContent(height int) string {
 func (m Model) renderStatusLine() string {
 	hints := tabHints[m.activeTab] + "  [?] Help  [q] Quit"
 	return m.statusLine.Render(hints)
+}
+
+// padToSize ensures the rendered content fills exactly the given width × height,
+// preventing ghost text bleed-through in the alt screen.
+func padToSize(content string, width, height int) string {
+	lines := strings.Split(content, "\n")
+	// Pad each line to full width
+	for i, line := range lines {
+		w := lipgloss.Width(line)
+		if w < width {
+			lines[i] = line + strings.Repeat(" ", width-w)
+		}
+	}
+	// Pad to full height
+	emptyLine := strings.Repeat(" ", width)
+	for len(lines) < height {
+		lines = append(lines, emptyLine)
+	}
+	// Truncate if too many lines
+	if len(lines) > height {
+		lines = lines[:height]
+	}
+	return strings.Join(lines, "\n")
 }
 
 // ── Help overlay ──────────────────────────────────────────────────────────────
