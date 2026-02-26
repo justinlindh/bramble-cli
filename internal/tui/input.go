@@ -49,6 +49,9 @@ func NewInputLine() InputLine {
 	km.InsertNewline.SetKeys("ctrl+enter", "alt+enter")
 	ta.KeyMap = km
 
+	// Focus immediately — textarea must be focused to accept input
+	ta.Focus()
+
 	return InputLine{
 		textarea: ta,
 		prompt:   "[broadcast]",
