@@ -105,3 +105,21 @@ func (r *NameResolver) UpdateFirmwareNames(neighbors []bramble.Neighbor) {
 		}
 	}
 }
+
+// ReverseLookup finds an address by alias or firmware name (case-insensitive).
+func (r *NameResolver) ReverseLookup(name string) (string, bool) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	lower := strings.ToLower(name)
+	for addr, alias := range r.aliases {
+		if strings.ToLower(alias) == lower {
+			return addr, true
+		}
+	}
+	for addr, fw := range r.firmware {
+		if strings.ToLower(fw) == lower {
+			return addr, true
+		}
+	}
+	return "", false
+}
