@@ -586,6 +586,14 @@ func (m ChatModel) View() string {
 		}
 	}
 
+	vpW := m.width - listW - 1
+	if m.showChannelDetail {
+		vpW -= detailPanelWidth + 1
+	}
+	if vpW < 10 {
+		vpW = 10
+	}
+
 	sep := m.styleSeparator.Render("│")
 	var sb strings.Builder
 	for i := 0; i < maxRows; i++ {
@@ -596,12 +604,14 @@ func (m ChatModel) View() string {
 		if i < len(vpLines) {
 			vpLine = vpLines[i]
 		}
-		sb.WriteString(vpLine)
+		sb.WriteString(padRight(vpLine, vpW))
 		if m.showChannelDetail {
 			sb.WriteString(sep)
+			dl := ""
 			if i < len(detailLines) {
-				sb.WriteString(detailLines[i])
+				dl = detailLines[i]
 			}
+			sb.WriteString(dl)
 		}
 		sb.WriteString("\n")
 	}
