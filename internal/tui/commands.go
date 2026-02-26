@@ -39,16 +39,19 @@ func ParseCommand(input string) *Command {
 	}
 }
 
+// CmdAction represents a side-effect the root model should apply after a command.
+type CmdAction struct {
+	SwitchBuffer string // non-empty = switch to this buffer
+	Quit         bool
+	Reboot       bool // request reboot confirmation
+}
+
 // CommandHandler executes commands and writes output to the scrollback.
 type CommandHandler struct {
 	client   *bramble.Client
 	store    *Store
 	scroll   *Scrollback
 	resolver tabs.PeerResolver
-	// Callbacks into the root model.
-	onSwitchBuffer func(convID string)
-	onQuit         func()
-	onConfirm      func(prompt string, action func())
 }
 
 // NewCommandHandler creates a CommandHandler. Callbacks may be set after construction.
@@ -61,19 +64,19 @@ func NewCommandHandler(client *bramble.Client, store *Store, scroll *Scrollback,
 	}
 }
 
-// Execute runs a parsed command. Returns true if the command was recognized.
-func (h *CommandHandler) Execute(cmd *Command) bool {
+// Execute runs a parsed command. Returns a CmdAction for the root model to apply.
+func (h *CommandHandler) Execute(cmd *Command) CmdAction {
 	switch cmd.Name {
 	case "b", "broadcast":
-		h.cmdSwitchBuffer("broadcast")
+		return CmdAction{SwitchBuffer: "broadcast"}
 	case "dm":
-		h.cmdDM(cmd.Args)
+		return h.cmdDM(cmd.Args)
 	case "ch":
-		h.cmdChannel(cmd.Args)
+		return h.cmdChannel(cmd.Args)
 	case "w", "windows":
 		h.cmdWindows()
 	case "close":
-		h.cmdClose()
+		return h.cmdClose()
 	case "nodes":
 		h.cmdNodes()
 	case "stats":
@@ -89,53 +92,46 @@ func (h *CommandHandler) Execute(cmd *Command) bool {
 	case "ping":
 		h.cmdPing()
 	case "reboot":
-		h.cmdReboot()
+		return CmdAction{Reboot: true}
 	case "clear":
 		h.scroll.Clear()
 	case "help", "h":
 		h.cmdHelp()
 	case "quit", "q":
-		if h.onQuit != nil {
-			h.onQuit()
-		}
+		return CmdAction{Quit: true}
 	default:
 		h.scroll.AddError(fmt.Sprintf("Unknown command: /%s (try /help)", cmd.Name))
-		return false
 	}
-	return true
+	return CmdAction{}
 }
 
-func (h *CommandHandler) cmdSwitchBuffer(convID string) {
-	if h.onSwitchBuffer != nil {
-		h.onSwitchBuffer(convID)
-	}
-}
 
-func (h *CommandHandler) cmdDM(args []string) {
+
+func (h *CommandHandler) cmdDM(args []string) CmdAction {
 	if len(args) < 1 {
 		h.scroll.AddError("Usage: /dm <address-or-name>")
-		return
+		return CmdAction{}
 	}
 	target := args[0]
 	addr := h.resolveTarget(target)
 	if addr == "" {
 		h.scroll.AddError(fmt.Sprintf("Unknown peer: %s", target))
-		return
+		return CmdAction{}
 	}
-	h.cmdSwitchBuffer("dm:" + addr)
+	return CmdAction{SwitchBuffer: "dm:" + addr}
 }
 
-func (h *CommandHandler) cmdChannel(args []string) {
+func (h *CommandHandler) cmdChannel(args []string) CmdAction {
 	if len(args) < 1 {
 		h.scroll.AddError("Usage: /ch <number>")
-		return
+		return CmdAction{}
 	}
 	n, err := strconv.Atoi(args[0])
 	if err != nil {
 		h.scroll.AddError(fmt.Sprintf("Invalid channel number: %s", args[0]))
-		return
+		return CmdAction{}
 	}
-	h.cmdSwitchBuffer(fmt.Sprintf("ch:%d", n))
+	return CmdAction{SwitchBuffer: fmt.Sprintf("ch:%d", n)}
 }
 
 func (h *CommandHandler) cmdWindows() {
@@ -159,14 +155,14 @@ func (h *CommandHandler) cmdWindows() {
 	}
 }
 
-func (h *CommandHandler) cmdClose() {
+func (h *CommandHandler) cmdClose() CmdAction {
 	active := h.store.ActiveConvID
 	if active == "broadcast" {
 		h.scroll.AddError("Can't close broadcast buffer")
-		return
+		return CmdAction{}
 	}
-	h.cmdSwitchBuffer("broadcast")
 	h.scroll.AddSystem(fmt.Sprintf("Closed buffer: %s", active))
+	return CmdAction{SwitchBuffer: "broadcast"}
 }
 
 func (h *CommandHandler) cmdNodes() {
@@ -357,21 +353,8 @@ func (h *CommandHandler) cmdPing() {
 	h.scroll.AddInfo(fmt.Sprintf("  Pong: %dms", time.Since(start).Milliseconds()))
 }
 
-func (h *CommandHandler) cmdReboot() {
-	if h.onConfirm != nil {
-		h.onConfirm("Reboot node? Confirm with /reboot-confirm", func() {
-			ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-			defer cancel()
-			err := h.client.Reboot(ctx)
-			if err != nil {
-				h.scroll.AddError(fmt.Sprintf("Reboot error: %v", err))
-			} else {
-				h.scroll.AddSystem("Rebooting node...")
-			}
-		})
-		return
-	}
-	// No confirm callback; execute directly.
+// DoReboot performs the actual reboot (called by root model after confirmation).
+func (h *CommandHandler) DoReboot() {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 	if err := h.client.Reboot(ctx); err != nil {

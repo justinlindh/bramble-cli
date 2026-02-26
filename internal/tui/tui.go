@@ -92,7 +92,7 @@ type Model struct {
 	bridge    *Bridge
 	store     *Store
 
-	scroll    Scrollback
+	scroll    *Scrollback
 	statusBar StatusBar
 	input     InputLine
 	cmdHandler *CommandHandler
@@ -109,7 +109,7 @@ type Model struct {
 	backoffSec int
 	retryIn    int
 
-	pendingConfirm func()
+	pendingConfirm bool
 }
 
 // New creates a new IRC-style TUI model.
@@ -126,7 +126,8 @@ func New(client *bramble.Client, node NodeInfo, connectFn ConnectFn, msgdb *MsgD
 		store.Resolver = NewNameResolver(nil, node.Address)
 	}
 
-	scroll := NewScrollback()
+	sb := NewScrollback()
+	scroll := &sb
 	statusBar := NewStatusBar()
 	input := NewInputLine()
 
@@ -134,7 +135,7 @@ func New(client *bramble.Client, node NodeInfo, connectFn ConnectFn, msgdb *MsgD
 	if store.Resolver != nil {
 		resolver = store.Resolver
 	}
-	cmdHandler := NewCommandHandler(client, store, &scroll, resolver)
+	cmdHandler := NewCommandHandler(client, store, scroll, resolver)
 
 	m := Model{
 		client:     client,
@@ -148,15 +149,6 @@ func New(client *bramble.Client, node NodeInfo, connectFn ConnectFn, msgdb *MsgD
 		connected:  true,
 		activeConv: "broadcast",
 		backoffSec: 1,
-	}
-
-	m.cmdHandler.onSwitchBuffer = func(convID string) {
-		m.switchBuffer(convID)
-	}
-
-	m.cmdHandler.onConfirm = func(prompt string, action func()) {
-		m.scroll.AddSystem(prompt + " — press y to confirm, any other key to cancel")
-		m.pendingConfirm = action
 	}
 
 	return m
@@ -323,17 +315,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.KeyPressMsg:
 		key := msg.String()
 
-		if m.pendingConfirm != nil {
-			if key == "y" {
-				fn := m.pendingConfirm
-				m.pendingConfirm = nil
-				fn()
-			} else {
-				m.pendingConfirm = nil
-				m.scroll.AddSystem("Cancelled")
-			}
-			return m, nil
-		}
+		// pendingConfirm is now handled via /reboot-confirm command
 
 		switch key {
 		case "ctrl+c":
@@ -369,10 +351,22 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if msg.IsCommand {
 			cmd := ParseCommand(msg.Text)
 			if cmd != nil {
-				if cmd.Name == "quit" || cmd.Name == "q" {
+				if cmd.Name == "reboot-confirm" && m.pendingConfirm {
+					m.pendingConfirm = false
+					m.cmdHandler.DoReboot()
+					return m, nil
+				}
+				action := m.cmdHandler.Execute(cmd)
+				if action.Quit {
 					return m, tea.Quit
 				}
-				m.cmdHandler.Execute(cmd)
+				if action.SwitchBuffer != "" {
+					m.switchBuffer(action.SwitchBuffer)
+				}
+				if action.Reboot {
+					m.scroll.AddSystem("Reboot node? Type /reboot-confirm to proceed")
+					m.pendingConfirm = true
+				}
 			}
 		} else if strings.TrimSpace(msg.Text) != "" {
 			return m, m.sendMessage(msg.Text)
