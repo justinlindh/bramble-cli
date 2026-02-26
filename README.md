@@ -4,6 +4,16 @@ Command-line interface for [Bramble](https://github.com/justinlindh/bramble) LoR
 
 Current SDK protocol compatibility follows `bramble-go` (`MinProtocolVersion=0.1.0`, `MaxProtocolVersion=0.5.0`).
 
+## Examples
+
+See the [`examples/`](examples/) directory for common usage patterns:
+
+- [`01-connect.sh`](examples/01-connect.sh) — BLE vs WiFi vs serial connection
+- [`02-send-receive.sh`](examples/02-send-receive.sh) — Basic send and receive
+- [`03-channels.sh`](examples/03-channels.sh) — Channel operations
+- [`04-location.sh`](examples/04-location.sh) — Location sharing
+- [`05-monitor.sh`](examples/05-monitor.sh) — Monitor and debug output
+
 ## Install
 
 ```bash
@@ -88,6 +98,16 @@ Stream real-time node events. Press `Ctrl+C` to stop.
 
 Event types include protocol-native mesh + telemetry streams. Topic filtering is supported.
 
+| Flag | Default | Description |
+|------|---------|-------------|
+| `--topic <csv>` | | Topic filter CSV (`wifi`, `gps`, `mesh`, `location`, `traffic`) |
+| `--events <csv>` | | Legacy event filter (`message`, `ack`, `neighbor`, `broadcast-delivery`) |
+| `--grep <regex>` | | Regex to filter monitor output |
+| `--follow` | `true` | Keep streaming new events (use `--follow=false` to stop after first match) |
+| `--since <duration>` | | Show only events newer than this duration (hint) |
+| `--messages` | | Shorthand: only show message events |
+| `--neighbors` | | Shorthand: only show neighbor-change events |
+
 ```bash
 bramble monitor                                      # all events
 bramble monitor --events message,ack                 # legacy event filter set
@@ -96,6 +116,8 @@ bramble monitor --topic traffic --grep route         # grep filter
 bramble monitor --topic gps,location --json          # structured JSON output
 bramble monitor --follow=false --topic gps           # stop after first matching event
 bramble monitor --since 30s --topic location         # recent window hint
+bramble monitor --messages                           # only message events
+bramble monitor --neighbors                          # only neighbor-change events
 ```
 
 ### `bramble traffic`
@@ -109,7 +131,7 @@ bramble traffic monitor --tx-only
 bramble traffic monitor --rx-only --category routing
 
 bramble traffic export
-bramble traffic export --since 12345 --limit 100
+bramble traffic export --since 12345 --limit 100   # fetch events with seq > 12345
 bramble traffic export --format jsonl > traffic-events.jsonl
 ```
 
@@ -137,11 +159,36 @@ Remove a channel by index.
 ### `bramble channels set-default <index>`
 Set the default outgoing channel.
 
+### `bramble ota`
+Trigger an OTA firmware update from a URL. The node downloads and applies the firmware, then reboots.
+
+| Flag | Default | Description |
+|------|---------|-------------|
+| `--url <url>` | *(required)* | Firmware URL (`http(s)://.../bramble.bin`) |
+| `--wait` | `true` | Wait for node reboot/reconnect and report OTA outcome |
+| `--wait-timeout <duration>` | `2m` | Max time to wait for OTA reboot/reconnect |
+| `--poll-interval <duration>` | `2s` | Status poll interval while waiting for OTA outcome |
+
+```bash
+bramble ota --url http://192.0.2.0:8080/firmware/bramble.bin
+bramble ota --url http://192.0.2.0:8080/firmware/bramble.bin --wait-timeout 5m
+bramble ota --url http://192.0.2.0:8080/firmware/bramble.bin --wait=false
+```
+
 ### `bramble probe`
 Send a network probe. Responses appear in `bramble monitor`.
 
 ### `bramble discover`
 Scan for Bramble nodes on the local network via mDNS.
+
+| Flag | Default | Description |
+|------|---------|-------------|
+| `--timeout <duration>` | `3s` | How long to scan for nodes |
+
+```bash
+bramble discover
+bramble discover --timeout 10s
+```
 
 ### `bramble reboot`
 Reboot the node.
@@ -150,11 +197,24 @@ Reboot the node.
 Show location data for all known peers.
 
 ### `bramble location set-config`
-Set canonical location policy fields (`enabled`, `default_tier`, `interval_s`, `source`, `contact_rules`, `channel_targets`).
+Set canonical location policy fields. Pass flags individually or supply a JSON file with `--file`.
+
+| Flag | Description |
+|------|-------------|
+| `--file <path>` | Path to JSON file containing canonical location config fields |
+| `--enabled` | Enable/disable location sharing |
+| `--default-tier <tier>` | Default sharing tier |
+| `--interval-s <seconds>` | Default share interval in seconds |
+| `--source <source>` | Location source |
+| `--contact-rules <json>` | JSON array for `contact_rules` |
+| `--channel-targets <json>` | JSON array for `channel_targets` |
 
 ```bash
 bramble location set-config --enabled --default-tier full --interval-s 30 --source gps \
   --contact-rules '[{"address":"6CBF8FE3","enabled":true,"tier":"full","interval_s":30}]'
+
+# Or supply a JSON file
+bramble location set-config --file location-config.json
 ```
 
 ### `bramble location get-config`
