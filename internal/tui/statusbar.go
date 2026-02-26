@@ -24,6 +24,7 @@ type StatusBar struct {
 	nodeName  string
 	peerCount int
 	buffers   []BufferInfo
+	scrolled  bool
 	style     StatusBarStyle
 }
 
@@ -92,6 +93,10 @@ func (sb *StatusBar) SetBuffers(bufs []BufferInfo) {
 	sb.buffers = bufs
 }
 
+func (sb *StatusBar) SetScrolled(scrolled bool) {
+	sb.scrolled = scrolled
+}
+
 func (sb StatusBar) View() string {
 	var parts []string
 
@@ -123,6 +128,15 @@ func (sb StatusBar) View() string {
 
 	// Peer count
 	parts = append(parts, sb.style.Info.Render(fmt.Sprintf("%d peers", sb.peerCount)))
+
+	// Scroll indicator
+	if sb.scrolled {
+		scrollStyle := lipgloss.NewStyle().
+			Foreground(lipgloss.Color("#FFAA00")).
+			Background(lipgloss.Color("#1a1a3e")).
+			Bold(true)
+		parts = append(parts, scrollStyle.Render("[↓ new]"))
+	}
 
 	left := strings.Join(parts, " ")
 

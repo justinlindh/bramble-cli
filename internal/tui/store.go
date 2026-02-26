@@ -202,6 +202,14 @@ func (s *Store) GetPeerLocations() []bramble.LocationPeer {
 	return out
 }
 
+// IsNewConversation returns true if the given convID does not yet exist in the store.
+func (s *Store) IsNewConversation(convID string) bool {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	_, exists := s.Conversations[convID]
+	return !exists
+}
+
 // GetConversations returns a snapshot of conversations in order.
 func (s *Store) GetConversations() []*Conversation {
 	s.mu.RLock()

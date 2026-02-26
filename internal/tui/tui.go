@@ -154,6 +154,11 @@ func New(client *bramble.Client, node NodeInfo, connectFn ConnectFn, msgdb *MsgD
 		m.switchBuffer(convID)
 	}
 
+	m.cmdHandler.onConfirm = func(prompt string, action func()) {
+		m.scroll.AddSystem(prompt + " — press y to confirm, any other key to cancel")
+		m.pendingConfirm = action
+	}
+
 	return m
 }
 
@@ -249,6 +254,7 @@ func (m *Model) updateStatusBar() {
 	peerCount := len(m.store.Neighbors)
 	m.store.mu.RUnlock()
 	m.statusBar.SetPeerCount(peerCount)
+	m.statusBar.SetScrolled(m.scroll.IsScrolled())
 
 	convs := m.store.GetConversations()
 	var bufs []BufferInfo
@@ -419,23 +425,43 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case fetchNeighborsResult:
 		if msg.err == nil {
-			oldAddrs := make(map[string]bool)
+			oldNeighbors := make(map[string]bramble.Neighbor)
 			m.store.mu.RLock()
 			for _, n := range m.store.Neighbors {
-				oldAddrs[n.Address] = true
+				oldNeighbors[n.Address] = n
 			}
 			m.store.mu.RUnlock()
+
+			newAddrs := make(map[string]bool)
+			for _, n := range msg.neighbors {
+				newAddrs[n.Address] = true
+			}
 
 			m.store.UpdateNeighbors(msg.neighbors)
 			m.updateStatusBar()
 
+			// Announce joins
 			for _, n := range msg.neighbors {
-				if !oldAddrs[n.Address] {
+				if _, wasKnown := oldNeighbors[n.Address]; !wasKnown {
 					name := n.Address
 					if m.store.Resolver != nil {
 						name = m.store.Resolver.Resolve(n.Address)
 					}
 					m.scroll.AddSystem(fmt.Sprintf("%s joined [RSSI %d, SNR %.1f]", name, n.RSSI, n.SNR))
+				}
+			}
+
+			// Announce departures (only if we had neighbors before)
+			if len(oldNeighbors) > 0 {
+				for addr, old := range oldNeighbors {
+					if !newAddrs[addr] {
+						name := addr
+						if m.store.Resolver != nil {
+							name = m.store.Resolver.Resolve(addr)
+						}
+						lastSeen := fmtDurationShort(time.Duration(old.LastSeenAgoMs) * time.Millisecond)
+						m.scroll.AddSystem(fmt.Sprintf("%s left [last seen %s ago]", name, lastSeen))
+					}
 				}
 			}
 		}
@@ -458,8 +484,17 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	// ── Bridge Msgs ───────────────────────────────────────────────────────────
 
 	case MsgReceived:
-		m.store.AddMessage(msg.Msg)
 		convID := ClassifyMessageConvID(msg.Msg, m.node.Address)
+		isNew := m.store.IsNewConversation(convID)
+		m.store.AddMessage(msg.Msg)
+		if isNew && strings.HasPrefix(convID, "dm:") {
+			peerAddr := convID[3:]
+			peerName := peerAddr
+			if m.store.Resolver != nil {
+				peerName = m.store.Resolver.Resolve(peerAddr)
+			}
+			m.scroll.AddSystem(fmt.Sprintf("New DM from %s", peerName))
+		}
 		if convID == m.activeConv {
 			sender := msg.Msg.From
 			if m.store.Resolver != nil {

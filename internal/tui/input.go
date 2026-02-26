@@ -1,11 +1,18 @@
 package tui
 
 import (
+	"fmt"
 	"strings"
 
 	"charm.land/bubbles/v2/textarea"
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
+)
+
+const (
+	byteWarnThreshold  = 150
+	byteErrorThreshold = 200
+	byteShowThreshold  = 100
 )
 
 // InputMsg is sent when the user presses Enter with non-empty text.
@@ -23,8 +30,11 @@ type InputLine struct {
 }
 
 type InputStyle struct {
-	Prompt lipgloss.Style
-	Border lipgloss.Style
+	Prompt    lipgloss.Style
+	Border    lipgloss.Style
+	ByteOK    lipgloss.Style
+	ByteWarn  lipgloss.Style
+	ByteError lipgloss.Style
 }
 
 func NewInputLine() InputLine {
@@ -50,6 +60,12 @@ func NewInputLine() InputLine {
 				BorderTop(true).
 				BorderStyle(lipgloss.NormalBorder()).
 				BorderForeground(lipgloss.Color("#555588")),
+			ByteOK: lipgloss.NewStyle().
+				Foreground(lipgloss.Color("#aaaacc")),
+			ByteWarn: lipgloss.NewStyle().
+				Foreground(lipgloss.Color("#FFAA00")).Bold(true),
+			ByteError: lipgloss.NewStyle().
+				Foreground(lipgloss.Color("#FF5555")).Bold(true),
 		},
 	}
 }
@@ -105,6 +121,30 @@ func (il InputLine) Update(msg tea.Msg) (InputLine, tea.Cmd) {
 func (il InputLine) View() string {
 	prompt := il.style.Prompt.Render(il.prompt)
 	ta := il.textarea.View()
-	line := prompt + " " + ta
+
+	// Byte counter: show when > byteShowThreshold
+	byteCount := len([]byte(il.textarea.Value()))
+	var byteIndicator string
+	if byteCount > byteShowThreshold {
+		var byteStyle lipgloss.Style
+		var suffix string
+		switch {
+		case byteCount > byteErrorThreshold:
+			byteStyle = il.style.ByteError
+			suffix = " (will fragment)"
+		case byteCount == byteErrorThreshold:
+			byteStyle = il.style.ByteError
+			suffix = ""
+		case byteCount >= byteWarnThreshold:
+			byteStyle = il.style.ByteWarn
+			suffix = ""
+		default:
+			byteStyle = il.style.ByteOK
+			suffix = ""
+		}
+		byteIndicator = " " + byteStyle.Render(fmt.Sprintf("[%d bytes%s]", byteCount, suffix))
+	}
+
+	line := prompt + " " + ta + byteIndicator
 	return il.style.Border.Width(il.width).Render(line)
 }

@@ -171,3 +171,8 @@ func (s *Scrollback) rebuildContent() {
 func (s *Scrollback) LineCount() int {
 	return len(s.lines)
 }
+
+// IsScrolled returns true if the user has scrolled up (autoscroll is off).
+func (s *Scrollback) IsScrolled() bool {
+	return !s.autoscroll
+}
