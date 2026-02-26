@@ -101,7 +101,7 @@ func runConfigSetName(cmd *cobra.Command, args []string) error {
 	}
 
 	if flagJSON {
-		return output.PrintJSON(os.Stdout, map[string]string{"name": name, "status": "ok"})
+		return output.PrintJSON(os.Stdout, SetNameResult{Name: name, Status: "ok"})
 	}
 	fmt.Fprintf(os.Stdout, "Node name set to %q\n", name)
 	return nil
@@ -172,7 +172,7 @@ func runConfigSetRadio(cmd *cobra.Command, args []string) error {
 	}
 
 	if flagJSON {
-		return output.PrintJSON(os.Stdout, map[string]string{"status": "ok"})
+		return output.PrintJSON(os.Stdout, StatusResult{Status: "ok"})
 	}
 	fmt.Fprintln(os.Stdout, "Radio parameters updated.")
 	return nil

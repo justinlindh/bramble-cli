@@ -31,7 +31,7 @@ func runReboot(cmd *cobra.Command, args []string) error {
 	}
 
 	if flagJSON {
-		return output.PrintJSON(os.Stdout, map[string]string{"status": "rebooting"})
+		return output.PrintJSON(os.Stdout, StatusResult{Status: "rebooting"})
 	}
 	fmt.Fprintln(os.Stdout, "Node rebooting...")
 	return nil

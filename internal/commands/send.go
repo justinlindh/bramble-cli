@@ -49,11 +49,7 @@ func runSend(cmd *cobra.Command, args []string) error {
 	}
 
 	if flagJSON {
-		return output.PrintJSON(os.Stdout, map[string]any{
-			"dest":   output.Addr(dest),
-			"text":   text,
-			"status": result.Status,
-		})
+		return output.PrintJSON(os.Stdout, SendCommandResult{Dest: output.Addr(dest), Text: text, Status: result.Status})
 	}
 
 	fmt.Fprintf(os.Stdout, "Sent → %s (%s)\n", output.Addr(dest), result.Status)

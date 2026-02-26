@@ -34,10 +34,7 @@ func runProbe(cmd *cobra.Command, args []string) error {
 	}
 
 	if flagJSON {
-		return output.PrintJSON(os.Stdout, map[string]any{
-			"probe_id":   result.ProbeID,
-			"ack_window": result.AckWindow,
-		})
+		return output.PrintJSON(os.Stdout, ProbeCommandResult{ProbeID: result.ProbeID, AckWindow: result.AckWindow})
 	}
 
 	fmt.Fprintf(os.Stdout, "Probe sent: ID=%d  ack_window=%dms\n",

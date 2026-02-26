@@ -127,11 +127,7 @@ func runLocationSetContact(cmd *cobra.Command, args []string) error {
 	}
 
 	if flagJSON {
-		return output.PrintJSON(os.Stdout, map[string]any{
-			"addr":   output.Addr(addr),
-			"tier":   tier,
-			"status": "ok",
-		})
+		return output.PrintJSON(os.Stdout, LocationContactResult{Addr: output.Addr(addr), Tier: tier, Status: "ok"})
 	}
 	fmt.Fprintf(os.Stdout, "Location contact %s set to tier %q\n", output.Addr(addr), tier)
 	return nil
@@ -165,7 +161,7 @@ func runLocationRemoveContact(cmd *cobra.Command, args []string) error {
 	}
 
 	if flagJSON {
-		return output.PrintJSON(os.Stdout, map[string]any{"addr": output.Addr(addr), "status": "removed"})
+		return output.PrintJSON(os.Stdout, LocationAddrResult{Addr: output.Addr(addr), Status: "removed"})
 	}
 	fmt.Fprintf(os.Stdout, "Removed location contact %s\n", output.Addr(addr))
 	return nil
@@ -199,7 +195,7 @@ func runLocationShareOnce(cmd *cobra.Command, args []string) error {
 	}
 
 	if flagJSON {
-		return output.PrintJSON(os.Stdout, map[string]any{"addr": output.Addr(addr), "status": "sent"})
+		return output.PrintJSON(os.Stdout, LocationAddrResult{Addr: output.Addr(addr), Status: "sent"})
 	}
 	fmt.Fprintf(os.Stdout, "Location shared with %s\n", output.Addr(addr))
 	return nil
@@ -268,7 +264,7 @@ func runLocationSetConfig(cmd *cobra.Command, args []string) error {
 	}
 
 	if flagJSON {
-		return output.PrintJSON(os.Stdout, map[string]any{"status": "ok", "location": locationCfg})
+		return output.PrintJSON(os.Stdout, LocationSetConfigResult{Status: "ok", Location: locationCfg})
 	}
 	fmt.Fprintln(os.Stdout, "Location config updated.")
 	return nil

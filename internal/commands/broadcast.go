@@ -83,21 +83,21 @@ func runBroadcast(cmd *cobra.Command, args []string) error {
 
 done:
 	if flagJSON {
-		payload := map[string]any{"text": text, "status": r.Status}
+		result := BroadcastResult{Text: text, Status: r.Status}
 		if broadcastChannel >= 0 {
-			payload["channel"] = broadcastChannel
+			result.Channel = broadcastChannel
 		}
 		if r.BroadcastID != "" {
-			payload["broadcast_id"] = r.BroadcastID
+			result.BroadcastID = r.BroadcastID
 		}
 		if len(deliveries) > 0 {
-			payload["deliveries"] = deliveries
+			result.Deliveries = deliveries
 		}
 		if broadcastWaitDeliverySec > 0 {
-			payload["delivery_window_s"] = broadcastWaitDeliverySec
-			payload["delivery_count"] = len(deliveries)
+			result.DeliveryWindowS = broadcastWaitDeliverySec
+			result.DeliveryCount = len(deliveries)
 		}
-		return output.PrintJSON(os.Stdout, payload)
+		return output.PrintJSON(os.Stdout, result)
 	}
 
 	fmt.Fprintln(os.Stdout, output.FormatBroadcastSendStatus(broadcastChannel, r.Status, r.BroadcastID))

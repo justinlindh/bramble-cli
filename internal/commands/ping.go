@@ -44,10 +44,10 @@ func runPing(cmd *cobra.Command, args []string) error {
 	}
 
 	if flagJSON {
-		return output.PrintJSON(os.Stdout, map[string]string{
-			"address":          identity.Address,
-			"protocol_version": ver.ProtocolVersion,
-			"status":           "pong",
+		return output.PrintJSON(os.Stdout, PingResult{
+			Address:         identity.Address,
+			ProtocolVersion: ver.ProtocolVersion,
+			Status:          "pong",
 		})
 	}
 

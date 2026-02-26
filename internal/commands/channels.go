@@ -113,10 +113,7 @@ func runChannelsAdd(cmd *cobra.Command, args []string) error {
 	}
 
 	if flagJSON {
-		return output.PrintJSON(os.Stdout, map[string]any{
-			"index": result.Index,
-			"name":  name,
-		})
+		return output.PrintJSON(os.Stdout, ChannelAddResult{Index: result.Index, Name: name})
 	}
 	fmt.Fprintf(os.Stdout, "Channel %q added at index %d\n", name, result.Index)
 	return nil
@@ -150,7 +147,7 @@ func runChannelsRemove(cmd *cobra.Command, args []string) error {
 	}
 
 	if flagJSON {
-		return output.PrintJSON(os.Stdout, map[string]any{"index": idx, "status": "removed"})
+		return output.PrintJSON(os.Stdout, ChannelStatusResult{Index: idx, Status: "removed"})
 	}
 	fmt.Fprintf(os.Stdout, "Channel %d removed.\n", idx)
 	return nil
@@ -184,7 +181,7 @@ func runChannelsSetDefault(cmd *cobra.Command, args []string) error {
 	}
 
 	if flagJSON {
-		return output.PrintJSON(os.Stdout, map[string]any{"index": idx, "status": "ok"})
+		return output.PrintJSON(os.Stdout, ChannelStatusResult{Index: idx, Status: "ok"})
 	}
 	fmt.Fprintf(os.Stdout, "Default channel set to %d.\n", idx)
 	return nil

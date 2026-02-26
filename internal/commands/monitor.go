@@ -21,7 +21,7 @@ type monitorEvent struct {
 	Topic      string
 	Timestamp  time.Time
 	SearchText string
-	Payload    map[string]any
+	Payload    any
 	Line       string
 }
 
@@ -143,11 +143,11 @@ func runMonitor(cmd *cobra.Command, args []string) error {
 			return
 		}
 		if flagJSON {
-			b, _ := json.Marshal(map[string]any{
-				"event":     evt.Type,
-				"topic":     evt.Topic,
-				"timestamp": evt.Timestamp.Unix(),
-				"payload":   evt.Payload,
+			b, _ := json.Marshal(monitorEventOutput{
+				Event:     evt.Type,
+				Topic:     evt.Topic,
+				Timestamp: evt.Timestamp.Unix(),
+				Payload:   evt.Payload,
 			})
 			fmt.Fprintln(os.Stdout, string(b))
 		} else {
@@ -171,13 +171,7 @@ func runMonitor(cmd *cobra.Command, args []string) error {
 				SearchText: strings.Join([]string{
 					msg.From, msg.To, msg.Text, msg.Tier, msg.MsgID,
 				}, " "),
-				Payload: map[string]any{
-					"from":   msg.From,
-					"to":     msg.To,
-					"text":   msg.Text,
-					"tier":   msg.Tier,
-					"msg_id": msg.MsgID,
-				},
+				Payload: msg,
 				Line: fmt.Sprintf("[%s] MSG %s→%s  %q", ts.Format("15:04:05"), msg.From, msg.To, msg.Text),
 			})
 		})
@@ -191,10 +185,7 @@ func runMonitor(cmd *cobra.Command, args []string) error {
 				Topic:      "mesh",
 				Timestamp:  now,
 				SearchText: fmt.Sprintf("packet#%d status=%s", ack.PacketID, ack.Status),
-				Payload: map[string]any{
-					"packet_id": ack.PacketID,
-					"status":    ack.Status,
-				},
+				Payload: ack,
 				Line: fmt.Sprintf("[%s] ACK  packet#%d  status=%s", now.Format("15:04:05"), ack.PacketID, ack.Status),
 			})
 		})
@@ -208,7 +199,7 @@ func runMonitor(cmd *cobra.Command, args []string) error {
 				Topic:      "mesh",
 				Timestamp:  now,
 				SearchText: "neighbor table updated",
-				Payload:    map[string]any{"state": "updated"},
+				Payload:    neighborChangePayload{State: "updated"},
 				Line:       fmt.Sprintf("[%s] NEIGHBOR  table updated", now.Format("15:04:05")),
 			})
 		})
@@ -227,12 +218,7 @@ func runMonitor(cmd *cobra.Command, args []string) error {
 				SearchText: strings.Join([]string{
 					evt.BroadcastID, evt.Recipient, evt.Status,
 				}, " "),
-				Payload: map[string]any{
-					"broadcast_id": evt.BroadcastID,
-					"recipient":    evt.Recipient,
-					"status":       evt.Status,
-					"timestamp_ms": evt.TimestampMs,
-				},
+				Payload: evt,
 				Line: monitorBroadcastDeliveryLine(ts, evt),
 			})
 		})
@@ -250,16 +236,7 @@ func runMonitor(cmd *cobra.Command, args []string) error {
 				Topic:      "traffic",
 				Timestamp:  now,
 				SearchText: fmt.Sprintf("%s %s pkt=%d len=%d tier=%s", direction, evt.Category, evt.PktType, evt.PacketLen, evt.AirtimeTier),
-				Payload: map[string]any{
-					"seq":          evt.Seq,
-					"timestamp_ms": evt.TimestampMs,
-					"pkt_type":     evt.PktType,
-					"category":     evt.Category,
-					"airtime_tier": evt.AirtimeTier,
-					"packet_len":   evt.PacketLen,
-					"rssi":         evt.RSSI,
-					"is_tx":        evt.IsTx,
-				},
+				Payload: evt,
 				Line: fmt.Sprintf("[%s] TRAFFIC %-2s %-10s pkt=%d len=%d tier=%s", now.Format("15:04:05"), direction, evt.Category, evt.PktType, evt.PacketLen, evt.AirtimeTier),
 			})
 		})
@@ -268,14 +245,14 @@ func runMonitor(cmd *cobra.Command, args []string) error {
 	if showWifi {
 		client.OnWifiEvent(func(evt bramble.WifiEvent) {
 			now := time.Now()
-			emit(monitorEvent{Type: "wifi", Topic: "wifi", Timestamp: now, SearchText: fmt.Sprintf("%s %s %s", evt.Event, evt.Mode, evt.IP), Payload: map[string]any{"event": evt.Event, "mode": evt.Mode, "connected": evt.Connected, "ssid": evt.SSID, "ip": evt.IP, "rssi": evt.RSSI}, Line: fmt.Sprintf("[%s] WIFI event=%s mode=%s ip=%s", now.Format("15:04:05"), evt.Event, evt.Mode, evt.IP)})
+			emit(monitorEvent{Type: "wifi", Topic: "wifi", Timestamp: now, SearchText: fmt.Sprintf("%s %s %s", evt.Event, evt.Mode, evt.IP), Payload: evt, Line: fmt.Sprintf("[%s] WIFI event=%s mode=%s ip=%s", now.Format("15:04:05"), evt.Event, evt.Mode, evt.IP)})
 		})
 	}
 
 	if showGps {
 		client.OnGpsEvent(func(evt bramble.GpsEvent) {
 			now := time.Now()
-			emit(monitorEvent{Type: "gps", Topic: "gps", Timestamp: now, SearchText: fmt.Sprintf("%s valid=%t", evt.Event, evt.Valid), Payload: map[string]any{"event": evt.Event, "valid": evt.Valid, "lat": evt.Lat, "lon": evt.Lon, "alt_m": evt.AltM, "sats": evt.Sats}, Line: fmt.Sprintf("[%s] GPS event=%s valid=%t", now.Format("15:04:05"), evt.Event, evt.Valid)})
+			emit(monitorEvent{Type: "gps", Topic: "gps", Timestamp: now, SearchText: fmt.Sprintf("%s valid=%t", evt.Event, evt.Valid), Payload: evt, Line: fmt.Sprintf("[%s] GPS event=%s valid=%t", now.Format("15:04:05"), evt.Event, evt.Valid)})
 		})
 	}
 
@@ -285,7 +262,7 @@ func runMonitor(cmd *cobra.Command, args []string) error {
 			if evt.TimestampMs > 0 {
 				ts = time.UnixMilli(int64(evt.TimestampMs))
 			}
-			emit(monitorEvent{Type: "location", Topic: "location", Timestamp: ts, SearchText: fmt.Sprintf("%s peer=%s tier=%d", evt.Event, evt.Peer, evt.Tier), Payload: map[string]any{"event": evt.Event, "peer": evt.Peer, "tier": evt.Tier, "timestamp_ms": evt.TimestampMs, "rssi": evt.RSSI, "snr": evt.SNR, "count": evt.Count}, Line: fmt.Sprintf("[%s] LOCATION event=%s peer=%s tier=%d", ts.Format("15:04:05"), evt.Event, evt.Peer, evt.Tier)})
+			emit(monitorEvent{Type: "location", Topic: "location", Timestamp: ts, SearchText: fmt.Sprintf("%s peer=%s tier=%d", evt.Event, evt.Peer, evt.Tier), Payload: evt, Line: fmt.Sprintf("[%s] LOCATION event=%s peer=%s tier=%d", ts.Format("15:04:05"), evt.Event, evt.Peer, evt.Tier)})
 		})
 	}
 
@@ -349,8 +326,8 @@ func monitorBroadcastDeliveryLine(now time.Time, evt bramble.BroadcastDelivery) 
 }
 
 func monitorBroadcastDeliveryJSON(evt bramble.BroadcastDelivery) ([]byte, error) {
-	return json.Marshal(map[string]any{
-		"event":   "broadcast_delivery",
-		"payload": evt,
+	return json.Marshal(monitorEventOutput{
+		Event:   "broadcast_delivery",
+		Payload: evt,
 	})
 }
