@@ -113,6 +113,7 @@ type Model struct {
 	// Tab submodels
 	statsTab  tabs.StatsModel
 	nodesTab  tabs.NodesModel
+	chatTab   tabs.ChatModel
 }
 
 // New creates a new TUI model with reconnect support.
@@ -129,6 +130,7 @@ func New(client *bramble.Client, node NodeInfo, connectFn ConnectFn) Model {
 		statusLine: widgets.NewStatusLine(),
 		statsTab:   tabs.NewStats(client),
 		nodesTab:   tabs.NewNodes(client),
+		chatTab:    tabs.NewChatModel(client, node.Address),
 	}
 }
 
@@ -147,6 +149,7 @@ func (m Model) Init() tea.Cmd {
 		tickCmd(),
 		m.fetchInitialData(),
 		m.statsTab.RefreshCmd(),
+		m.chatTab.Init(),
 	)
 }
 
@@ -160,6 +163,11 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.ready = true
 		m.statsTab.SetSize(msg.Width, msg.Height)
 		m.statusLine.SetWidth(msg.Width)
+		contentH := msg.Height - 4
+		if contentH < 1 {
+			contentH = 1
+		}
+		m.chatTab.SetSize(msg.Width, contentH)
 
 	case tea.KeyPressMsg:
 		// Help overlay absorbs all key presses.
@@ -200,9 +208,18 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, m.statsTab.RefreshCmd()
 		default:
 			// Forward to active tab
-			if m.activeTab == TabStats {
+			switch m.activeTab {
+			case TabStats:
 				next, cmd := m.statsTab.Update(msg)
 				m.statsTab = next.(tabs.StatsModel)
+				return m, cmd
+			case TabChat:
+				var cmd tea.Cmd
+				m.chatTab, cmd = m.chatTab.Update(msg)
+				return m, cmd
+			case TabNodes:
+				var cmd tea.Cmd
+				m.nodesTab, cmd = m.nodesTab.Update(msg)
 				return m, cmd
 			}
 		}
@@ -270,10 +287,22 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, cmd
 
 	// ── Bridge Msgs ──────────────────────────────────────────────────────────
+	case tabs.SwitchToChatMsg:
+		m.activeTab = TabChat
+		var chatCmd tea.Cmd
+		m.chatTab, chatCmd = m.chatTab.Update(msg)
+		return m, chatCmd
+
 	case MsgReceived:
 		m.store.AddMessage(msg.Msg)
+		var chatCmd tea.Cmd
+		m.chatTab, chatCmd = m.chatTab.Update(tabs.ChatMsgReceived{Msg: msg.Msg})
+		return m, chatCmd
 	case AckReceived:
 		m.store.UpdateAck(msg.Ack)
+		var chatCmd tea.Cmd
+		m.chatTab, chatCmd = m.chatTab.Update(tabs.ChatAckReceived{Ack: msg.Ack})
+		return m, chatCmd
 	case NeighborChanged:
 		return m, m.fetchNeighbors()
 	// Other bridge msgs are informational; handled in future phases.
@@ -412,8 +441,13 @@ func (m Model) renderTabBar() string {
 }
 
 func (m Model) renderContent(height int) string {
-	if m.activeTab == TabStats {
+	switch m.activeTab {
+	case TabStats:
 		return m.statsTab.Render()
+	case TabChat:
+		return m.chatTab.View()
+	case TabNodes:
+		return m.nodesTab.View()
 	}
 
 	tabName := tabNames[m.activeTab]
