@@ -422,6 +422,15 @@ func (m ChatModel) Update(msg tea.Msg) (ChatModel, tea.Cmd) {
 				m.focus = chatFocusList
 			}
 
+		case "/":
+			if m.focus != chatFocusCompose {
+				m.focus = chatFocusCompose
+				m.compose.SetConvID(m.activeConv().id)
+				cmd := m.compose.Focus()
+				cmds = append(cmds, cmd)
+				return m, tea.Batch(cmds...)
+			}
+
 		case "left":
 			if m.focus != chatFocusList {
 				m.compose.Blur()

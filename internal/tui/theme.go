@@ -24,14 +24,12 @@ func DefaultTheme() Theme {
 			Bold(true).
 			Foreground(lipgloss.Color("#00FF87")).
 			Background(lipgloss.Color("#1a1a2e")).
-			Padding(0, 2).
-			Border(lipgloss.NormalBorder(), false, false, true, false).
-			BorderForeground(lipgloss.Color("#00FF87")),
+			Padding(0, 1),
 
 		TabInactive: lipgloss.NewStyle().
 			Foreground(lipgloss.Color("#888888")).
 			Background(lipgloss.Color("#0d0d1a")).
-			Padding(0, 2),
+			Padding(0, 1),
 
 		TabBar: lipgloss.NewStyle().
 			Background(lipgloss.Color("#0d0d1a")).
