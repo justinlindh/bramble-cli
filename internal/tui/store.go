@@ -26,6 +26,7 @@ type Store struct {
 	Routes        []bramble.Route
 	Airtime       *bramble.AirtimeStats
 	PeerLocations []bramble.LocationPeer
+	OwnGPS        *bramble.GpsEvent
 
 	// Conversations keyed by conv ID: "broadcast", "ch:N", "dm:ADDR"
 	Conversations map[string]*Conversation
@@ -87,6 +88,13 @@ func (s *Store) UpdateAirtime(a *bramble.AirtimeStats) {
 	s.Airtime = a
 }
 
+// UpdateOwnGPS stores the latest GPS event.
+func (s *Store) UpdateOwnGPS(evt bramble.GpsEvent) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.OwnGPS = &evt
+}
+
 // UpdatePeerLocations replaces peer location list.
 func (s *Store) UpdatePeerLocations(peers []bramble.LocationPeer) {
 	s.mu.Lock()
@@ -127,6 +135,26 @@ func (s *Store) SetActiveConv(id string) {
 	if conv, ok := s.Conversations[id]; ok {
 		conv.Unread = 0
 	}
+}
+
+// GetOwnGPS returns a copy of the latest GPS event (or nil).
+func (s *Store) GetOwnGPS() *bramble.GpsEvent {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	if s.OwnGPS == nil {
+		return nil
+	}
+	cp := *s.OwnGPS
+	return &cp
+}
+
+// GetPeerLocations returns a snapshot of peer locations.
+func (s *Store) GetPeerLocations() []bramble.LocationPeer {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	out := make([]bramble.LocationPeer, len(s.PeerLocations))
+	copy(out, s.PeerLocations)
+	return out
 }
 
 // GetConversations returns a snapshot of conversations in order.

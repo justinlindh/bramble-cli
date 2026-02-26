@@ -32,7 +32,7 @@ var tabHints = [TabCount]string{
 	"[↑↓] Navigate  [d] DM  [Enter] Details",
 	"[↑↓] Navigate",
 	"[↑↓] Navigate  [Enter] Edit",
-	"[r] Refresh",
+	"[r] Refresh  [p] Probe  [t] Traffic  [Tab] Focus",
 }
 
 // NodeInfo holds the fetched node identity/status for display.
@@ -111,9 +111,11 @@ type Model struct {
 	statusLine widgets.StatusLine
 
 	// Tab submodels
-	statsTab  tabs.StatsModel
-	nodesTab  tabs.NodesModel
-	chatTab   tabs.ChatModel
+	statsTab    tabs.StatsModel
+	nodesTab    tabs.NodesModel
+	chatTab     tabs.ChatModel
+	configTab   tabs.ConfigModel
+	locationTab tabs.LocationModel
 }
 
 // New creates a new TUI model with reconnect support.
@@ -128,9 +130,11 @@ func New(client *bramble.Client, node NodeInfo, connectFn ConnectFn) Model {
 		connected:  true,
 		backoffSec: 1,
 		statusLine: widgets.NewStatusLine(),
-		statsTab:   tabs.NewStats(client),
-		nodesTab:   tabs.NewNodes(client),
-		chatTab:    tabs.NewChatModel(client, node.Address),
+		statsTab:    tabs.NewStats(client),
+		nodesTab:    tabs.NewNodes(client),
+		chatTab:     tabs.NewChatModel(client, node.Address),
+		configTab:   tabs.NewConfig(client),
+		locationTab: tabs.NewLocation(),
 	}
 }
 
@@ -150,6 +154,7 @@ func (m Model) Init() tea.Cmd {
 		m.fetchInitialData(),
 		m.statsTab.RefreshCmd(),
 		m.chatTab.Init(),
+		m.configTab.Init(),
 	)
 }
 
@@ -220,6 +225,14 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			case TabNodes:
 				var cmd tea.Cmd
 				m.nodesTab, cmd = m.nodesTab.Update(msg)
+				return m, cmd
+			case TabLocation:
+				var cmd tea.Cmd
+				m.locationTab, cmd = m.locationTab.Update(msg)
+				return m, cmd
+			case TabConfig:
+				var cmd tea.Cmd
+				m.configTab, cmd = m.configTab.Update(msg)
 				return m, cmd
 			}
 		}
@@ -306,9 +319,22 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case NeighborChanged:
 		return m, m.fetchNeighbors()
 	// Other bridge msgs are informational; handled in future phases.
-	case TrafficEventReceived, BroadcastDeliveryReceived,
-		WifiEventReceived, GpsEventReceived, LocationEventReceived:
-		// TODO: forward to stats/location panels
+	case GpsEventReceived:
+		m.store.UpdateOwnGPS(msg.Event)
+	case TrafficEventReceived:
+		next, cmd := m.statsTab.Update(tabs.StatsTrafficEventMsg{Event: msg.Event})
+		m.statsTab = next.(tabs.StatsModel)
+		return m, cmd
+	case ProbeResultReceived:
+		next, cmd := m.statsTab.Update(tabs.StatsProbeResultMsg{Result: msg.Result})
+		m.statsTab = next.(tabs.StatsModel)
+		return m, cmd
+	case ProbeCompleteReceived:
+		next, cmd := m.statsTab.Update(tabs.StatsProbeCompleteMsg{})
+		m.statsTab = next.(tabs.StatsModel)
+		return m, cmd
+	case BroadcastDeliveryReceived, WifiEventReceived, LocationEventReceived:
+		// TODO: forward to location panel
 
 	// ── Reconnect ────────────────────────────────────────────────────────────
 	case reconnectMsg:
@@ -448,6 +474,11 @@ func (m Model) renderContent(height int) string {
 		return m.chatTab.View()
 	case TabNodes:
 		return m.nodesTab.View()
+	case TabLocation:
+		m.locationTab.SetData(m.store.GetOwnGPS(), m.store.GetPeerLocations())
+		return m.locationTab.View()
+	case TabConfig:
+		return m.configTab.View()
 	}
 
 	tabName := tabNames[m.activeTab]

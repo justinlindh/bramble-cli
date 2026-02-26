@@ -21,6 +21,38 @@ type StatsDataMsg struct {
 	FetchErr error
 }
 
+// StatsTrafficEventMsg is forwarded from the bridge for live traffic events.
+type StatsTrafficEventMsg struct{ Event bramble.TrafficEvent }
+
+// StatsProbeResultMsg carries a single probe response.
+type StatsProbeResultMsg struct{ Result bramble.ProbeResult }
+
+// StatsProbeCompleteMsg signals the probe window has closed.
+type StatsProbeCompleteMsg struct{}
+
+// sendProbeCmd fires a probe via the client.
+func sendProbeCmd(client *bramble.Client) tea.Cmd {
+	return func() tea.Msg {
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		_, err := client.SendProbe(ctx)
+		if err != nil {
+			return StatsDataMsg{FetchErr: fmt.Errorf("sendProbe: %w", err)}
+		}
+		return nil
+	}
+}
+
+// setTrafficDebugCmd enables or disables traffic debug.
+func setTrafficDebugCmd(client *bramble.Client, enable bool) tea.Cmd {
+	return func() tea.Msg {
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		_, _ = client.SetTrafficDebug(ctx, bramble.SetTrafficDebugParams{Enabled: &enable})
+		return nil
+	}
+}
+
 // statsTheme holds the styles used by the Stats tab.
 type statsTheme struct {
 	panel        lipgloss.Style
@@ -35,6 +67,11 @@ type statsTheme struct {
 	barEmpty     lipgloss.Style
 	sectionTitle lipgloss.Style
 	errStyle     lipgloss.Style
+	trafficBeacon  lipgloss.Style
+	trafficMessage lipgloss.Style
+	trafficAck     lipgloss.Style
+	trafficControl lipgloss.Style
+	probeHeader    lipgloss.Style
 }
 
 func newStatsTheme() statsTheme {
@@ -67,8 +104,39 @@ func newStatsTheme() statsTheme {
 			Foreground(lipgloss.Color("#aaaacc")),
 		errStyle: lipgloss.NewStyle().
 			Foreground(lipgloss.Color("#FF5555")),
+		trafficBeacon: lipgloss.NewStyle().
+			Foreground(lipgloss.Color("#5599FF")),
+		trafficMessage: lipgloss.NewStyle().
+			Foreground(lipgloss.Color("#00FF87")),
+		trafficAck: lipgloss.NewStyle().
+			Foreground(lipgloss.Color("#FFCC00")),
+		trafficControl: lipgloss.NewStyle().
+			Foreground(lipgloss.Color("#888888")),
+		probeHeader: lipgloss.NewStyle().
+			Bold(true).
+			Foreground(lipgloss.Color("#aaddff")),
 	}
 }
+
+// trafficEntry holds a single traffic event for display.
+type trafficEntry struct {
+	ts       time.Time
+	category string
+	isTx     bool
+	size     int
+	peer     string
+}
+
+// probeEntry holds a single probe result for display.
+type probeEntry struct {
+	address   string
+	hops      int
+	latencyMs int64
+	rssi      int
+}
+
+const maxTrafficEntries = 200
+const trafficViewHeight = 8
 
 // StatsModel is the Bubble Tea model for the Stats tab.
 type StatsModel struct {
@@ -89,6 +157,18 @@ type StatsModel struct {
 	prevPacketsTx int
 	prevPacketsRx int
 	hasPrev       bool
+
+	// probe state
+	probing      bool
+	probeResults []probeEntry
+
+	// traffic monitor
+	trafficLog    []trafficEntry
+	trafficScroll int
+	trafficDebug  bool
+
+	// which section has focus for scroll: "main" or "traffic"
+	focus string
 }
 
 // NewStats creates a new StatsModel.
@@ -97,6 +177,7 @@ func NewStats(client *bramble.Client) StatsModel {
 		client:  client,
 		theme:   newStatsTheme(),
 		loading: true,
+		focus:   "main",
 	}
 }
 
@@ -158,17 +239,81 @@ func (m StatsModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.identity = msg.Identity
 		m.airtime = msg.Airtime
 
+	case StatsTrafficEventMsg:
+		entry := trafficEntry{
+			ts:       time.Now(),
+			category: msg.Event.Category,
+			isTx:     msg.Event.IsTx,
+			size:     msg.Event.PacketLen,
+			peer:     fmt.Sprintf("%04x", msg.Event.PktType), // best approximation; no peer addr in event
+		}
+		m.trafficLog = append(m.trafficLog, entry)
+		if len(m.trafficLog) > maxTrafficEntries {
+			m.trafficLog = m.trafficLog[len(m.trafficLog)-maxTrafficEntries:]
+		}
+		// Auto-scroll to bottom if not manually scrolled up
+		maxScroll := len(m.trafficLog) - trafficViewHeight
+		if maxScroll < 0 {
+			maxScroll = 0
+		}
+		if m.trafficScroll >= maxScroll-1 {
+			m.trafficScroll = maxScroll
+		}
+
+	case StatsProbeResultMsg:
+		m.probeResults = append(m.probeResults, probeEntry{
+			address:   msg.Result.Address,
+			hops:      msg.Result.Hops,
+			latencyMs: msg.Result.LatencyMs,
+			rssi:      msg.Result.RSSI,
+		})
+
+	case StatsProbeCompleteMsg:
+		m.probing = false
+
 	case tea.KeyPressMsg:
 		switch msg.String() {
 		case "r":
 			m.loading = true
 			return m, m.RefreshCmd()
+		case "p":
+			// Send probe
+			m.probing = true
+			m.probeResults = nil
+			return m, sendProbeCmd(m.client)
+		case "t":
+			// Toggle traffic debug
+			m.trafficDebug = !m.trafficDebug
+			return m, setTrafficDebugCmd(m.client, m.trafficDebug)
+		case "tab":
+			// Toggle focus between main and traffic
+			if m.focus == "main" {
+				m.focus = "traffic"
+			} else {
+				m.focus = "main"
+			}
 		case "up", "k":
-			if m.scrollY > 0 {
-				m.scrollY--
+			if m.focus == "traffic" {
+				if m.trafficScroll > 0 {
+					m.trafficScroll--
+				}
+			} else {
+				if m.scrollY > 0 {
+					m.scrollY--
+				}
 			}
 		case "down", "j":
-			m.scrollY++
+			if m.focus == "traffic" {
+				maxScroll := len(m.trafficLog) - trafficViewHeight
+				if maxScroll < 0 {
+					maxScroll = 0
+				}
+				if m.trafficScroll < maxScroll {
+					m.trafficScroll++
+				}
+			} else {
+				m.scrollY++
+			}
 		}
 
 	case tea.WindowSizeMsg:
@@ -233,22 +378,40 @@ func (m StatsModel) Render() string {
 		lines = append(lines, "")
 	}
 
+	// ── Network Reach ─────────────────────────────────────────────────
+	lines = append(lines, m.theme.sectionTitle.Render("  Network Reach"))
+	lines = append(lines, m.renderNetworkReach())
+	lines = append(lines, "")
+
 	// ── System Info ──────────────────────────────────────────────────
 	lines = append(lines, m.theme.sectionTitle.Render("  System Info"))
 	lines = append(lines, m.renderSystemInfo())
+	lines = append(lines, "")
+
+	// ── Traffic Monitor ───────────────────────────────────────────────
+	trafficFocus := ""
+	if m.focus == "traffic" {
+		trafficFocus = " [focused]"
+	}
+	debugState := ""
+	if m.trafficDebug {
+		debugState = " [debug ON]"
+	}
+	lines = append(lines, m.theme.sectionTitle.Render("  Traffic Monitor"+trafficFocus+debugState))
+	lines = append(lines, m.renderTrafficLog())
 
 	content := strings.Join(lines, "\n")
 
-	// Apply scroll offset
+	// Apply scroll offset (main content only)
 	contentLines := strings.Split(content, "\n")
 	maxScroll := len(contentLines) - m.height + 4
 	if maxScroll < 0 {
 		maxScroll = 0
 	}
-	if m.scrollY > maxScroll {
-		// Don't modify m.scrollY here since this is a value receiver
-	}
 	start := m.scrollY
+	if start > maxScroll {
+		start = maxScroll
+	}
 	if start > len(contentLines) {
 		start = len(contentLines)
 	}
@@ -262,6 +425,106 @@ func (m StatsModel) Render() string {
 	}
 
 	return strings.Join(visible, "\n")
+}
+
+// renderNetworkReach renders the network reach section with probe results.
+func (m StatsModel) renderNetworkReach() string {
+	t := m.theme
+	var sb strings.Builder
+
+	// Reach summary from status
+	direct := m.status.Peers
+	// We don't have routed count from status directly; show what we have
+	sb.WriteString(fmt.Sprintf("  %s  %s\n",
+		t.label.Render(fmt.Sprintf("%-12s", "Direct")),
+		t.value.Render(fmt.Sprintf("%d neighbors", direct)),
+	))
+
+	// Probe state / results
+	if m.probing {
+		sb.WriteString("  " + t.probeHeader.Render("Probing...") + "\n")
+		if len(m.probeResults) > 0 {
+			sb.WriteString(m.renderProbeResults())
+		}
+	} else if len(m.probeResults) > 0 {
+		sb.WriteString("  " + t.probeHeader.Render(fmt.Sprintf("Probe results (%d nodes):", len(m.probeResults))) + "\n")
+		sb.WriteString(m.renderProbeResults())
+	} else {
+		sb.WriteString("  " + t.label.Render("[p] to send network probe") + "\n")
+	}
+
+	return sb.String()
+}
+
+// renderProbeResults renders the probe result table.
+func (m StatsModel) renderProbeResults() string {
+	t := m.theme
+	var sb strings.Builder
+	sb.WriteString(fmt.Sprintf("  %s\n", t.label.Render(fmt.Sprintf("  %-12s  %-5s  %-10s  %-6s", "Address", "Hops", "Latency", "RSSI"))))
+	for _, r := range m.probeResults {
+		sb.WriteString(fmt.Sprintf("  %s\n",
+			t.value.Render(fmt.Sprintf("  %-12s  %-5d  %-10s  %d dBm",
+				r.address,
+				r.hops,
+				fmt.Sprintf("%dms", r.latencyMs),
+				r.rssi,
+			)),
+		))
+	}
+	return sb.String()
+}
+
+// renderTrafficLog renders the scrollable traffic event log.
+func (m StatsModel) renderTrafficLog() string {
+	t := m.theme
+	if len(m.trafficLog) == 0 {
+		return "  " + t.label.Render("No traffic events. [t] to enable debug.") + "\n"
+	}
+
+	// Determine visible slice
+	start := m.trafficScroll
+	end := start + trafficViewHeight
+	if end > len(m.trafficLog) {
+		end = len(m.trafficLog)
+	}
+	visible := m.trafficLog[start:end]
+
+	var sb strings.Builder
+	for _, e := range visible {
+		dir := "RX"
+		if e.isTx {
+			dir = "TX"
+		}
+		ts := e.ts.Format("15:04:05")
+		line := fmt.Sprintf("  %s  %-3s  %-12s  %4dB", ts, dir, e.category, e.size)
+		colored := m.colorTrafficLine(e.category, line)
+		sb.WriteString(colored + "\n")
+	}
+
+	// Scroll indicator
+	total := len(m.trafficLog)
+	if total > trafficViewHeight {
+		sb.WriteString(fmt.Sprintf("  %s\n",
+			t.label.Render(fmt.Sprintf("Showing %d–%d of %d events  [↑↓] scroll", start+1, end, total)),
+		))
+	}
+
+	return sb.String()
+}
+
+// colorTrafficLine applies color based on traffic category.
+func (m StatsModel) colorTrafficLine(category, line string) string {
+	t := m.theme
+	switch category {
+	case "beacon", "timesync":
+		return t.trafficBeacon.Render(line)
+	case "chat":
+		return t.trafficMessage.Render(line)
+	case "ack":
+		return t.trafficAck.Render(line)
+	default:
+		return t.trafficControl.Render(line)
+	}
 }
 
 // renderCounterGrid renders TX and RX packet counters side by side.

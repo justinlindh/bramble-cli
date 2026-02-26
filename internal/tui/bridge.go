@@ -19,6 +19,12 @@ type NeighborChanged struct{}
 // TrafficEventReceived is sent on a traffic debug event.
 type TrafficEventReceived struct{ Event bramble.TrafficEvent }
 
+// ProbeResultReceived is sent when a probe result notification arrives.
+type ProbeResultReceived struct{ Result bramble.ProbeResult }
+
+// ProbeCompleteReceived is sent when the probe window closes.
+type ProbeCompleteReceived struct{ Complete bramble.ProbeComplete }
+
 // BroadcastDeliveryReceived is sent on a broadcast delivery event.
 type BroadcastDeliveryReceived struct{ Delivery bramble.BroadcastDelivery }
 
@@ -68,5 +74,11 @@ func (b *Bridge) Start(client *bramble.Client) {
 	})
 	client.OnLocationEvent(func(ev bramble.LocationEvent) {
 		b.program.Send(LocationEventReceived{Event: ev})
+	})
+	client.OnProbeResult(func(r bramble.ProbeResult) {
+		b.program.Send(ProbeResultReceived{Result: r})
+	})
+	client.OnProbeComplete(func(c bramble.ProbeComplete) {
+		b.program.Send(ProbeCompleteReceived{Complete: c})
 	})
 }
