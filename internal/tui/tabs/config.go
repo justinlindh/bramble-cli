@@ -657,12 +657,43 @@ func (m *ConfigModel) moveCursor(delta int) {
 	max := m.sectionFieldCount() - 1
 	cur := m.sectionCursor[m.activeSection] + delta
 	if cur < 0 {
-		cur = 0
+		// Move to previous section
+		prev := m.activeSection - 1
+		if prev < 0 {
+			prev = configSectionCount - 1
+		}
+		m.activeSection = prev
+		m.sectionCursor[m.activeSection] = m.sectionFieldCountFor(prev) - 1
+		return
 	}
 	if cur > max {
-		cur = max
+		// Move to next section
+		next := m.activeSection + 1
+		if next >= configSectionCount {
+			next = 0
+		}
+		m.activeSection = next
+		m.sectionCursor[m.activeSection] = 0
+		return
 	}
 	m.sectionCursor[m.activeSection] = cur
+}
+
+func (m ConfigModel) sectionFieldCountFor(section int) int {
+	switch section {
+	case configSectionIdentity:
+		return identFieldCount
+	case configSectionRadio:
+		return radioFieldCount
+	case configSectionActions:
+		return actionFieldCount
+	case configSectionChannels:
+		if m.config != nil && len(m.config.Channels) > 0 {
+			return len(m.config.Channels)
+		}
+		return 1
+	}
+	return 1
 }
 
 func (m ConfigModel) sectionFieldCount() int {
