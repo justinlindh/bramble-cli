@@ -70,7 +70,7 @@ func NewCompose(client *bramble.Client) ComposeModel {
 		barStyle: lipgloss.NewStyle().
 			BorderTop(true).
 			BorderStyle(lipgloss.NormalBorder()).
-			BorderForeground(lipgloss.Color("#333355")),
+			BorderForeground(lipgloss.Color("#555588")),
 	}
 }
 

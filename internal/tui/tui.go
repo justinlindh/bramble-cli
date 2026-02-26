@@ -167,7 +167,7 @@ func New(client *bramble.Client, node NodeInfo, connectFn ConnectFn, msgdb *MsgD
 
 // ClassifyMessageConvID returns the conversation ID for a bramble.Message.
 func ClassifyMessageConvID(msg bramble.Message, selfAddr string) string {
-	if msg.To == "" || msg.To == "broadcast" {
+	if msg.To == "" || msg.To == "broadcast" || msg.To == "FFFFFFFF" {
 		return "broadcast"
 	}
 	if len(msg.To) > 3 && msg.To[:3] == "ch:" {

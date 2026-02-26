@@ -186,7 +186,7 @@ func NewChatModel(client *bramble.Client, selfAddr string) ChatModel {
 		styleTimestamp: lipgloss.NewStyle().
 			Foreground(lipgloss.Color("#555577")),
 		styleSeparator: lipgloss.NewStyle().
-			Foreground(lipgloss.Color("#333355")),
+			Foreground(lipgloss.Color("#6666aa")),
 		styleStatus: lipgloss.NewStyle().
 			Foreground(lipgloss.Color("#555577")),
 		styleBadgeUnread: lipgloss.NewStyle().
@@ -830,7 +830,7 @@ func (m *ChatModel) ingestMessage(raw bramble.Message) int {
 
 // classifyMessage returns the conv ID for a message.
 func (m *ChatModel) classifyMessage(msg bramble.Message) string {
-	if msg.To == "" || msg.To == "broadcast" {
+	if msg.To == "" || msg.To == "broadcast" || msg.To == "FFFFFFFF" {
 		return "broadcast"
 	}
 	if strings.HasPrefix(msg.To, "ch:") {

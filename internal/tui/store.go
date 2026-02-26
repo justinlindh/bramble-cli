@@ -236,7 +236,7 @@ func (s *Store) GetActiveConversation() *Conversation {
 
 // convIDForMessage derives the conversation ID for a message.
 func (s *Store) convIDForMessage(msg bramble.Message) string {
-	if msg.To == "" || msg.To == "broadcast" {
+	if msg.To == "" || msg.To == "broadcast" || msg.To == "FFFFFFFF" {
 		return "broadcast"
 	}
 	if len(msg.To) > 3 && msg.To[:3] == "ch:" {

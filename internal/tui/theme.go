@@ -35,7 +35,7 @@ func DefaultTheme() Theme {
 			Background(lipgloss.Color("#0d0d1a")).
 			BorderBottom(true).
 			BorderStyle(lipgloss.NormalBorder()).
-			BorderForeground(lipgloss.Color("#333355")),
+			BorderForeground(lipgloss.Color("#555588")),
 
 		Header: lipgloss.NewStyle().
 			Background(lipgloss.Color("#0d0d1a")).
@@ -55,7 +55,7 @@ func DefaultTheme() Theme {
 
 		Border: lipgloss.NewStyle().
 			Border(lipgloss.RoundedBorder()).
-			BorderForeground(lipgloss.Color("#333355")),
+			BorderForeground(lipgloss.Color("#555588")),
 
 		StatusOK: lipgloss.NewStyle().
 			Foreground(lipgloss.Color("#00FF87")).

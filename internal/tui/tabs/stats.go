@@ -78,7 +78,7 @@ func newStatsTheme() statsTheme {
 	return statsTheme{
 		panel: lipgloss.NewStyle().
 			Border(lipgloss.RoundedBorder()).
-			BorderForeground(lipgloss.Color("#333355")).
+			BorderForeground(lipgloss.Color("#555588")).
 			Padding(0, 1),
 		panelTitle: lipgloss.NewStyle().
 			Bold(true).
@@ -98,7 +98,7 @@ func newStatsTheme() statsTheme {
 		barRed: lipgloss.NewStyle().
 			Foreground(lipgloss.Color("#FF5555")),
 		barEmpty: lipgloss.NewStyle().
-			Foreground(lipgloss.Color("#333355")),
+			Foreground(lipgloss.Color("#555588")),
 		sectionTitle: lipgloss.NewStyle().
 			Bold(true).
 			Foreground(lipgloss.Color("#aaaacc")),
