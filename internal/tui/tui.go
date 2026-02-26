@@ -396,6 +396,11 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		next, cmd := m.statsTab.Update(tabs.StatsProbeCompleteMsg{})
 		m.statsTab = next.(tabs.StatsModel)
 		return m, cmd
+	case tabs.SendResultMsg:
+		var chatCmd tea.Cmd
+		m.chatTab, chatCmd = m.chatTab.Update(msg)
+		return m, chatCmd
+
 	case WifiEventReceived, LocationEventReceived:
 		// TODO: forward to location panel
 
