@@ -19,6 +19,7 @@ type LocationModel struct {
 	selected int
 	width    int
 	height   int
+	resolver PeerResolver
 
 	// styles
 	header   lipgloss.Style
@@ -29,6 +30,11 @@ type LocationModel struct {
 	bold     lipgloss.Style
 	good     lipgloss.Style
 	warn     lipgloss.Style
+}
+
+// SetResolver attaches a peer name resolver to the location tab.
+func (m *LocationModel) SetResolver(r PeerResolver) {
+	m.resolver = r
 }
 
 // NewLocation creates a new LocationModel.
@@ -180,8 +186,12 @@ func (m LocationModel) renderTable() string {
 
 	for i, peer := range m.peers {
 		line := m.renderPeerRow(peer)
+		peerName := peer.Name
+		if peerName == "" && m.resolver != nil {
+			peerName = m.resolver.Resolve(peer.Addr)
+		}
 		rowStr := "  " + locPadRight(peer.Addr, colAddr) +
-			locPadRight(peer.Name, colName) +
+			locPadRight(peerName, colName) +
 			locPadRight(line.pos, colPosition) +
 			locPadRight(peer.Tier, colTier) +
 			locPadRight(line.dist, colDist) +

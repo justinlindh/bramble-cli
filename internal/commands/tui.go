@@ -62,6 +62,20 @@ func runTUI(cmd *cobra.Command, args []string) error {
 		return c, nil
 	}
 
+	// Open message DB (non-fatal: TUI works without persistence).
+	var msgdb *tui.MsgDB
+	dbPath, err := tui.DefaultDBPath()
+	if err == nil {
+		msgdb, err = tui.NewMsgDB(dbPath)
+		if err != nil {
+			fmt.Fprintf(cmd.ErrOrStderr(), "warning: msgdb open failed: %v\n", err)
+			msgdb = nil
+		}
+	}
+	if msgdb != nil {
+		defer msgdb.Close()
+	}
+
 	// Fetch identity for the header.
 	node := tui.NodeInfo{
 		Transport: transportURL,
@@ -73,9 +87,37 @@ func runTUI(cmd *cobra.Command, args []string) error {
 
 	if identity, err := client.Identity(fetchCtx); err == nil {
 		node.Address = identity.Address
+		if msgdb != nil {
+			msgdb.SetNodeAddr(identity.Address)
+		}
 	}
 
-	model := tui.New(client, node, connectFn)
+	// Pre-populate store from DB before connecting live notifications.
+	model := tui.New(client, node, connectFn, msgdb)
+
+	if msgdb != nil {
+		// Load recent messages from DB into the chat tab pre-connection.
+		model.PreloadFromDB(msgdb)
+	}
+
+	// Fetch live messages from node and upsert into DB.
+	if msgdb != nil {
+		liveCtx, liveCancel := context.WithTimeout(context.Background(), 10*time.Second)
+		msgs, err := client.Messages(liveCtx)
+		liveCancel()
+		if err == nil {
+			for _, msg := range msgs {
+				// Classify the message into a conv.
+				convID := tui.ClassifyMessageConvID(msg, node.Address)
+				direction := "in"
+				if msg.From == node.Address || msg.From == "" {
+					direction = "out"
+				}
+				sm := tui.StoredMessageFromBramble(msg, node.Address, convID, direction)
+				_ = msgdb.UpsertMessage(sm)
+			}
+		}
+	}
 
 	p := tea.NewProgram(model)
 	model.SetProgram(p)

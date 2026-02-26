@@ -453,6 +453,72 @@ func (m ConfigModel) handleKey(msg tea.KeyPressMsg) (ConfigModel, tea.Cmd) {
 		m.confirmPending = "reboot"
 		m.setStatus("", false)
 		return m, nil
+	case "a":
+		if m.activeSection == configSectionChannels {
+			m.addChannelStep = 1
+			m.addChannelName = ""
+			m.addChannelPsk = ""
+			return m, nil
+		}
+	case "d":
+		if m.activeSection == configSectionChannels {
+			if m.config != nil && len(m.config.Channels) > 0 {
+				m.confirmPending = "deletechannel"
+				return m, nil
+			}
+		}
+	case "s":
+		if m.activeSection == configSectionChannels {
+			if m.config != nil && len(m.config.Channels) > 0 {
+				idx := m.sectionCursor[configSectionChannels]
+				return m, m.doSetDefaultChannel(idx)
+			}
+		}
+	}
+	return m, nil
+}
+
+func (m ConfigModel) handleAddChannelKey(msg tea.KeyPressMsg) (ConfigModel, tea.Cmd) {
+	switch msg.String() {
+	case "esc":
+		m.addChannelStep = 0
+		m.addChannelName = ""
+		m.addChannelPsk = ""
+		m.setStatus("Cancelled", false)
+		return m, nil
+	case "enter":
+		if m.addChannelStep == 1 {
+			name := strings.TrimSpace(m.addChannelName)
+			if name == "" {
+				m.setStatus("Name is required", true)
+				return m, nil
+			}
+			m.addChannelName = name
+			m.addChannelStep = 2
+			return m, nil
+		}
+		// step 2: submit
+		name := m.addChannelName
+		psk := m.addChannelPsk
+		m.addChannelStep = 0
+		m.addChannelName = ""
+		m.addChannelPsk = ""
+		return m, m.doAddChannel(name, psk)
+	case "backspace":
+		if m.addChannelStep == 1 && len(m.addChannelName) > 0 {
+			m.addChannelName = m.addChannelName[:len(m.addChannelName)-1]
+		} else if m.addChannelStep == 2 && len(m.addChannelPsk) > 0 {
+			m.addChannelPsk = m.addChannelPsk[:len(m.addChannelPsk)-1]
+		}
+	default:
+		ch := msg.String()
+		if len(ch) == 1 {
+			if m.addChannelStep == 1 {
+				m.addChannelName += ch
+			} else if m.addChannelStep == 2 {
+				m.addChannelPsk += ch
+			}
+		}
 	}
 	return m, nil
 }
@@ -576,6 +642,13 @@ func (m ConfigModel) executePending(pending string) (ConfigModel, tea.Cmd) {
 	case "radio":
 		cfg := m.buildRadioConfig()
 		return m, m.saveRadio(cfg)
+	case "deletechannel":
+		if m.config != nil && len(m.config.Channels) > 0 {
+			idx := m.sectionCursor[configSectionChannels]
+			if idx < len(m.config.Channels) {
+				return m, m.doRemoveChannel(idx)
+			}
+		}
 	}
 	return m, nil
 }
@@ -600,6 +673,11 @@ func (m ConfigModel) sectionFieldCount() int {
 		return radioFieldCount
 	case configSectionActions:
 		return actionFieldCount
+	case configSectionChannels:
+		if m.config != nil && len(m.config.Channels) > 0 {
+			return len(m.config.Channels)
+		}
+		return 1
 	}
 	return 1
 }
@@ -707,6 +785,11 @@ func (m ConfigModel) View() string {
 	sb.WriteString("\n")
 	m.renderActionsSection(&sb)
 
+	// ── Channels Section ──────────────────────────────────────────────────────
+	sb.WriteString(t.sectionHeader.Render("  ┤ CHANNELS ├"))
+	sb.WriteString("\n")
+	m.renderChannelsSection(&sb)
+
 	// ── Confirm dialog ────────────────────────────────────────────────────────
 	if m.confirmPending != "" {
 		sb.WriteString("\n")
@@ -718,9 +801,37 @@ func (m ConfigModel) View() string {
 			msg = "Clear message history?"
 		case "radio":
 			msg = "Save radio settings?"
+		case "deletechannel":
+			chName := ""
+			if m.config != nil {
+				idx := m.sectionCursor[configSectionChannels]
+				if idx < len(m.config.Channels) {
+					chName = m.config.Channels[idx].Name
+				}
+			}
+			msg = fmt.Sprintf("Delete channel %q?", chName)
 		}
 		sb.WriteString(t.confirmMsg.Render(fmt.Sprintf("  ⚠  %s  [y/n]", msg)))
 		sb.WriteString("\n")
+	}
+
+	// ── Add Channel dialog ────────────────────────────────────────────────────
+	if m.addChannelStep > 0 {
+		sb.WriteString("\n")
+		if m.addChannelStep == 1 {
+			sb.WriteString(t.confirmMsg.Render("  ┤ ADD CHANNEL ├  Name (required):"))
+			sb.WriteString("\n")
+			sb.WriteString(fmt.Sprintf("  %s\n", t.editValue.Render(m.addChannelName+"█")))
+			sb.WriteString(t.mutedValue.Render("  Enter to continue · Esc to cancel"))
+			sb.WriteString("\n")
+		} else {
+			sb.WriteString(t.confirmMsg.Render(fmt.Sprintf("  ┤ ADD CHANNEL ├  Name: %s  PSK (optional):", m.addChannelName)))
+			sb.WriteString("\n")
+			pskDisplay := strings.Repeat("*", len(m.addChannelPsk))
+			sb.WriteString(fmt.Sprintf("  %s\n", t.editValue.Render(pskDisplay+"█")))
+			sb.WriteString(t.mutedValue.Render("  Enter to add · Esc to cancel"))
+			sb.WriteString("\n")
+		}
 	}
 
 	// ── Status message ────────────────────────────────────────────────────────
@@ -829,6 +940,47 @@ func (m ConfigModel) renderRadioSection(sb *strings.Builder) {
 	}
 	btn := saveStyle.Render("[ Save Radio ]")
 	sb.WriteString(fmt.Sprintf("  %s\n", btn))
+}
+
+func (m ConfigModel) renderChannelsSection(sb *strings.Builder) {
+	t := m.theme
+	isActive := m.activeSection == configSectionChannels
+	cursor := m.sectionCursor[configSectionChannels]
+
+	if m.config == nil || len(m.config.Channels) == 0 {
+		sb.WriteString(t.mutedValue.Render("  No channels configured"))
+		sb.WriteString("\n")
+		sb.WriteString(t.mutedValue.Render("  a  Add channel"))
+		sb.WriteString("\n")
+		return
+	}
+
+	for i, ch := range m.config.Channels {
+		selected := isActive && cursor == i
+
+		defaultMark := "  "
+		if ch.IsDefault {
+			defaultMark = "★ "
+		}
+
+		pskStatus := t.mutedValue.Render("no-psk")
+		if ch.HasPsk {
+			pskStatus = t.toggleOn.Render("psk")
+		}
+
+		name := t.value.Render(ch.Name)
+		line := fmt.Sprintf("  %s[%d] %-20s %s", defaultMark, i, name, pskStatus)
+		if selected {
+			line = t.selectedRow.Render(line)
+		}
+		sb.WriteString(line)
+		sb.WriteString("\n")
+	}
+
+	if isActive {
+		sb.WriteString(t.mutedValue.Render("  a Add · d Delete · s Set default"))
+		sb.WriteString("\n")
+	}
 }
 
 func (m ConfigModel) renderActionsSection(sb *strings.Builder) {

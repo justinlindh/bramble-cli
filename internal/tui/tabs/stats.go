@@ -142,6 +142,7 @@ const trafficViewHeight = 8
 type StatsModel struct {
 	client   *bramble.Client
 	theme    statsTheme
+	resolver PeerResolver
 	width    int
 	height   int
 	scrollY  int
@@ -169,6 +170,11 @@ type StatsModel struct {
 
 	// which section has focus for scroll: "main" or "traffic"
 	focus string
+}
+
+// SetResolver attaches a peer name resolver to the stats tab.
+func (m *StatsModel) SetResolver(r PeerResolver) {
+	m.resolver = r
 }
 
 // NewStats creates a new StatsModel.
@@ -460,11 +466,15 @@ func (m StatsModel) renderNetworkReach() string {
 func (m StatsModel) renderProbeResults() string {
 	t := m.theme
 	var sb strings.Builder
-	sb.WriteString(fmt.Sprintf("  %s\n", t.label.Render(fmt.Sprintf("  %-12s  %-5s  %-10s  %-6s", "Address", "Hops", "Latency", "RSSI"))))
+	sb.WriteString(fmt.Sprintf("  %s\n", t.label.Render(fmt.Sprintf("  %-16s  %-5s  %-10s  %-6s", "Address", "Hops", "Latency", "RSSI"))))
 	for _, r := range m.probeResults {
+		displayAddr := r.address
+		if m.resolver != nil {
+			displayAddr = m.resolver.Resolve(r.address)
+		}
 		sb.WriteString(fmt.Sprintf("  %s\n",
-			t.value.Render(fmt.Sprintf("  %-12s  %-5d  %-10s  %d dBm",
-				r.address,
+			t.value.Render(fmt.Sprintf("  %-16s  %-5d  %-10s  %d dBm",
+				displayAddr,
 				r.hops,
 				fmt.Sprintf("%dms", r.latencyMs),
 				r.rssi,

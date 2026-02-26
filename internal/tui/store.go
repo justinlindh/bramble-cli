@@ -18,7 +18,9 @@ type Conversation struct {
 
 // Store is a thread-safe state container for the TUI.
 type Store struct {
-	mu sync.RWMutex
+	mu       sync.RWMutex
+	msgdb    *MsgDB
+	Resolver *NameResolver
 
 	Identity      *bramble.IdentityResponse
 	Status        *bramble.StatusResponse
@@ -46,6 +48,33 @@ func NewStore() *Store {
 	return s
 }
 
+// SetMsgDB attaches the message database to the store.
+func (s *Store) SetMsgDB(db *MsgDB) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.msgdb = db
+}
+
+// LoadOlderMessages loads older messages from DB for pagination.
+// Returns loaded messages in chronological order.
+func (s *Store) LoadOlderMessages(convID string, beforeTs int64, limit int) []bramble.Message {
+	s.mu.RLock()
+	db := s.msgdb
+	s.mu.RUnlock()
+	if db == nil {
+		return nil
+	}
+	stored, err := db.LoadConversation(convID, limit, beforeTs)
+	if err != nil {
+		return nil
+	}
+	msgs := make([]bramble.Message, 0, len(stored))
+	for _, sm := range stored {
+		msgs = append(msgs, sm.ToBramble())
+	}
+	return msgs
+}
+
 func (s *Store) addConvLocked(id, label string) {
 	if _, ok := s.Conversations[id]; !ok {
 		s.Conversations[id] = &Conversation{ID: id, Label: label}
@@ -67,11 +96,14 @@ func (s *Store) UpdateIdentity(id *bramble.IdentityResponse) {
 	s.Identity = id
 }
 
-// UpdateNeighbors replaces the neighbor list.
+// UpdateNeighbors replaces the neighbor list and refreshes firmware names.
 func (s *Store) UpdateNeighbors(neighbors []bramble.Neighbor) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.Neighbors = neighbors
+	if s.Resolver != nil {
+		s.Resolver.UpdateFirmwareNames(neighbors)
+	}
 }
 
 // UpdateRoutes replaces the route list.
@@ -117,14 +149,27 @@ func (s *Store) AddMessage(msg bramble.Message) {
 	if convID != s.ActiveConvID {
 		conv.Unread++
 	}
+
+	// Persist to DB asynchronously (non-blocking).
+	if s.msgdb != nil {
+		direction := "in"
+		if s.Identity != nil && (msg.From == s.Identity.Address || msg.From == "") {
+			direction = "out"
+		}
+		sm := StoredMessageFromBramble(msg, s.msgdb.nodeAddr, convID, direction)
+		go func() { _ = s.msgdb.UpsertMessage(sm) }()
+	}
 }
 
 // UpdateAck updates message status after an ack (best-effort).
 func (s *Store) UpdateAck(ack bramble.Ack) {
 	s.mu.Lock()
-	defer s.mu.Unlock()
-	// TODO: store acks separately for delivery badge rendering
-	_ = ack
+	db := s.msgdb
+	s.mu.Unlock()
+
+	if db != nil && ack.PacketID != "" {
+		go func() { _ = db.UpdateStatus(ack.PacketID, ack.Status) }()
+	}
 }
 
 // SetActiveConv switches the active conversation and clears unread.

@@ -108,6 +108,7 @@ const detailPanelWidth = 26
 type ChatModel struct {
 	client   *bramble.Client
 	selfAddr string
+	resolver PeerResolver
 	width    int
 	height   int
 
@@ -132,6 +133,9 @@ type ChatModel struct {
 	// Toast notification.
 	toast       string
 	toastExpiry time.Time
+
+	// loadOlderFn is called when the user requests older messages via PageUp.
+	loadOlderFn func(convID string, beforeTs int64, limit int) []bramble.Message
 
 	// styles
 	styleListSelected lipgloss.Style
@@ -210,6 +214,16 @@ func NewChatModel(client *bramble.Client, selfAddr string) ChatModel {
 			Foreground(lipgloss.Color("#666688")),
 	}
 	return m
+}
+
+// SetResolver attaches a peer name resolver to the chat tab.
+func (m *ChatModel) SetResolver(r PeerResolver) {
+	m.resolver = r
+}
+
+// SetLoadOlderFn wires a function for pagination of older messages from DB.
+func (m *ChatModel) SetLoadOlderFn(fn func(convID string, beforeTs int64, limit int) []bramble.Message) {
+	m.loadOlderFn = fn
 }
 
 // SetSize updates dimensions of the chat tab.
@@ -467,6 +481,37 @@ func (m ChatModel) Update(msg tea.Msg) (ChatModel, tea.Cmd) {
 					conv.msgs[m.selectedMsgIdx].expanded = !conv.msgs[m.selectedMsgIdx].expanded
 					m.refreshViewport()
 				}
+			case "pgup":
+				// Load older messages from DB when at top of viewport.
+				if m.viewport.AtTop() && m.loadOlderFn != nil {
+					conv := m.activeConv()
+					var beforeTs int64
+					if len(conv.msgs) > 0 {
+						beforeTs = conv.msgs[0].msg.Timestamp
+					}
+					older := m.loadOlderFn(conv.id, beforeTs, 50)
+					if len(older) > 0 {
+						// Prepend to conversation.
+						newMsgs := make([]storedMsg, 0, len(older)+len(conv.msgs))
+						for _, raw := range older {
+							outgoing := raw.From == m.selfAddr || (raw.From == "" && raw.To != "")
+							sm := storedMsg{msg: raw, outgoing: outgoing, delivery: deliveryDelivered}
+							if outgoing {
+								sm.delivery = deliveryDelivered
+							}
+							newMsgs = append(newMsgs, sm)
+						}
+						conv.msgs = append(newMsgs, conv.msgs...)
+						m.selectedMsgIdx = -1
+						m.refreshViewport()
+						m.toast = fmt.Sprintf("Loaded %d older messages", len(older))
+						m.toastExpiry = time.Now().Add(2 * time.Second)
+					}
+				} else {
+					var vpCmd tea.Cmd
+					m.viewport, vpCmd = m.viewport.Update(msg)
+					cmds = append(cmds, vpCmd)
+				}
 			default:
 				var vpCmd tea.Cmd
 				m.viewport, vpCmd = m.viewport.Update(msg)
@@ -576,6 +621,11 @@ func (m ChatModel) renderList(width int) string {
 	for i, conv := range m.convs {
 		icon := convIcon(conv.id)
 		label := conv.label
+		// Resolve DM labels using the name resolver.
+		if strings.HasPrefix(conv.id, "dm:") && m.resolver != nil {
+			addr := strings.TrimPrefix(conv.id, "dm:")
+			label = m.resolver.Resolve(addr)
+		}
 		badge := ""
 		if conv.unread > 0 {
 			badge = m.styleBadgeUnread.Render(fmt.Sprintf("[%d]", conv.unread))
@@ -901,6 +951,8 @@ func (m ChatModel) renderMessage(sm storedMsg, width int, selected bool) string 
 	sender := sm.msg.From
 	if sender == "" || sender == m.selfAddr {
 		sender = "me"
+	} else if m.resolver != nil {
+		sender = m.resolver.Resolve(sender)
 	}
 	if len(sender) > 10 {
 		sender = sender[:8] + ".."

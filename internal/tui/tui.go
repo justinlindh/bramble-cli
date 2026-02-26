@@ -29,7 +29,7 @@ var tabNames = [TabCount]string{"Chat", "Nodes", "Location", "Config", "Stats"}
 // tabHints maps each tab to its key hints shown in the status line.
 var tabHints = [TabCount]string{
 	"[/] Compose  [↑↓] Navigate  [Enter] Open  [r] Routes",
-	"[↑↓] Navigate  [d] DM  [Enter] Details",
+	"[↑↓] Navigate  [m] DM  [n] Set alias",
 	"[↑↓] Navigate",
 	"[↑↓] Navigate  [Enter] Edit",
 	"[r] Refresh  [p] Probe  [t] Traffic  [Tab] Focus",
@@ -119,22 +119,75 @@ type Model struct {
 }
 
 // New creates a new TUI model with reconnect support.
-func New(client *bramble.Client, node NodeInfo, connectFn ConnectFn) Model {
+func New(client *bramble.Client, node NodeInfo, connectFn ConnectFn, msgdb *MsgDB) Model {
+	store := NewStore()
+	if msgdb != nil {
+		store.SetMsgDB(msgdb)
+	}
+	// Initialize name resolver; load aliases if DB is ready and we have an address.
+	if msgdb != nil && node.Address != "" {
+		resolver := NewNameResolver(msgdb, node.Address)
+		_ = resolver.LoadAliases()
+		store.Resolver = resolver
+	} else if node.Address != "" {
+		store.Resolver = NewNameResolver(nil, node.Address)
+	}
+	chatTab := tabs.NewChatModel(client, node.Address)
+	chatTab.SetLoadOlderFn(func(convID string, beforeTs int64, limit int) []bramble.Message {
+		return store.LoadOlderMessages(convID, beforeTs, limit)
+	})
+	if store.Resolver != nil {
+		chatTab.SetResolver(store.Resolver)
+	}
+	nodesTab := tabs.NewNodes(client)
+	statsTab := tabs.NewStats(client)
+	locationTab := tabs.NewLocation()
+	if store.Resolver != nil {
+		nodesTab.SetResolver(store.Resolver)
+		statsTab.SetResolver(store.Resolver)
+		locationTab.SetResolver(store.Resolver)
+	}
 	return Model{
 		client:     client,
 		connectFn:  connectFn,
-		store:      NewStore(),
+		store:      store,
 		activeTab:  TabChat,
 		theme:      DefaultTheme(),
 		node:       node,
 		connected:  true,
 		backoffSec: 1,
 		statusLine: widgets.NewStatusLine(),
-		statsTab:    tabs.NewStats(client),
-		nodesTab:    tabs.NewNodes(client),
-		chatTab:     tabs.NewChatModel(client, node.Address),
+		statsTab:    statsTab,
+		nodesTab:    nodesTab,
+		chatTab:     chatTab,
 		configTab:   tabs.NewConfig(client),
-		locationTab: tabs.NewLocation(),
+		locationTab: locationTab,
+	}
+}
+
+// ClassifyMessageConvID returns the conversation ID for a bramble.Message.
+func ClassifyMessageConvID(msg bramble.Message, selfAddr string) string {
+	if msg.To == "" || msg.To == "broadcast" {
+		return "broadcast"
+	}
+	if len(msg.To) > 3 && msg.To[:3] == "ch:" {
+		return msg.To
+	}
+	if msg.From == selfAddr || msg.From == "" {
+		return fmt.Sprintf("dm:%s", msg.To)
+	}
+	return fmt.Sprintf("dm:%s", msg.From)
+}
+
+// PreloadFromDB loads recent messages from the database into the model's chat tab.
+func (m *Model) PreloadFromDB(db *MsgDB) {
+	recent, err := db.LoadRecent(200)
+	if err != nil {
+		return
+	}
+	for _, sm := range recent {
+		msg := sm.ToBramble()
+		m.store.AddMessage(msg)
 	}
 }
 
@@ -316,6 +369,14 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		var chatCmd tea.Cmd
 		m.chatTab, chatCmd = m.chatTab.Update(tabs.ChatAckReceived{Ack: msg.Ack})
 		return m, chatCmd
+	case BroadcastDeliveryReceived:
+		if m.store.msgdb != nil {
+			d := msg.Delivery
+			go func() { _ = m.store.msgdb.UpdateStatus(d.BroadcastID, d.Status) }()
+		}
+		var chatCmd tea.Cmd
+		m.chatTab, chatCmd = m.chatTab.Update(tabs.ChatBroadcastDelivery{D: msg.Delivery})
+		return m, chatCmd
 	case NeighborChanged:
 		return m, m.fetchNeighbors()
 	// Other bridge msgs are informational; handled in future phases.
@@ -333,7 +394,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		next, cmd := m.statsTab.Update(tabs.StatsProbeCompleteMsg{})
 		m.statsTab = next.(tabs.StatsModel)
 		return m, cmd
-	case BroadcastDeliveryReceived, WifiEventReceived, LocationEventReceived:
+	case WifiEventReceived, LocationEventReceived:
 		// TODO: forward to location panel
 
 	// ── Reconnect ────────────────────────────────────────────────────────────

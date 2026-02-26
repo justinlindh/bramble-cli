@@ -46,6 +46,11 @@ type NodesModel struct {
 	sortCol   SortColumn
 	width     int
 	height    int
+	resolver  PeerResolver
+
+	// alias edit state
+	editingAlias bool
+	aliasInput   string
 
 	// styles
 	styleHeader    lipgloss.Style
@@ -53,6 +58,11 @@ type NodesModel struct {
 	styleNormal    lipgloss.Style
 	styleDot       map[string]lipgloss.Style
 	styleRouteState map[string]lipgloss.Style
+}
+
+// SetResolver attaches a name resolver to the nodes tab.
+func (m *NodesModel) SetResolver(r PeerResolver) {
+	m.resolver = r
 }
 
 // NewNodes creates a new NodesModel.
@@ -133,6 +143,32 @@ func (m NodesModel) Update(msg tea.Msg) (NodesModel, tea.Cmd) {
 		}
 
 	case tea.KeyPressMsg:
+		// Alias editing mode — capture characters.
+		if m.editingAlias {
+			switch msg.String() {
+			case "enter":
+				// Save alias
+				if len(m.neighbors) > 0 && m.selected < len(m.neighbors) && m.resolver != nil {
+					addr := m.neighbors[m.selected].Address
+					_ = m.resolver.SetAlias(addr, m.aliasInput)
+				}
+				m.editingAlias = false
+				m.aliasInput = ""
+			case "esc", "ctrl+c":
+				m.editingAlias = false
+				m.aliasInput = ""
+			case "backspace", "ctrl+h":
+				if len(m.aliasInput) > 0 {
+					m.aliasInput = m.aliasInput[:len(m.aliasInput)-1]
+				}
+			default:
+				if t := msg.Text; t != "" {
+					m.aliasInput += t
+				}
+			}
+			return m, nil
+		}
+
 		switch msg.String() {
 		case "j", "down":
 			if m.selected < len(m.neighbors)-1 {
@@ -145,6 +181,17 @@ func (m NodesModel) Update(msg tea.Msg) (NodesModel, tea.Cmd) {
 		case "s":
 			m.sortCol = (m.sortCol + 1) % sortColumnCount
 			m.sortNeighbors()
+		case "n":
+			// Open alias edit for selected neighbor
+			if len(m.neighbors) > 0 && m.selected < len(m.neighbors) {
+				addr := m.neighbors[m.selected].Address
+				existing := ""
+				if m.resolver != nil {
+					existing, _ = m.resolver.GetAlias(addr)
+				}
+				m.editingAlias = true
+				m.aliasInput = existing
+			}
 		case "m":
 			if len(m.neighbors) > 0 && m.selected < len(m.neighbors) {
 				addr := m.neighbors[m.selected].Address
@@ -194,10 +241,28 @@ func (m NodesModel) View() string {
 	}
 
 	sb.WriteString("\n")
-	sortLabel := [sortColumnCount]string{"addr", "RSSI", "last-seen"}[m.sortCol]
-	sb.WriteString(m.styleNormal.Faint(true).Render(
-		fmt.Sprintf("  [j/k] select  [m] open chat  [s] sort by %s", sortLabel),
-	))
+
+	// Alias edit overlay
+	if m.editingAlias && len(m.neighbors) > 0 && m.selected < len(m.neighbors) {
+		addr := m.neighbors[m.selected].Address
+		fwName := ""
+		if m.resolver != nil {
+			// Show firmware name if available for context
+			resolved := m.resolver.Resolve(addr)
+			if resolved != addr {
+				fwName = " (fw: " + resolved + ")"
+			}
+		}
+		sb.WriteString(m.styleSelected.Render(
+			fmt.Sprintf("  Set alias for %s%s: %s▌", addr, fwName, m.aliasInput),
+		))
+		sb.WriteString("\n")
+	} else {
+		sortLabel := [sortColumnCount]string{"addr", "RSSI", "last-seen"}[m.sortCol]
+		sb.WriteString(m.styleNormal.Faint(true).Render(
+			fmt.Sprintf("  [j/k] select  [m] open chat  [n] set alias  [s] sort by %s", sortLabel),
+		))
+	}
 
 	return sb.String()
 }
@@ -213,8 +278,12 @@ func (m NodesModel) renderNeighborRow(idx int, n bramble.Neighbor) string {
 	status, dot := neighborStatus(n.LastSeenAgoMs)
 	dotStyle := m.styleDot[status]
 
-	// Use address as name placeholder (firmware may add Name field later)
-	name := truncateStr(n.Address, 16)
+	// Resolve name via resolver (alias > firmware name > short hex)
+	r := m.resolver
+	if r == nil {
+		r = defaultResolver
+	}
+	name := truncateStr(r.Resolve(n.Address), 16)
 	lastSeen := fmtDuration(time.Duration(n.LastSeenAgoMs) * time.Millisecond)
 	snr := fmt.Sprintf("%.1f", n.SNR)
 
