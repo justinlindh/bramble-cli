@@ -180,15 +180,20 @@ func (m *Model) PreloadFromDB(db *MsgDB) {
 		convID := ClassifyMessageConvID(msg, m.node.Address)
 		if convID == m.activeConv {
 			outgoing := sm.Direction == "out"
-			sender := msg.From
+			addr := msg.From
+			sender := addr
 			if m.store.Resolver != nil && !outgoing {
-				sender = m.store.Resolver.Resolve(sender)
+				sender = m.store.Resolver.Resolve(addr)
+			}
+			if outgoing {
+				sender = "me"
+				addr = m.node.Address
 			}
 			badge := ""
 			if outgoing {
 				badge = badgeFor(sm.Status)
 			}
-			m.scroll.AddChat(sender, msg.Text, badge, outgoing)
+			m.scroll.AddChat(sender, addr, msg.Text, badge, outgoing)
 		}
 	}
 }
@@ -228,15 +233,20 @@ func (m *Model) reloadScrollback() {
 	}
 	for _, msg := range conv.Messages {
 		outgoing := msg.From == m.node.Address || msg.From == ""
-		sender := msg.From
+		addr := msg.From
+		sender := addr
 		if m.store.Resolver != nil && !outgoing {
-			sender = m.store.Resolver.Resolve(sender)
+			sender = m.store.Resolver.Resolve(addr)
+		}
+		if outgoing {
+			sender = "me"
+			addr = m.node.Address
 		}
 		badge := ""
 		if outgoing {
 			badge = "*"
 		}
-		m.scroll.AddChat(sender, msg.Text, badge, outgoing)
+		m.scroll.AddChat(sender, addr, msg.Text, badge, outgoing)
 	}
 }
 
@@ -376,7 +386,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if msg.err != nil {
 			m.scroll.AddError(fmt.Sprintf("Send failed: %v", msg.err))
 		} else {
-			m.scroll.AddChat("me", msg.text, "*", true)
+			m.scroll.AddChat("me", m.node.Address, msg.text, "*", true)
 			raw := bramble.Message{
 				From:      m.node.Address,
 				To:        convIDToAddr(m.activeConv),
@@ -490,11 +500,12 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.scroll.AddSystem(fmt.Sprintf("New DM from %s", peerName))
 		}
 		if convID == m.activeConv {
-			sender := msg.Msg.From
+			addr := msg.Msg.From
+			sender := addr
 			if m.store.Resolver != nil {
-				sender = m.store.Resolver.Resolve(sender)
+				sender = m.store.Resolver.Resolve(addr)
 			}
-			m.scroll.AddChat(sender, msg.Msg.Text, "", false)
+			m.scroll.AddChat(sender, addr, msg.Msg.Text, "", false)
 		}
 		m.updateStatusBar()
 

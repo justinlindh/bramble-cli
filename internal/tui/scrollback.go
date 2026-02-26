@@ -99,14 +99,29 @@ func (s *Scrollback) AddLine(kind LineKind, text string) {
 }
 
 // AddChat adds a formatted chat message line.
-func (s *Scrollback) AddChat(sender, text, badge string, outgoing bool) {
+// AddChat adds a formatted chat message line.
+// sender is the resolved name, addr is the raw hex address (for short suffix).
+func (s *Scrollback) AddChat(sender, addr, text, badge string, outgoing bool) {
 	ts := s.theme.Timestamp.Render(fmt.Sprintf("[%s]", time.Now().Format("15:04")))
+
+	// Build IRC-style nick tag: <Nick[8FE3]> or <me>
+	nick := sender
+	if !outgoing && addr != "" && addr != sender {
+		// Append short hex suffix (last 4 chars)
+		short := addr
+		if len(short) > 4 {
+			short = short[len(short)-4:]
+		}
+		nick = fmt.Sprintf("%s[%s]", sender, short)
+	}
+
 	var line string
 	if outgoing {
-		line = fmt.Sprintf("> %s %s %s", ts, text, s.theme.SelfBadge.Render(badge))
+		nickStr := s.theme.SelfBadge.Render("<" + nick + ">")
+		line = fmt.Sprintf("%s %s %s %s", ts, nickStr, text, s.theme.SelfBadge.Render(badge))
 	} else {
-		senderStr := s.theme.Sender.Render(sender + ":")
-		line = fmt.Sprintf("< %s %s %s", ts, senderStr, text)
+		nickStr := s.theme.Sender.Render("<" + nick + ">")
+		line = fmt.Sprintf("%s %s %s", ts, nickStr, text)
 	}
 	kind := LineChat
 	if outgoing {
