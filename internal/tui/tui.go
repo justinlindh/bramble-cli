@@ -573,6 +573,12 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		m.updateStatusBar()
 		return m, m.fetchInitialData()
+
+	default:
+		// Forward unhandled messages to input (e.g. FocusMsg from textarea)
+		var inputCmd tea.Cmd
+		m.input, inputCmd = m.input.Update(msg)
+		cmds = append(cmds, inputCmd)
 	}
 
 	return m, tea.Batch(cmds...)
