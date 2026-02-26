@@ -87,6 +87,8 @@ func (h *CommandHandler) Execute(cmd *Command) CmdAction {
 		h.cmdLocation()
 	case "alias":
 		h.cmdAlias(cmd.Args)
+	case "nick":
+		h.cmdNick(cmd.Args)
 	case "probe":
 		h.cmdProbe()
 	case "ping":
@@ -330,6 +332,26 @@ func (h *CommandHandler) cmdAlias(args []string) {
 	h.scroll.AddSystem(fmt.Sprintf("Alias set: %s → %s", addr, name))
 }
 
+func (h *CommandHandler) cmdNick(args []string) {
+	if len(args) < 1 {
+		h.scroll.AddError("Usage: /nick <name> (max 8 chars)")
+		return
+	}
+	name := strings.Join(args, " ")
+	if len(name) > 8 {
+		h.scroll.AddError("Nick max 8 characters")
+		return
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	err := h.client.SetNodeName(ctx, name)
+	if err != nil {
+		h.scroll.AddError(fmt.Sprintf("Nick error: %v", err))
+		return
+	}
+	h.scroll.AddSystem(fmt.Sprintf("Nick changed to %q", name))
+}
+
 func (h *CommandHandler) cmdProbe() {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
@@ -377,6 +399,7 @@ func (h *CommandHandler) cmdHelp() {
 	h.scroll.AddInfo("    /config set <k> <v>   Set config value")
 	h.scroll.AddInfo("    /location             Show GPS & peer locations")
 	h.scroll.AddInfo("    /alias <addr> <name>  Set peer alias")
+	h.scroll.AddInfo("    /nick <name>          Change node name (max 8)")
 	h.scroll.AddInfo("    /probe                Send network probe")
 	h.scroll.AddInfo("    /ping                 Ping node")
 	h.scroll.AddInfo("    /reboot               Reboot node")
