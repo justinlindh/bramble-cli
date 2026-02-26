@@ -179,7 +179,7 @@ func ClassifyMessageConvID(msg bramble.Message, selfAddr string) string {
 	return fmt.Sprintf("dm:%s", msg.From)
 }
 
-// PreloadFromDB loads recent messages from the database into the model's chat tab.
+// PreloadFromDB loads recent messages from the database into the chat tab and store.
 func (m *Model) PreloadFromDB(db *MsgDB) {
 	recent, err := db.LoadRecent(200)
 	if err != nil {
@@ -188,7 +188,9 @@ func (m *Model) PreloadFromDB(db *MsgDB) {
 	for _, sm := range recent {
 		msg := sm.ToBramble()
 		m.store.AddMessage(msg)
+		m.chatTab.IngestMessage(msg)
 	}
+	m.chatTab.RefreshViewport()
 }
 
 // SetProgram wires the Bubble Tea program reference for the bridge.

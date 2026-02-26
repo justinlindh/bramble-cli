@@ -785,6 +785,11 @@ func (m ChatModel) statusBar(listW int) string {
 // ── Internal helpers ──────────────────────────────────────────────────────────
 
 // ingestMessage classifies and stores a message. Returns the conv index.
+// IngestMessage adds a message to the appropriate conversation. Returns the conv index.
+func (m *ChatModel) IngestMessage(raw bramble.Message) int {
+	return m.ingestMessage(raw)
+}
+
 func (m *ChatModel) ingestMessage(raw bramble.Message) int {
 	convID := m.classifyMessage(raw)
 	idx := m.findOrCreateConv(convID)
@@ -923,7 +928,9 @@ func (m *ChatModel) moveMsgSelection(conv *chatConv, delta int) {
 	m.selectedMsgIdx = outIdxs[next]
 }
 
-// refreshViewport rebuilds the viewport content for the active conversation.
+// RefreshViewport rebuilds the viewport content for the active conversation.
+func (m *ChatModel) RefreshViewport() { m.refreshViewport() }
+
 func (m *ChatModel) refreshViewport() {
 	if !m.ready {
 		return
