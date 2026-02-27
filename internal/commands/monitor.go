@@ -184,9 +184,9 @@ func runMonitor(cmd *cobra.Command, args []string) error {
 				Type:       "ack",
 				Topic:      "mesh",
 				Timestamp:  now,
-				SearchText: fmt.Sprintf("packet#%d status=%s", ack.PacketID, ack.Status),
+				SearchText: fmt.Sprintf("packet#%s status=%s", ack.PacketID, ack.Status),
 				Payload: ack,
-				Line: fmt.Sprintf("[%s] ACK  packet#%d  status=%s", now.Format("15:04:05"), ack.PacketID, ack.Status),
+				Line: fmt.Sprintf("[%s] ACK  packet#%s  status=%s", now.Format("15:04:05"), ack.PacketID, ack.Status),
 			})
 		})
 	}
