@@ -42,6 +42,7 @@ func ParseCommand(input string) *Command {
 // CmdAction represents a side-effect the root model should apply after a command.
 type CmdAction struct {
 	SwitchBuffer string // non-empty = switch to this buffer
+	SendText     string // non-empty = send this text as a message
 	Quit         bool
 	Reboot       bool // request reboot confirmation
 }
@@ -89,6 +90,8 @@ func (h *CommandHandler) Execute(cmd *Command) CmdAction {
 		h.cmdAlias(cmd.Args)
 	case "nick":
 		h.cmdNick(cmd.Args)
+	case "me":
+		return h.cmdMe(cmd.Args)
 	case "probe":
 		h.cmdProbe()
 	case "ping":
@@ -352,6 +355,17 @@ func (h *CommandHandler) cmdNick(args []string) {
 	h.scroll.AddSystem(fmt.Sprintf("Nick changed to %q", name))
 }
 
+func (h *CommandHandler) cmdMe(args []string) CmdAction {
+	if len(args) < 1 {
+		h.scroll.AddError("Usage: /me <action> (e.g. /me waves hello)")
+		return CmdAction{}
+	}
+	text := strings.Join(args, " ")
+	// Wrap in CTCP ACTION format: \x01ACTION text\x01
+	actionText := "\x01ACTION " + text + "\x01"
+	return CmdAction{SendText: actionText}
+}
+
 func (h *CommandHandler) cmdProbe() {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
@@ -400,6 +414,7 @@ func (h *CommandHandler) cmdHelp() {
 	h.scroll.AddInfo("    /location             Show GPS & peer locations")
 	h.scroll.AddInfo("    /alias <addr> <name>  Set peer alias")
 	h.scroll.AddInfo("    /nick <name>          Change node name (max 8)")
+	h.scroll.AddInfo("    /me <action>          Send action (* Nick does something)")
 	h.scroll.AddInfo("    /probe                Send network probe")
 	h.scroll.AddInfo("    /ping                 Ping node")
 	h.scroll.AddInfo("    /reboot               Reboot node")

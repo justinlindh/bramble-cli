@@ -373,6 +373,9 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				if action.SwitchBuffer != "" {
 					m.switchBuffer(action.SwitchBuffer)
 				}
+				if action.SendText != "" {
+					return m, m.sendMessage(action.SendText)
+				}
 				if action.Reboot {
 					m.scroll.AddSystem("Reboot node? Type /reboot-confirm to proceed")
 					m.pendingConfirm = true

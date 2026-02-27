@@ -50,6 +50,7 @@ type ScrollTheme struct {
 	Command   lipgloss.Style
 	Sender    lipgloss.Style
 	SelfBadge lipgloss.Style
+	Action    lipgloss.Style
 }
 
 func NewScrollTheme() ScrollTheme {
@@ -64,6 +65,7 @@ func NewScrollTheme() ScrollTheme {
 		Command:   lipgloss.NewStyle().Foreground(lipgloss.Color("#888888")).Faint(true),
 		Sender:    lipgloss.NewStyle().Foreground(lipgloss.Color("#5599FF")).Bold(true),
 		SelfBadge: lipgloss.NewStyle().Foreground(lipgloss.Color("#00FF87")),
+		Action:    lipgloss.NewStyle().Foreground(lipgloss.Color("#da77f2")).Italic(true),
 	}
 }
 
@@ -104,10 +106,15 @@ func (s *Scrollback) AddLine(kind LineKind, text string) {
 func (s *Scrollback) AddChat(sender, addr, text, badge string, outgoing bool) {
 	ts := s.theme.Timestamp.Render(fmt.Sprintf("[%s]", time.Now().Format("15:04")))
 
+	// Check for CTCP ACTION: \x01ACTION text\x01
+	if actionText, ok := parseAction(text); ok {
+		s.addActionLine(ts, sender, addr, actionText, outgoing)
+		return
+	}
+
 	// Build IRC-style nick tag: <Nick[8FE3]> or <me>
 	nick := sender
 	if !outgoing && addr != "" && addr != sender {
-		// Append short hex suffix (last 4 chars)
 		short := addr
 		if len(short) > 4 {
 			short = short[len(short)-4:]
@@ -123,6 +130,42 @@ func (s *Scrollback) AddChat(sender, addr, text, badge string, outgoing bool) {
 		nickStr := s.theme.Sender.Render("<" + nick + ">")
 		line = fmt.Sprintf("%s %s %s", ts, nickStr, text)
 	}
+	kind := LineChat
+	if outgoing {
+		kind = LineChatOut
+	}
+	s.AddLine(kind, line)
+}
+
+// parseAction detects CTCP ACTION format: \x01ACTION text\x01
+func parseAction(text string) (string, bool) {
+	if len(text) > 9 && text[0] == '\x01' && strings.HasPrefix(text[1:], "ACTION ") {
+		action := text[8:]
+		if len(action) > 0 && action[len(action)-1] == '\x01' {
+			action = action[:len(action)-1]
+		}
+		return action, true
+	}
+	return "", false
+}
+
+// addActionLine renders an IRC /me action: * Nick does something
+func (s *Scrollback) addActionLine(ts, sender, addr, actionText string, outgoing bool) {
+	nick := sender
+	if !outgoing && addr != "" && addr != sender {
+		short := addr
+		if len(short) > 4 {
+			short = short[len(short)-4:]
+		}
+		nick = fmt.Sprintf("%s[%s]", sender, short)
+	}
+
+	// Render as: [12:42] * Nick does something
+	star := s.theme.Action.Render("*")
+	nickStr := s.theme.Action.Render(nick)
+	actionStr := s.theme.Action.Render(actionText)
+	line := fmt.Sprintf("%s %s %s %s", ts, star, nickStr, actionStr)
+
 	kind := LineChat
 	if outgoing {
 		kind = LineChatOut
