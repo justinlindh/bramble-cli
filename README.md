@@ -233,6 +233,66 @@ Remove a location contact rule for a peer.
 ### `bramble location share-once <address>`
 Send a one-time location update.
 
+## Terminal UI (`bramble tui`)
+
+Launch an IRC-style interactive terminal UI for chatting, monitoring, and configuring your Bramble mesh node.
+
+```bash
+bramble tui --transport ws://192.0.2.0/ws
+bramble tui --port /dev/ttyUSB0
+```
+
+### Layout
+
+Full-screen single-buffer design inspired by BitchX/irssi:
+- **Scrollback** — messages, system events, and command output flow in one window
+- **Status bar** — connection state, buffer list with unread counts, peer count, clock
+- **Input line** — always focused, type messages or `/commands`
+
+### Message Format
+
+```
+[12:42] <Node1[3079]> hey everyone        # incoming
+[12:42] <me> hello back *                  # outgoing (with delivery badge)
+[12:42] * Node1[3079] waves hello          # /me action message
+-- A1B2C3D4 (NodeC) joined [RSSI -68] --  # system event
+```
+
+### Slash Commands
+
+| Command | Description |
+|---------|-------------|
+| `/help` | Show all commands |
+| `/b`, `/broadcast` | Switch to broadcast buffer |
+| `/dm <addr\|name>` | Open/switch to DM buffer |
+| `/ch <number>` | Switch to channel buffer |
+| `/w`, `/windows` | List open buffers |
+| `/close` | Close current buffer |
+| `/nodes` | Show neighbors & routes inline |
+| `/stats` | Show node statistics inline |
+| `/config` | Show configuration inline |
+| `/config set <key> <val>` | Set config value |
+| `/location` | Show GPS & peer locations |
+| `/nick <name>` | Change node name (max 8 chars) |
+| `/me <action>` | Send action message (`* you do something`) |
+| `/alias <addr> <name>` | Set local peer alias |
+| `/probe` | Send network probe |
+| `/ping` | Ping connected node |
+| `/reboot` | Reboot node (requires `/reboot-confirm`) |
+| `/clear` | Clear scrollback |
+| `/quit` | Exit |
+
+### Navigation
+
+- **Alt+1-9** — switch buffer by number
+- **Ctrl+N / Ctrl+P** — next/prev buffer
+- **PgUp / PgDn** — scroll history
+- **Home / End** — top/bottom of history
+
+### Persistence
+
+Messages are stored in SQLite at `~/.local/share/bramble/messages.db` and survive restarts. Peer aliases are also persisted.
+
 ## JSON Output
 
 All commands support `--json` for machine-readable output:
