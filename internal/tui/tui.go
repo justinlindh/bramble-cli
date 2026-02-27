@@ -78,10 +78,14 @@ type reconnectResult struct {
 // ── Send result ───────────────────────────────────────────────────────────────
 
 type sendResultMsg struct {
-	convID string
-	text   string
-	msgID  string
-	err    error
+	convID     string
+	echoConvID string
+	toAddr     string
+	text       string
+	display    string
+	msgID      string
+	inlineDM   bool
+	err        error
 }
 
 // ── Model ─────────────────────────────────────────────────────────────────────
@@ -137,6 +141,10 @@ func New(client *bramble.Client, node NodeInfo, connectFn ConnectFn, msgdb *MsgD
 		resolver = store.Resolver
 	}
 	cmdHandler := NewCommandHandler(client, store, scroll, resolver)
+
+	if node.Address != "" {
+		store.UpdateIdentity(&bramble.IdentityResponse{Address: node.Address})
+	}
 
 	m := Model{
 		client:     client,
@@ -466,6 +474,9 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					m.switchBuffer(action.SwitchBuffer)
 				}
 				if action.SendText != "" {
+					if action.SendTo != "" {
+						return m, m.sendDirectMessage(action.SendTo, action.SendText)
+					}
 					return m, m.sendMessage(action.SendText)
 				}
 				if action.Reboot {
@@ -486,15 +497,27 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.addError(msg.convID, fmt.Sprintf("Send failed: %v", msg.err))
 			}
 		} else {
-			m.scroll.AddChat(m.selfDisplayName(), m.node.Address, msg.text, "*", true)
-			raw := bramble.Message{
-				From:      m.node.Address,
-				To:        convIDToAddr(m.activeConv),
-				Text:      msg.text,
-				MsgID:     msg.msgID,
-				Timestamp: time.Now().Unix(),
+			if msg.inlineDM {
+				m.addInfo(msg.echoConvID, msg.display)
+				raw := bramble.Message{
+					From:      m.node.Address,
+					To:        msg.toAddr,
+					Text:      msg.text,
+					MsgID:     msg.msgID,
+					Timestamp: time.Now().Unix(),
+				}
+				m.store.AddMessage(raw)
+			} else {
+				m.scroll.AddChat(m.selfDisplayName(), m.node.Address, msg.text, "*", true)
+				raw := bramble.Message{
+					From:      m.node.Address,
+					To:        convIDToAddr(m.activeConv),
+					Text:      msg.text,
+					MsgID:     msg.msgID,
+					Timestamp: time.Now().Unix(),
+				}
+				m.store.AddMessage(raw)
 			}
-			m.store.AddMessage(raw)
 		}
 
 	case tickMsg:
@@ -771,6 +794,36 @@ func (m Model) sendMessage(text string) tea.Cmd {
 		}
 
 		return sendResultMsg{convID: convID, text: text, msgID: msgID, err: err}
+	}
+}
+
+func (m Model) sendDirectMessage(toAddr, text string) tea.Cmd {
+	client := m.client
+	echoConvID := m.activeConv
+	return func() tea.Msg {
+		ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+		defer cancel()
+
+		var addr uint64
+		_, parseErr := fmt.Sscanf(toAddr, "%x", &addr)
+		if parseErr != nil {
+			return sendResultMsg{convID: echoConvID, err: fmt.Errorf("invalid address %q", toAddr)}
+		}
+
+		res, err := client.Send(ctx, uint32(addr), text)
+		if err != nil {
+			return sendResultMsg{convID: echoConvID, err: err}
+		}
+
+		return sendResultMsg{
+			convID:     fmt.Sprintf("dm:%s", toAddr),
+			echoConvID: echoConvID,
+			toAddr:     toAddr,
+			text:       text,
+			display:    fmt.Sprintf("-> [@%s] %s", m.peerDisplayName(toAddr), text),
+			msgID:      res.MessageID,
+			inlineDM:   true,
+		}
 	}
 }
 

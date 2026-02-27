@@ -43,6 +43,7 @@ func ParseCommand(input string) *Command {
 type CmdAction struct {
 	SwitchBuffer string // non-empty = switch to this buffer
 	SendText     string // non-empty = send this text as a message
+	SendTo       string // optional DM target address for direct send (without switching)
 	Quit         bool
 	Reboot       bool // request reboot confirmation
 }
@@ -100,6 +101,8 @@ func (h *CommandHandler) Execute(cmd *Command) CmdAction {
 		return CmdAction{SwitchBuffer: "broadcast"}
 	case "dm":
 		return h.cmdDM(cmd.Args)
+	case "msg":
+		return h.cmdMsg(cmd.Args)
 	case "ch":
 		return h.cmdChannel(cmd.Args)
 	case "w", "windows":
@@ -150,6 +153,25 @@ func (h *CommandHandler) cmdDM(args []string) CmdAction {
 		return CmdAction{}
 	}
 	return CmdAction{SwitchBuffer: "dm:" + addr}
+}
+
+func (h *CommandHandler) cmdMsg(args []string) CmdAction {
+	if len(args) < 2 {
+		h.addError("Usage: /msg <addr|name> <text>")
+		return CmdAction{}
+	}
+	target := args[0]
+	addr := h.resolveTarget(target)
+	if addr == "" {
+		h.addError(fmt.Sprintf("Unknown peer: %s", target))
+		return CmdAction{}
+	}
+	text := strings.TrimSpace(strings.Join(args[1:], " "))
+	if text == "" {
+		h.addError("Usage: /msg <addr|name> <text>")
+		return CmdAction{}
+	}
+	return CmdAction{SendTo: addr, SendText: text}
 }
 
 func (h *CommandHandler) cmdChannel(args []string) CmdAction {
@@ -452,6 +474,7 @@ func (h *CommandHandler) cmdHelp() {
 	h.addInfo("  Commands:")
 	h.addInfo("    /b, /broadcast        Switch to broadcast")
 	h.addInfo("    /dm <addr|name>       Open/switch to DM")
+	h.addInfo("    /msg <addr|name> <text> Send DM inline (no switch)")
 	h.addInfo("    /ch <sel>             Switch buffer (/ch 2, /ch all, /ch mesh:1)")
 	h.addInfo("    /w, /windows          List open buffers")
 	h.addInfo("    /close                Close current buffer")
