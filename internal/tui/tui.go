@@ -4,6 +4,7 @@ package tui
 import (
 	"context"
 	"fmt"
+	"sort"
 	"strings"
 	"time"
 
@@ -231,7 +232,44 @@ func (m *Model) switchBuffer(convID string) {
 	label := m.convDisplayLabel(convID)
 	m.input.SetPrompt("[" + label + "]")
 	m.reloadScrollback()
-	m.scroll.AddSystem(fmt.Sprintf("Switched to %s", label))
+	m.addSystem(convID, fmt.Sprintf("Switched to %s", label))
+}
+
+func (m *Model) addConversationLine(convID string, kind LineKind, rendered string) {
+	line := ScrollLine{Kind: kind, Timestamp: time.Now(), Text: rendered}
+	m.store.AddConversationLine(convID, line)
+}
+
+func (m *Model) addSystem(convID, text string) {
+	rendered := m.scroll.theme.System.Render("-- " + text + " --")
+	m.addConversationLine(convID, LineSystem, rendered)
+	if convID == m.activeConv {
+		m.scroll.AddSystem(text)
+	}
+}
+
+func (m *Model) addError(convID, text string) {
+	rendered := m.scroll.theme.Error.Render("!! " + text)
+	m.addConversationLine(convID, LineError, rendered)
+	if convID == m.activeConv {
+		m.scroll.AddError(text)
+	}
+}
+
+func (m *Model) addInfo(convID, text string) {
+	rendered := m.scroll.theme.Info.Render(text)
+	m.addConversationLine(convID, LineInfo, rendered)
+	if convID == m.activeConv {
+		m.scroll.AddInfo(text)
+	}
+}
+
+func (m *Model) addDelivery(convID, text string) {
+	rendered := m.scroll.theme.Delivery.Render("-- " + text + " --")
+	m.addConversationLine(convID, LineDelivery, rendered)
+	if convID == m.activeConv {
+		m.scroll.AddDelivery(text)
+	}
 }
 
 func (m *Model) convDisplayLabel(convID string) string {
@@ -256,7 +294,36 @@ func (m *Model) reloadScrollback() {
 	if conv == nil {
 		return
 	}
-	for _, msg := range conv.Messages {
+	type replayItem struct {
+		ts    time.Time
+		kind  string
+		msg   bramble.Message
+		line  ScrollLine
+		order int
+	}
+	items := make([]replayItem, 0, len(conv.Messages)+len(conv.Events))
+	for i, msg := range conv.Messages {
+		ts := time.Unix(msg.Timestamp, 0)
+		if msg.Timestamp <= 0 {
+			ts = time.Now()
+		}
+		items = append(items, replayItem{ts: ts, kind: "msg", msg: msg, order: i})
+	}
+	for i, line := range conv.Events {
+		items = append(items, replayItem{ts: line.Timestamp, kind: "evt", line: line, order: i})
+	}
+	sort.SliceStable(items, func(i, j int) bool {
+		if items[i].ts.Equal(items[j].ts) {
+			return items[i].kind < items[j].kind
+		}
+		return items[i].ts.Before(items[j].ts)
+	})
+	for _, item := range items {
+		if item.kind == "evt" {
+			m.scroll.AddStoredLine(item.line)
+			continue
+		}
+		msg := item.msg
 		outgoing := msg.From == m.node.Address || msg.From == ""
 		addr := msg.From
 		if outgoing && addr == "" {
@@ -271,7 +338,7 @@ func (m *Model) reloadScrollback() {
 		if outgoing {
 			badge = "*"
 		}
-		m.scroll.AddChat(sender, addr, msg.Text, badge, outgoing)
+		m.scroll.AddChatAt(item.ts, sender, addr, msg.Text, badge, outgoing)
 	}
 }
 
@@ -314,11 +381,11 @@ func (m *Model) cycleBuffer(delta int) {
 
 // Init implements tea.Model.
 func (m Model) Init() tea.Cmd {
-	m.scroll.AddSystem(fmt.Sprintf("Connected to %s via %s", m.node.Address, m.node.Transport))
+	m.addSystem("broadcast", fmt.Sprintf("Connected to %s via %s", m.node.Address, m.node.Transport))
 	if m.node.Name != "" {
-		m.scroll.AddSystem(fmt.Sprintf("Node: %s", m.node.Name))
+		m.addSystem("broadcast", fmt.Sprintf("Node: %s", m.node.Name))
 	}
-	m.scroll.AddSystem("Type /help for commands")
+	m.addSystem("broadcast", "Type /help for commands")
 
 	return tea.Batch(
 		tickCmd(),
@@ -402,7 +469,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					return m, m.sendMessage(action.SendText)
 				}
 				if action.Reboot {
-					m.scroll.AddSystem("Reboot node? Type /reboot-confirm to proceed")
+					m.addSystem(m.activeConv, "Reboot node? Type /reboot-confirm to proceed")
 					m.pendingConfirm = true
 				}
 			}
@@ -414,9 +481,9 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if msg.err != nil {
 			errText := msg.err.Error()
 			if strings.HasPrefix(msg.convID, "ch:") && strings.Contains(strings.ToLower(errText), "invalid params") {
-				m.scroll.AddError(fmt.Sprintf("Send failed on mesh channel %s: invalid channel or params. Try /config to list channels, or /b for broadcast.", strings.TrimPrefix(msg.convID, "ch:")))
+				m.addError(msg.convID, fmt.Sprintf("Send failed on mesh channel %s: invalid channel or params. Try /config to list channels, or /b for broadcast.", strings.TrimPrefix(msg.convID, "ch:")))
 			} else {
-				m.scroll.AddError(fmt.Sprintf("Send failed: %v", msg.err))
+				m.addError(msg.convID, fmt.Sprintf("Send failed: %v", msg.err))
 			}
 		} else {
 			m.scroll.AddChat(m.selfDisplayName(), m.node.Address, msg.text, "*", true)
@@ -452,7 +519,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case fetchStatusResult:
 		if msg.err != nil && m.connected {
 			m.connected = false
-			m.scroll.AddError("Connection lost")
+			m.addError(m.activeConv, "Connection lost")
 			return m, m.scheduleReconnect()
 		}
 		if msg.err == nil {
@@ -484,7 +551,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					if m.store.Resolver != nil {
 						name = m.store.Resolver.Resolve(n.Address)
 					}
-					m.scroll.AddSystem(fmt.Sprintf("%s joined [RSSI %d, SNR %.1f]", name, n.RSSI, n.SNR))
+					m.addSystem("broadcast", fmt.Sprintf("%s joined [RSSI %d, SNR %.1f]", name, n.RSSI, n.SNR))
 				}
 			}
 
@@ -497,7 +564,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 							name = m.store.Resolver.Resolve(addr)
 						}
 						lastSeen := fmtDurationShort(time.Duration(old.LastSeenAgoMs) * time.Millisecond)
-						m.scroll.AddSystem(fmt.Sprintf("%s left [last seen %s ago]", name, lastSeen))
+						m.addSystem("broadcast", fmt.Sprintf("%s left [last seen %s ago]", name, lastSeen))
 					}
 				}
 			}
@@ -530,7 +597,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			if m.store.Resolver != nil {
 				peerName = m.store.Resolver.Resolve(peerAddr)
 			}
-			m.scroll.AddSystem(fmt.Sprintf("New DM from %s", peerName))
+			m.addSystem(convID, fmt.Sprintf("New DM from %s", peerName))
 		}
 		if convID == m.activeConv {
 			addr := msg.Msg.From
@@ -557,6 +624,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			if m.store.Resolver != nil {
 				peer = m.store.Resolver.Resolve(peer)
 			}
+			m.addDelivery("broadcast", fmt.Sprintf("%s %s", peer, status))
 			m.scroll.AddDeliveryGrouped(d.BroadcastID, fmt.Sprintf("%s %s", peer, status))
 		}
 
@@ -575,11 +643,11 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if m.store.Resolver != nil {
 			name = m.store.Resolver.Resolve(r.Address)
 		}
-		m.scroll.AddInfo(fmt.Sprintf("  Probe: %s  %dms  %d hops  RSSI %d",
+		m.addInfo(m.activeConv, fmt.Sprintf("  Probe: %s  %dms  %d hops  RSSI %d",
 			name, r.LatencyMs, r.Hops, r.RSSI))
 
 	case ProbeCompleteReceived:
-		m.scroll.AddSystem("Probe complete")
+		m.addSystem(m.activeConv, "Probe complete")
 
 	case WifiEventReceived, LocationEventReceived:
 		// forwarded to location in future
@@ -591,7 +659,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case reconnectResult:
 		if msg.err != nil {
-			m.scroll.AddError(fmt.Sprintf("Reconnect failed: %v", msg.err))
+			m.addError(m.activeConv, fmt.Sprintf("Reconnect failed: %v", msg.err))
 			return m, m.scheduleReconnect()
 		}
 		if m.client != nil {
@@ -602,7 +670,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.connected = true
 		m.backoffSec = 1
 		m.retryIn = 0
-		m.scroll.AddSystem("Reconnected")
+		m.addSystem(m.activeConv, "Reconnected")
 		if m.bridge != nil {
 			m.bridge.Start(m.client)
 		}
@@ -653,7 +721,7 @@ func (m *Model) scheduleReconnect() tea.Cmd {
 	if m.backoffSec > 30 {
 		m.backoffSec = 30
 	}
-	m.scroll.AddSystem(fmt.Sprintf("Reconnecting in %ds...", m.retryIn))
+	m.addSystem(m.activeConv, fmt.Sprintf("Reconnecting in %ds...", m.retryIn))
 	return tea.Tick(delay, func(t time.Time) tea.Msg { return reconnectMsg{} })
 }
 

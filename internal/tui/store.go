@@ -13,6 +13,7 @@ type Conversation struct {
 	ID       string
 	Label    string
 	Messages []bramble.Message
+	Events   []ScrollLine
 	Unread   int
 }
 
@@ -161,6 +162,17 @@ func (s *Store) AddMessage(msg bramble.Message) {
 	}
 }
 
+// AddConversationLine stores a non-chat line for a conversation.
+func (s *Store) AddConversationLine(convID string, line ScrollLine) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	label := s.convLabelForMessage(convID)
+	s.addConvLocked(convID, label)
+	conv := s.Conversations[convID]
+	conv.Events = append(conv.Events, line)
+}
+
 // UpdateAck updates message status after an ack (best-effort).
 func (s *Store) UpdateAck(ack bramble.Ack) {
 	s.mu.Lock()
@@ -229,6 +241,9 @@ func (s *Store) GetConversations() []*Conversation {
 			msgs := make([]bramble.Message, len(c.Messages))
 			copy(msgs, c.Messages)
 			cp.Messages = msgs
+			events := make([]ScrollLine, len(c.Events))
+			copy(events, c.Events)
+			cp.Events = events
 			out = append(out, &cp)
 		}
 	}
@@ -247,6 +262,9 @@ func (s *Store) GetActiveConversation() *Conversation {
 	msgs := make([]bramble.Message, len(c.Messages))
 	copy(msgs, c.Messages)
 	cp.Messages = msgs
+	events := make([]ScrollLine, len(c.Events))
+	copy(events, c.Events)
+	cp.Events = events
 	return &cp
 }
 

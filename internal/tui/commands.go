@@ -65,6 +65,34 @@ func NewCommandHandler(client *bramble.Client, store *Store, scroll *Scrollback,
 	}
 }
 
+func (h *CommandHandler) activeConvID() string {
+	h.store.mu.RLock()
+	defer h.store.mu.RUnlock()
+	if h.store.ActiveConvID == "" {
+		return "broadcast"
+	}
+	return h.store.ActiveConvID
+}
+
+func (h *CommandHandler) persistLine(kind LineKind, rendered string) {
+	h.store.AddConversationLine(h.activeConvID(), ScrollLine{Kind: kind, Timestamp: time.Now(), Text: rendered})
+}
+
+func (h *CommandHandler) addError(text string) {
+	h.persistLine(LineError, h.scroll.theme.Error.Render("!! "+text))
+	h.scroll.AddError(text)
+}
+
+func (h *CommandHandler) addInfo(text string) {
+	h.persistLine(LineInfo, h.scroll.theme.Info.Render(text))
+	h.scroll.AddInfo(text)
+}
+
+func (h *CommandHandler) addSystem(text string) {
+	h.persistLine(LineSystem, h.scroll.theme.System.Render("-- "+text+" --"))
+	h.scroll.AddSystem(text)
+}
+
 // Execute runs a parsed command. Returns a CmdAction for the root model to apply.
 func (h *CommandHandler) Execute(cmd *Command) CmdAction {
 	switch cmd.Name {
@@ -105,20 +133,20 @@ func (h *CommandHandler) Execute(cmd *Command) CmdAction {
 	case "quit", "q":
 		return CmdAction{Quit: true}
 	default:
-		h.scroll.AddError(fmt.Sprintf("Unknown command: /%s (try /help)", cmd.Name))
+		h.addError(fmt.Sprintf("Unknown command: /%s (try /help)", cmd.Name))
 	}
 	return CmdAction{}
 }
 
 func (h *CommandHandler) cmdDM(args []string) CmdAction {
 	if len(args) < 1 {
-		h.scroll.AddError("Usage: /dm <address-or-name>")
+		h.addError("Usage: /dm <address-or-name>")
 		return CmdAction{}
 	}
 	target := args[0]
 	addr := h.resolveTarget(target)
 	if addr == "" {
-		h.scroll.AddError(fmt.Sprintf("Unknown peer: %s", target))
+		h.addError(fmt.Sprintf("Unknown peer: %s", target))
 		return CmdAction{}
 	}
 	return CmdAction{SwitchBuffer: "dm:" + addr}
@@ -126,7 +154,7 @@ func (h *CommandHandler) cmdDM(args []string) CmdAction {
 
 func (h *CommandHandler) cmdChannel(args []string) CmdAction {
 	if len(args) < 1 {
-		h.scroll.AddError("Usage: /ch <buffer#|all|mesh:N>")
+		h.addError("Usage: /ch <buffer#|all|mesh:N>")
 		return CmdAction{}
 	}
 	arg := strings.TrimSpace(strings.ToLower(args[0]))
@@ -138,7 +166,7 @@ func (h *CommandHandler) cmdChannel(args []string) CmdAction {
 	if n, err := strconv.Atoi(arg); err == nil {
 		convs := h.store.GetConversations()
 		if n < 1 || n > len(convs) {
-			h.scroll.AddError(fmt.Sprintf("Buffer %d not found. Use /w to list buffers.", n))
+			h.addError(fmt.Sprintf("Buffer %d not found. Use /w to list buffers.", n))
 			return CmdAction{}
 		}
 		return CmdAction{SwitchBuffer: convs[n-1].ID}
@@ -149,23 +177,23 @@ func (h *CommandHandler) cmdChannel(args []string) CmdAction {
 		idxStr := strings.TrimPrefix(strings.TrimPrefix(arg, "mesh:"), "ch:")
 		n, err := strconv.Atoi(idxStr)
 		if err != nil {
-			h.scroll.AddError(fmt.Sprintf("Invalid mesh channel: %s", args[0]))
+			h.addError(fmt.Sprintf("Invalid mesh channel: %s", args[0]))
 			return CmdAction{}
 		}
 		return CmdAction{SwitchBuffer: fmt.Sprintf("ch:%d", n)}
 	}
 
-	h.scroll.AddError(fmt.Sprintf("Unknown channel selector %q. Use /w, /ch <buffer#>, /ch all, or /ch mesh:N", args[0]))
+	h.addError(fmt.Sprintf("Unknown channel selector %q. Use /w, /ch <buffer#>, /ch all, or /ch mesh:N", args[0]))
 	return CmdAction{}
 }
 
 func (h *CommandHandler) cmdWindows() {
 	convs := h.store.GetConversations()
 	if len(convs) == 0 {
-		h.scroll.AddInfo("  No open buffers")
+		h.addInfo("  No open buffers")
 		return
 	}
-	h.scroll.AddInfo("  Open buffers:")
+	h.addInfo("  Open buffers:")
 	active := h.store.ActiveConvID
 	for i, c := range convs {
 		marker := "  "
@@ -176,17 +204,17 @@ func (h *CommandHandler) cmdWindows() {
 		if c.Unread > 0 {
 			unread = fmt.Sprintf(" (%d unread)", c.Unread)
 		}
-		h.scroll.AddInfo(fmt.Sprintf("  %s%d: %s%s", marker, i+1, c.Label, unread))
+		h.addInfo(fmt.Sprintf("  %s%d: %s%s", marker, i+1, c.Label, unread))
 	}
 }
 
 func (h *CommandHandler) cmdClose() CmdAction {
 	active := h.store.ActiveConvID
 	if active == "broadcast" {
-		h.scroll.AddError("Can't close broadcast buffer")
+		h.addError("Can't close broadcast buffer")
 		return CmdAction{}
 	}
-	h.scroll.AddSystem(fmt.Sprintf("Closed buffer: %s", active))
+	h.addSystem(fmt.Sprintf("Closed buffer: %s", active))
 	return CmdAction{SwitchBuffer: "broadcast"}
 }
 
@@ -196,9 +224,9 @@ func (h *CommandHandler) cmdNodes() {
 	routes := h.store.Routes
 	h.store.mu.RUnlock()
 
-	h.scroll.AddInfo(fmt.Sprintf("  Neighbors (%d):", len(neighbors)))
+	h.addInfo(fmt.Sprintf("  Neighbors (%d):", len(neighbors)))
 	if len(neighbors) == 0 {
-		h.scroll.AddInfo("    (none)")
+		h.addInfo("    (none)")
 	}
 	for _, n := range neighbors {
 		name := n.Address
@@ -206,16 +234,16 @@ func (h *CommandHandler) cmdNodes() {
 			name = h.resolver.Resolve(n.Address)
 		}
 		ago := fmtDurationShort(time.Duration(n.LastSeenAgoMs) * time.Millisecond)
-		h.scroll.AddInfo(fmt.Sprintf("    %-12s  %-12s  %4ddBm  SNR %.1f  %s",
+		h.addInfo(fmt.Sprintf("    %-12s  %-12s  %4ddBm  SNR %.1f  %s",
 			n.Address, name, n.RSSI, n.SNR, ago))
 	}
 
-	h.scroll.AddInfo(fmt.Sprintf("  Routes (%d):", len(routes)))
+	h.addInfo(fmt.Sprintf("  Routes (%d):", len(routes)))
 	if len(routes) == 0 {
-		h.scroll.AddInfo("    (none)")
+		h.addInfo("    (none)")
 	}
 	for _, r := range routes {
-		h.scroll.AddInfo(fmt.Sprintf("    %-12s  via %-12s  %d hops  metric %d  %s",
+		h.addInfo(fmt.Sprintf("    %-12s  via %-12s  %d hops  metric %d  %s",
 			r.Dest, r.NextHop, r.HopCount, r.Metric, r.State))
 	}
 }
@@ -227,25 +255,25 @@ func (h *CommandHandler) cmdStats() {
 	h.store.mu.RUnlock()
 
 	if status == nil {
-		h.scroll.AddError("No status data available yet")
+		h.addError("No status data available yet")
 		return
 	}
 
-	h.scroll.AddInfo("  Node Status:")
-	h.scroll.AddInfo(fmt.Sprintf("    Uptime: %s", fmtDurationShort(time.Duration(status.UptimeSec)*time.Second)))
-	h.scroll.AddInfo(fmt.Sprintf("    Messages: TX %d  RX %d",
+	h.addInfo("  Node Status:")
+	h.addInfo(fmt.Sprintf("    Uptime: %s", fmtDurationShort(time.Duration(status.UptimeSec)*time.Second)))
+	h.addInfo(fmt.Sprintf("    Messages: TX %d  RX %d",
 		status.PacketsTx, status.PacketsRx))
-	h.scroll.AddInfo(fmt.Sprintf("    Beacons:  TX %d  RX %d",
+	h.addInfo(fmt.Sprintf("    Beacons:  TX %d  RX %d",
 		status.BeaconTx, status.BeaconRx))
 
 	if airtime != nil && len(airtime.Tiers) > 0 {
-		h.scroll.AddInfo("  Airtime:")
+		h.addInfo("  Airtime:")
 		for _, t := range airtime.Tiers {
 			pct := 0
 			if t.MaxMs > 0 {
 				pct = t.RemainingMs * 100 / t.MaxMs
 			}
-			h.scroll.AddInfo(fmt.Sprintf("    %-12s  %d%% remaining", t.Name, pct))
+			h.addInfo(fmt.Sprintf("    %-12s  %d%% remaining", t.Name, pct))
 		}
 	}
 }
@@ -260,28 +288,28 @@ func (h *CommandHandler) cmdConfig(args []string) {
 	defer cancel()
 	cfg, err := h.client.Config(ctx)
 	if err != nil {
-		h.scroll.AddError(fmt.Sprintf("Config fetch error: %v", err))
+		h.addError(fmt.Sprintf("Config fetch error: %v", err))
 		return
 	}
 
-	h.scroll.AddInfo("  Identity:")
-	h.scroll.AddInfo(fmt.Sprintf("    Address:    %s", cfg.Address))
-	h.scroll.AddInfo(fmt.Sprintf("    Name:       %s", cfg.NodeName))
+	h.addInfo("  Identity:")
+	h.addInfo(fmt.Sprintf("    Address:    %s", cfg.Address))
+	h.addInfo(fmt.Sprintf("    Name:       %s", cfg.NodeName))
 
-	h.scroll.AddInfo("  Radio:")
-	h.scroll.AddInfo(fmt.Sprintf("    Frequency:  %d MHz", cfg.Radio.FrequencyMhz))
-	h.scroll.AddInfo(fmt.Sprintf("    SF:         %d", cfg.Radio.SF))
-	h.scroll.AddInfo(fmt.Sprintf("    Bandwidth:  %d Hz", cfg.Radio.BwHz))
-	h.scroll.AddInfo(fmt.Sprintf("    TX Power:   %d dBm", cfg.Radio.TxPowerDbm))
+	h.addInfo("  Radio:")
+	h.addInfo(fmt.Sprintf("    Frequency:  %d MHz", cfg.Radio.FrequencyMhz))
+	h.addInfo(fmt.Sprintf("    SF:         %d", cfg.Radio.SF))
+	h.addInfo(fmt.Sprintf("    Bandwidth:  %d Hz", cfg.Radio.BwHz))
+	h.addInfo(fmt.Sprintf("    TX Power:   %d dBm", cfg.Radio.TxPowerDbm))
 
 	if len(cfg.Channels) > 0 {
-		h.scroll.AddInfo("  Channels:")
+		h.addInfo("  Channels:")
 		for i, ch := range cfg.Channels {
 			def := ""
 			if ch.IsDefault {
 				def = " ★"
 			}
-			h.scroll.AddInfo(fmt.Sprintf("    [%d] %s%s", i, ch.Name, def))
+			h.addInfo(fmt.Sprintf("    [%d] %s%s", i, ch.Name, def))
 		}
 	}
 }
@@ -293,17 +321,17 @@ func (h *CommandHandler) cmdConfigSet(key, value string) {
 	switch strings.ToLower(key) {
 	case "name":
 		if len(value) > 8 {
-			h.scroll.AddError("Name max 8 characters")
+			h.addError("Name max 8 characters")
 			return
 		}
 		err := h.client.SetNodeName(ctx, value)
 		if err != nil {
-			h.scroll.AddError(fmt.Sprintf("Error: %v", err))
+			h.addError(fmt.Sprintf("Error: %v", err))
 		} else {
-			h.scroll.AddSystem(fmt.Sprintf("Node name set to %q", value))
+			h.addSystem(fmt.Sprintf("Node name set to %q", value))
 		}
 	default:
-		h.scroll.AddError(fmt.Sprintf("Unknown config key: %s (settable: name)", key))
+		h.addError(fmt.Sprintf("Unknown config key: %s (settable: name)", key))
 	}
 }
 
@@ -314,17 +342,17 @@ func (h *CommandHandler) cmdLocation() {
 	h.store.mu.RUnlock()
 
 	if gps != nil && gps.Valid {
-		h.scroll.AddInfo(fmt.Sprintf("  My GPS: %.6f, %.6f  Alt %dm  Sats %d",
+		h.addInfo(fmt.Sprintf("  My GPS: %.6f, %.6f  Alt %dm  Sats %d",
 			gps.Lat, gps.Lon, gps.AltM, gps.Sats))
 	} else {
-		h.scroll.AddInfo("  My GPS: no fix")
+		h.addInfo("  My GPS: no fix")
 	}
 
 	if len(peers) == 0 {
-		h.scroll.AddInfo("  No peer locations")
+		h.addInfo("  No peer locations")
 		return
 	}
-	h.scroll.AddInfo(fmt.Sprintf("  Peer Locations (%d):", len(peers)))
+	h.addInfo(fmt.Sprintf("  Peer Locations (%d):", len(peers)))
 	for _, p := range peers {
 		name := p.Addr
 		if h.resolver != nil {
@@ -334,13 +362,13 @@ func (h *CommandHandler) cmdLocation() {
 		if p.Position != nil {
 			pos = fmt.Sprintf("%.6f, %.6f", p.Position.Lat, p.Position.Lon)
 		}
-		h.scroll.AddInfo(fmt.Sprintf("    %-12s  %s", name, pos))
+		h.addInfo(fmt.Sprintf("    %-12s  %s", name, pos))
 	}
 }
 
 func (h *CommandHandler) cmdAlias(args []string) {
 	if len(args) < 2 {
-		h.scroll.AddError("Usage: /alias <address> <name>")
+		h.addError("Usage: /alias <address> <name>")
 		return
 	}
 	addr := args[0]
@@ -348,36 +376,36 @@ func (h *CommandHandler) cmdAlias(args []string) {
 	if h.resolver != nil {
 		err := h.resolver.SetAlias(addr, name)
 		if err != nil {
-			h.scroll.AddError(fmt.Sprintf("Error: %v", err))
+			h.addError(fmt.Sprintf("Error: %v", err))
 			return
 		}
 	}
-	h.scroll.AddSystem(fmt.Sprintf("Alias set: %s → %s", addr, name))
+	h.addSystem(fmt.Sprintf("Alias set: %s → %s", addr, name))
 }
 
 func (h *CommandHandler) cmdNick(args []string) {
 	if len(args) < 1 {
-		h.scroll.AddError("Usage: /nick <name> (max 8 chars)")
+		h.addError("Usage: /nick <name> (max 8 chars)")
 		return
 	}
 	name := strings.Join(args, " ")
 	if len(name) > 8 {
-		h.scroll.AddError("Nick max 8 characters")
+		h.addError("Nick max 8 characters")
 		return
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 	err := h.client.SetNodeName(ctx, name)
 	if err != nil {
-		h.scroll.AddError(fmt.Sprintf("Nick error: %v", err))
+		h.addError(fmt.Sprintf("Nick error: %v", err))
 		return
 	}
-	h.scroll.AddSystem(fmt.Sprintf("Nick changed to %q", name))
+	h.addSystem(fmt.Sprintf("Nick changed to %q", name))
 }
 
 func (h *CommandHandler) cmdMe(args []string) CmdAction {
 	if len(args) < 1 {
-		h.scroll.AddError("Usage: /me <action> (e.g. /me waves hello)")
+		h.addError("Usage: /me <action> (e.g. /me waves hello)")
 		return CmdAction{}
 	}
 	text := strings.Join(args, " ")
@@ -391,10 +419,10 @@ func (h *CommandHandler) cmdProbe() {
 	defer cancel()
 	_, err := h.client.SendProbe(ctx)
 	if err != nil {
-		h.scroll.AddError(fmt.Sprintf("Probe error: %v", err))
+		h.addError(fmt.Sprintf("Probe error: %v", err))
 		return
 	}
-	h.scroll.AddSystem("Network probe sent — results will appear as they arrive")
+	h.addSystem("Network probe sent — results will appear as they arrive")
 }
 
 func (h *CommandHandler) cmdPing() {
@@ -403,10 +431,10 @@ func (h *CommandHandler) cmdPing() {
 	start := time.Now()
 	err := h.client.Ping(ctx)
 	if err != nil {
-		h.scroll.AddError(fmt.Sprintf("Ping failed: %v", err))
+		h.addError(fmt.Sprintf("Ping failed: %v", err))
 		return
 	}
-	h.scroll.AddInfo(fmt.Sprintf("  Pong: %dms", time.Since(start).Milliseconds()))
+	h.addInfo(fmt.Sprintf("  Pong: %dms", time.Since(start).Milliseconds()))
 }
 
 // DoReboot performs the actual reboot (called by root model after confirmation).
@@ -414,39 +442,39 @@ func (h *CommandHandler) DoReboot() {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 	if err := h.client.Reboot(ctx); err != nil {
-		h.scroll.AddError(fmt.Sprintf("Reboot error: %v", err))
+		h.addError(fmt.Sprintf("Reboot error: %v", err))
 	} else {
-		h.scroll.AddSystem("Rebooting node...")
+		h.addSystem("Rebooting node...")
 	}
 }
 
 func (h *CommandHandler) cmdHelp() {
-	h.scroll.AddInfo("  Commands:")
-	h.scroll.AddInfo("    /b, /broadcast        Switch to broadcast")
-	h.scroll.AddInfo("    /dm <addr|name>       Open/switch to DM")
-	h.scroll.AddInfo("    /ch <sel>             Switch buffer (/ch 2, /ch all, /ch mesh:1)")
-	h.scroll.AddInfo("    /w, /windows          List open buffers")
-	h.scroll.AddInfo("    /close                Close current buffer")
-	h.scroll.AddInfo("    /nodes                Show neighbors & routes")
-	h.scroll.AddInfo("    /stats                Show node statistics")
-	h.scroll.AddInfo("    /config               Show configuration")
-	h.scroll.AddInfo("    /config set <k> <v>   Set config value")
-	h.scroll.AddInfo("    /location             Show GPS & peer locations")
-	h.scroll.AddInfo("    /alias <addr> <name>  Set peer alias")
-	h.scroll.AddInfo("    /nick <name>          Change node name (max 8)")
-	h.scroll.AddInfo("    /me <action>          Send action (* Nick does something)")
-	h.scroll.AddInfo("    /probe                Send network probe")
-	h.scroll.AddInfo("    /ping                 Ping node")
-	h.scroll.AddInfo("    /reboot               Reboot node")
-	h.scroll.AddInfo("    /clear                Clear scrollback")
-	h.scroll.AddInfo("    /help                 This help")
-	h.scroll.AddInfo("    /quit                 Exit")
-	h.scroll.AddInfo("")
-	h.scroll.AddInfo("  Navigation:")
-	h.scroll.AddInfo("    Alt+1-9               Switch buffer by number")
-	h.scroll.AddInfo("    Ctrl+N / Ctrl+P       Next / prev buffer")
-	h.scroll.AddInfo("    PgUp / PgDn           Scroll history")
-	h.scroll.AddInfo("    Home / End            Top / bottom of history")
+	h.addInfo("  Commands:")
+	h.addInfo("    /b, /broadcast        Switch to broadcast")
+	h.addInfo("    /dm <addr|name>       Open/switch to DM")
+	h.addInfo("    /ch <sel>             Switch buffer (/ch 2, /ch all, /ch mesh:1)")
+	h.addInfo("    /w, /windows          List open buffers")
+	h.addInfo("    /close                Close current buffer")
+	h.addInfo("    /nodes                Show neighbors & routes")
+	h.addInfo("    /stats                Show node statistics")
+	h.addInfo("    /config               Show configuration")
+	h.addInfo("    /config set <k> <v>   Set config value")
+	h.addInfo("    /location             Show GPS & peer locations")
+	h.addInfo("    /alias <addr> <name>  Set peer alias")
+	h.addInfo("    /nick <name>          Change node name (max 8)")
+	h.addInfo("    /me <action>          Send action (* Nick does something)")
+	h.addInfo("    /probe                Send network probe")
+	h.addInfo("    /ping                 Ping node")
+	h.addInfo("    /reboot               Reboot node")
+	h.addInfo("    /clear                Clear scrollback")
+	h.addInfo("    /help                 This help")
+	h.addInfo("    /quit                 Exit")
+	h.addInfo("")
+	h.addInfo("  Navigation:")
+	h.addInfo("    Alt+1-9               Switch buffer by number")
+	h.addInfo("    Ctrl+N / Ctrl+P       Next / prev buffer")
+	h.addInfo("    PgUp / PgDn           Scroll history")
+	h.addInfo("    Home / End            Top / bottom of history")
 }
 
 // resolveTarget resolves a name or hex address to a canonical address string.

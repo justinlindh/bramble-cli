@@ -214,6 +214,15 @@ func (s *Scrollback) AddDeliveryGrouped(groupKey, text string) {
 	}
 }
 
+// AddStoredLine appends a pre-rendered line preserving original timestamp/kind.
+func (s *Scrollback) AddStoredLine(line ScrollLine) {
+	s.lines = append(s.lines, line)
+	s.rebuildContent()
+	if s.autoscroll {
+		s.viewport.GotoBottom()
+	}
+}
+
 // Clear removes all lines.
 func (s *Scrollback) Clear() {
 	s.lines = nil
@@ -252,4 +261,12 @@ func (s *Scrollback) LineCount() int {
 // IsScrolled returns true if the user has scrolled up (autoscroll is off).
 func (s *Scrollback) IsScrolled() bool {
 	return !s.autoscroll
+}
+
+// AddChatAt adds a formatted chat message line with explicit timestamp metadata.
+func (s *Scrollback) AddChatAt(ts time.Time, sender, addr, text, badge string, outgoing bool) {
+	s.AddChat(sender, addr, text, badge, outgoing)
+	if len(s.lines) > 0 {
+		s.lines[len(s.lines)-1].Timestamp = ts
+	}
 }
