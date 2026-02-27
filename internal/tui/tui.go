@@ -9,8 +9,8 @@ import (
 
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
-	bramble "github.com/justinlindh/bramble-go"
 	"github.com/justinlindh/bramble-cli/internal/tui/tabs"
+	bramble "github.com/justinlindh/bramble-go"
 )
 
 // NodeInfo holds the fetched node identity/status for display.
@@ -92,9 +92,9 @@ type Model struct {
 	bridge    *Bridge
 	store     *Store
 
-	scroll    *Scrollback
-	statusBar StatusBar
-	input     InputLine
+	scroll     *Scrollback
+	statusBar  StatusBar
+	input      InputLine
 	cmdHandler *CommandHandler
 
 	width  int
@@ -168,6 +168,25 @@ func ClassifyMessageConvID(msg bramble.Message, selfAddr string) string {
 	return fmt.Sprintf("dm:%s", msg.From)
 }
 
+func (m *Model) selfDisplayName() string {
+	if m.node.Name != "" {
+		return fmt.Sprintf("%s(%s)", m.node.Name, shortHash(m.node.Address))
+	}
+	if m.store != nil && m.store.Resolver != nil {
+		if named := m.store.Resolver.ResolveWithHash(m.node.Address); named != "" && named != m.node.Address {
+			return named
+		}
+	}
+	return m.node.Address
+}
+
+func (m *Model) peerDisplayName(addr string) string {
+	if m.store != nil && m.store.Resolver != nil {
+		return m.store.Resolver.ResolveWithHash(addr)
+	}
+	return addr
+}
+
 // PreloadFromDB loads recent messages from the database into the scrollback.
 func (m *Model) PreloadFromDB(db *MsgDB) {
 	recent, err := db.LoadRecent(200)
@@ -181,12 +200,12 @@ func (m *Model) PreloadFromDB(db *MsgDB) {
 		if convID == m.activeConv {
 			outgoing := sm.Direction == "out"
 			addr := msg.From
-			sender := addr
-			if m.store.Resolver != nil && !outgoing {
-				sender = m.store.Resolver.Resolve(addr)
+			if outgoing && addr == "" {
+				addr = m.node.Address
 			}
+			sender := m.peerDisplayName(addr)
 			if outgoing {
-				sender = "me"
+				sender = m.selfDisplayName()
 				addr = m.node.Address
 			}
 			badge := ""
@@ -209,18 +228,24 @@ func (m *Model) SetProgram(p *tea.Program) {
 func (m *Model) switchBuffer(convID string) {
 	m.activeConv = convID
 	m.store.SetActiveConv(convID)
-	label := convID
-	if convID == "broadcast" {
-		label = "broadcast"
-	} else if strings.HasPrefix(convID, "dm:") {
-		addr := convID[3:]
-		if m.store.Resolver != nil {
-			label = "dm:" + m.store.Resolver.Resolve(addr)
-		}
-	}
+	label := m.convDisplayLabel(convID)
 	m.input.SetPrompt("[" + label + "]")
 	m.reloadScrollback()
 	m.scroll.AddSystem(fmt.Sprintf("Switched to %s", label))
+}
+
+func (m *Model) convDisplayLabel(convID string) string {
+	switch {
+	case convID == "broadcast":
+		return "all (broadcast)"
+	case strings.HasPrefix(convID, "dm:"):
+		addr := convID[3:]
+		return "@" + m.peerDisplayName(addr)
+	case strings.HasPrefix(convID, "ch:"):
+		return "mesh#" + strings.TrimPrefix(convID, "ch:")
+	default:
+		return convID
+	}
 }
 
 func (m *Model) reloadScrollback() {
@@ -234,12 +259,12 @@ func (m *Model) reloadScrollback() {
 	for _, msg := range conv.Messages {
 		outgoing := msg.From == m.node.Address || msg.From == ""
 		addr := msg.From
-		sender := addr
-		if m.store.Resolver != nil && !outgoing {
-			sender = m.store.Resolver.Resolve(addr)
+		if outgoing && addr == "" {
+			addr = m.node.Address
 		}
+		sender := m.peerDisplayName(addr)
 		if outgoing {
-			sender = "me"
+			sender = m.selfDisplayName()
 			addr = m.node.Address
 		}
 		badge := ""
@@ -387,9 +412,14 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case sendResultMsg:
 		if msg.err != nil {
-			m.scroll.AddError(fmt.Sprintf("Send failed: %v", msg.err))
+			errText := msg.err.Error()
+			if strings.HasPrefix(msg.convID, "ch:") && strings.Contains(strings.ToLower(errText), "invalid params") {
+				m.scroll.AddError(fmt.Sprintf("Send failed on mesh channel %s: invalid channel or params. Try /config to list channels, or /b for broadcast.", strings.TrimPrefix(msg.convID, "ch:")))
+			} else {
+				m.scroll.AddError(fmt.Sprintf("Send failed: %v", msg.err))
+			}
 		} else {
-			m.scroll.AddChat("me", m.node.Address, msg.text, "*", true)
+			m.scroll.AddChat(m.selfDisplayName(), m.node.Address, msg.text, "*", true)
 			raw := bramble.Message{
 				From:      m.node.Address,
 				To:        convIDToAddr(m.activeConv),
@@ -504,10 +534,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		if convID == m.activeConv {
 			addr := msg.Msg.From
-			sender := addr
-			if m.store.Resolver != nil {
-				sender = m.store.Resolver.Resolve(addr)
-			}
+			sender := m.peerDisplayName(addr)
 			m.scroll.AddChat(sender, addr, msg.Msg.Text, "", false)
 		}
 		m.updateStatusBar()
@@ -785,6 +812,9 @@ func (m Model) doReconnect() tea.Cmd {
 		defer idCancel()
 		if identity, err := client.Identity(idCtx); err == nil {
 			node.Address = identity.Address
+		}
+		if cfg, err := client.Config(idCtx); err == nil {
+			node.Name = strings.TrimSpace(cfg.NodeName)
 		}
 		node.Connected = true
 		return reconnectResult{client: client, node: node}

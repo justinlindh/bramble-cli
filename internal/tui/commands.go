@@ -110,8 +110,6 @@ func (h *CommandHandler) Execute(cmd *Command) CmdAction {
 	return CmdAction{}
 }
 
-
-
 func (h *CommandHandler) cmdDM(args []string) CmdAction {
 	if len(args) < 1 {
 		h.scroll.AddError("Usage: /dm <address-or-name>")
@@ -128,15 +126,37 @@ func (h *CommandHandler) cmdDM(args []string) CmdAction {
 
 func (h *CommandHandler) cmdChannel(args []string) CmdAction {
 	if len(args) < 1 {
-		h.scroll.AddError("Usage: /ch <number>")
+		h.scroll.AddError("Usage: /ch <buffer#|all|mesh:N>")
 		return CmdAction{}
 	}
-	n, err := strconv.Atoi(args[0])
-	if err != nil {
-		h.scroll.AddError(fmt.Sprintf("Invalid channel number: %s", args[0]))
-		return CmdAction{}
+	arg := strings.TrimSpace(strings.ToLower(args[0]))
+	if arg == "all" || arg == "broadcast" || arg == "b" {
+		return CmdAction{SwitchBuffer: "broadcast"}
 	}
-	return CmdAction{SwitchBuffer: fmt.Sprintf("ch:%d", n)}
+
+	// Human-friendly: /ch 2 means second visible buffer in statusline.
+	if n, err := strconv.Atoi(arg); err == nil {
+		convs := h.store.GetConversations()
+		if n < 1 || n > len(convs) {
+			h.scroll.AddError(fmt.Sprintf("Buffer %d not found. Use /w to list buffers.", n))
+			return CmdAction{}
+		}
+		return CmdAction{SwitchBuffer: convs[n-1].ID}
+	}
+
+	// Explicit mesh channel selector: /ch mesh:1 or /ch ch:1
+	if strings.HasPrefix(arg, "mesh:") || strings.HasPrefix(arg, "ch:") {
+		idxStr := strings.TrimPrefix(strings.TrimPrefix(arg, "mesh:"), "ch:")
+		n, err := strconv.Atoi(idxStr)
+		if err != nil {
+			h.scroll.AddError(fmt.Sprintf("Invalid mesh channel: %s", args[0]))
+			return CmdAction{}
+		}
+		return CmdAction{SwitchBuffer: fmt.Sprintf("ch:%d", n)}
+	}
+
+	h.scroll.AddError(fmt.Sprintf("Unknown channel selector %q. Use /w, /ch <buffer#>, /ch all, or /ch mesh:N", args[0]))
+	return CmdAction{}
 }
 
 func (h *CommandHandler) cmdWindows() {
@@ -404,7 +424,7 @@ func (h *CommandHandler) cmdHelp() {
 	h.scroll.AddInfo("  Commands:")
 	h.scroll.AddInfo("    /b, /broadcast        Switch to broadcast")
 	h.scroll.AddInfo("    /dm <addr|name>       Open/switch to DM")
-	h.scroll.AddInfo("    /ch <number>          Switch to channel")
+	h.scroll.AddInfo("    /ch <sel>             Switch buffer (/ch 2, /ch all, /ch mesh:1)")
 	h.scroll.AddInfo("    /w, /windows          List open buffers")
 	h.scroll.AddInfo("    /close                Close current buffer")
 	h.scroll.AddInfo("    /nodes                Show neighbors & routes")

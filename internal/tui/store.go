@@ -43,7 +43,7 @@ func NewStore() *Store {
 	s := &Store{
 		Conversations: make(map[string]*Conversation),
 	}
-	s.addConvLocked("broadcast", "Broadcast")
+	s.addConvLocked("broadcast", "all")
 	s.ActiveConvID = "broadcast"
 	return s
 }
@@ -218,6 +218,14 @@ func (s *Store) GetConversations() []*Conversation {
 	for _, id := range s.ConvOrder {
 		if c, ok := s.Conversations[id]; ok {
 			cp := *c
+			if len(id) > 3 && id[:3] == "dm:" {
+				peer := id[3:]
+				if s.Resolver != nil {
+					cp.Label = "@" + s.Resolver.ResolveWithHash(peer)
+				} else {
+					cp.Label = "@" + peer
+				}
+			}
 			msgs := make([]bramble.Message, len(c.Messages))
 			copy(msgs, c.Messages)
 			cp.Messages = msgs
@@ -260,11 +268,15 @@ func (s *Store) convIDForMessage(msg bramble.Message) string {
 func (s *Store) convLabelForMessage(convID string) string {
 	switch {
 	case convID == "broadcast":
-		return "Broadcast"
+		return "all"
 	case len(convID) > 3 && convID[:3] == "ch:":
-		return convID
+		return "mesh#" + convID[3:]
 	default:
-		// DM: use peer address as label for now; future phases can enrich
-		return convID[3:]
+		// DM label: prefer resolved peer name.
+		peer := convID[3:]
+		if s.Resolver != nil {
+			return "@" + s.Resolver.ResolveWithHash(peer)
+		}
+		return "@" + peer
 	}
 }

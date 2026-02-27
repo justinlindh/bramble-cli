@@ -107,13 +107,13 @@ func (sb StatusBar) View() string {
 		parts = append(parts, sb.style.ConnFail.Render("○"))
 	}
 
-	// Buffer indicators: [1:broadcast] [2:DM*(3)]
+	// Buffer indicators: [1:all] [2:@lily(3079) +3]
 	for i, buf := range sb.buffers {
 		label := fmt.Sprintf("%d:%s", i+1, buf.Label)
 		if buf.Active {
 			parts = append(parts, sb.style.Active.Render("["+label+"]"))
 		} else if buf.Unread > 0 {
-			parts = append(parts, sb.style.Unread.Render(fmt.Sprintf("[%s(%d)]", label, buf.Unread)))
+			parts = append(parts, sb.style.Unread.Render(fmt.Sprintf("[%s +%d]", label, buf.Unread)))
 		} else {
 			parts = append(parts, sb.style.Inactive.Render("["+label+"]"))
 		}

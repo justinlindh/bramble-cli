@@ -108,24 +108,17 @@ func (s *Scrollback) AddLine(kind LineKind, text string) {
 // AddChat adds a formatted chat message line.
 // AddChat adds a formatted chat message line.
 // sender is the resolved name, addr is the raw hex address (for short suffix).
-func (s *Scrollback) AddChat(sender, addr, text, badge string, outgoing bool) {
+func (s *Scrollback) AddChat(sender, _ string, text, badge string, outgoing bool) {
 	ts := s.theme.Timestamp.Render(fmt.Sprintf("[%s]", time.Now().Format("15:04")))
 
 	// Check for CTCP ACTION: \x01ACTION text\x01
 	if actionText, ok := parseAction(text); ok {
-		s.addActionLine(ts, sender, addr, actionText, outgoing)
+		s.addActionLine(ts, sender, actionText, outgoing)
 		return
 	}
 
-	// Build IRC-style nick tag: <Nick[8FE3]> or <me>
+	// Build IRC-style nick tag from pre-resolved sender label.
 	nick := sender
-	if !outgoing && addr != "" && addr != sender {
-		short := addr
-		if len(short) > 4 {
-			short = short[len(short)-4:]
-		}
-		nick = fmt.Sprintf("%s[%s]", sender, short)
-	}
 
 	var line string
 	if outgoing {
@@ -155,15 +148,8 @@ func parseAction(text string) (string, bool) {
 }
 
 // addActionLine renders an IRC /me action: * Nick does something
-func (s *Scrollback) addActionLine(ts, sender, addr, actionText string, outgoing bool) {
+func (s *Scrollback) addActionLine(ts, sender, actionText string, outgoing bool) {
 	nick := sender
-	if !outgoing && addr != "" && addr != sender {
-		short := addr
-		if len(short) > 4 {
-			short = short[len(short)-4:]
-		}
-		nick = fmt.Sprintf("%s[%s]", sender, short)
-	}
 
 	// Render as: [12:42] * Nick does something
 	star := s.theme.Action.Render("*")

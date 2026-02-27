@@ -3,6 +3,7 @@ package commands
 import (
 	"context"
 	"fmt"
+	"strings"
 	"time"
 
 	tea "charm.land/bubbletea/v2"
@@ -90,6 +91,9 @@ func runTUI(cmd *cobra.Command, args []string) error {
 		if msgdb != nil {
 			msgdb.SetNodeAddr(identity.Address)
 		}
+	}
+	if cfg, err := client.Config(fetchCtx); err == nil {
+		node.Name = strings.TrimSpace(cfg.NodeName)
 	}
 
 	// Pre-populate store from DB before connecting live notifications.
