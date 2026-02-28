@@ -95,6 +95,38 @@ func TestCommandHandlerHelpIncludesCritical(t *testing.T) {
 	}
 }
 
+func TestCommandHandlerSlapReturnsActionMessage(t *testing.T) {
+	store := NewStore()
+	sb := NewScrollback()
+	h := NewCommandHandler(nil, store, &sb, testResolver{})
+
+	action := h.Execute(&Command{Name: "slap", Args: []string{"NodeName"}})
+
+	if action.SendText != "\x01ACTION slaps NodeName around a bit with a large trout\x01" {
+		t.Fatalf("expected slap action payload, got %q", action.SendText)
+	}
+}
+
+func TestCommandHandlerHelpIncludesSlap(t *testing.T) {
+	store := NewStore()
+	sb := NewScrollback()
+	h := NewCommandHandler(nil, store, &sb, testResolver{})
+
+	h.Execute(&Command{Name: "help"})
+
+	conv := store.GetActiveConversation()
+	found := false
+	for _, line := range conv.Events {
+		if strings.Contains(line.Text, "/slap <target>") {
+			found = true
+			break
+		}
+	}
+	if !found {
+		t.Fatalf("expected /help output to include /slap usage")
+	}
+}
+
 func TestCommandHandlerLocationIncludesOpenStreetMapLinks(t *testing.T) {
 	store := NewStore()
 	sb := NewScrollback()

@@ -126,6 +126,8 @@ func (h *CommandHandler) Execute(cmd *Command) CmdAction {
 		h.cmdNick(cmd.Args)
 	case "me":
 		return h.cmdMe(cmd.Args)
+	case "slap":
+		return h.cmdSlap(cmd.Args)
 	case "probe":
 		h.cmdProbe()
 	case "ping":
@@ -454,9 +456,20 @@ func (h *CommandHandler) cmdMe(args []string) CmdAction {
 		h.addError("Usage: /me <action> (e.g. /me waves hello)")
 		return CmdAction{}
 	}
-	text := strings.Join(args, " ")
-	// Wrap in CTCP ACTION format: \x01ACTION text\x01
-	actionText := "\x01ACTION " + text + "\x01"
+	return h.actionCmd(strings.Join(args, " "))
+}
+
+func (h *CommandHandler) cmdSlap(args []string) CmdAction {
+	if len(args) < 1 {
+		h.addError("Usage: /slap <target>")
+		return CmdAction{}
+	}
+	return h.actionCmd(fmt.Sprintf("slaps %s around a bit with a large trout", strings.Join(args, " ")))
+}
+
+func (h *CommandHandler) actionCmd(text string) CmdAction {
+	// Wrap in CTCP ACTION format: ACTION text
+	actionText := "ACTION " + text + ""
 	return CmdAction{SendText: actionText}
 }
 
@@ -511,6 +524,7 @@ func (h *CommandHandler) cmdHelp() {
 	h.addInfo("    /alias <addr> <name>  Set peer alias")
 	h.addInfo("    /nick <name>          Change node name (max 8)")
 	h.addInfo("    /me <action>          Send action (* Nick does something)")
+	h.addInfo("    /slap <target>        mIRC trout slap action")
 	h.addInfo("    /probe                Send network probe")
 	h.addInfo("    /ping                 Ping node")
 	h.addInfo("    /reboot               Reboot node")
