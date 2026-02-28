@@ -53,6 +53,10 @@ func StoredMessageFromBramble(msg bramble.Message, nodeAddr, convID, direction s
 	if id == "" {
 		id = fmt.Sprintf("local-%d-%s", time.Now().UnixNano(), msg.From)
 	}
+	ts := msg.Timestamp
+	if ts <= 0 {
+		ts = time.Now().Unix()
+	}
 	return StoredMessage{
 		ID:        id,
 		NodeAddr:  nodeAddr,
@@ -60,7 +64,7 @@ func StoredMessageFromBramble(msg bramble.Message, nodeAddr, convID, direction s
 		Direction: direction,
 		Sender:    msg.From,
 		Text:      msg.Text,
-		Timestamp: msg.Timestamp,
+		Timestamp: ts,
 		Status:    "sent",
 		CreatedAt: time.Now().Unix(),
 	}

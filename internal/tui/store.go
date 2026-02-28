@@ -3,6 +3,7 @@ package tui
 
 import (
 	"fmt"
+	"time"
 	"sync"
 
 	bramble "github.com/justinlindh/bramble-go"
@@ -140,6 +141,12 @@ func (s *Store) UpdatePeerLocations(peers []bramble.LocationPeer) {
 func (s *Store) AddMessage(msg bramble.Message) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+
+	// Normalize zero timestamps to current time so in-memory messages
+	// retain a real receive time for scrollback reloads.
+	if msg.Timestamp <= 0 {
+		msg.Timestamp = time.Now().Unix()
+	}
 
 	convID := s.convIDForMessage(msg)
 	label := s.convLabelForMessage(convID)
