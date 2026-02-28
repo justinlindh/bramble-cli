@@ -477,7 +477,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					if action.SendTo != "" {
 						return m, m.sendDirectMessage(action.SendTo, action.SendText)
 					}
-					return m, m.sendMessage(action.SendText)
+					return m, m.sendMessage(action.SendText, action.SendCritical)
 				}
 				if action.Reboot {
 					m.addSystem(m.activeConv, "Reboot node? Type /reboot-confirm to proceed")
@@ -485,7 +485,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				}
 			}
 		} else if strings.TrimSpace(msg.Text) != "" {
-			return m, m.sendMessage(msg.Text)
+			return m, m.sendMessage(msg.Text, false)
 		}
 
 	case sendResultMsg:
@@ -749,7 +749,7 @@ func (m *Model) scheduleReconnect() tea.Cmd {
 
 // ── Send ───────────────────────────────────────────────────────────────────────
 
-func (m Model) sendMessage(text string) tea.Cmd {
+func (m Model) sendMessage(text string, critical bool) tea.Cmd {
 	client := m.client
 	convID := m.activeConv
 	return func() tea.Msg {
@@ -762,7 +762,11 @@ func (m Model) sendMessage(text string) tea.Cmd {
 		switch {
 		case convID == "broadcast" || convID == "":
 			var res *bramble.SendResult
-			res, err = client.SendBroadcast(ctx, text)
+			if critical {
+				res, err = client.SendBroadcastCritical(ctx, text)
+			} else {
+				res, err = client.SendBroadcast(ctx, text)
+			}
 			if err == nil {
 				msgID = res.MessageID
 			}
@@ -771,7 +775,11 @@ func (m Model) sendMessage(text string) tea.Cmd {
 			ch := 0
 			fmt.Sscanf(chStr, "%d", &ch)
 			var res *bramble.SendResult
-			res, err = client.BroadcastOnChannel(ctx, ch, text)
+			if critical {
+				res, err = client.BroadcastOnChannelCritical(ctx, ch, text)
+			} else {
+				res, err = client.BroadcastOnChannel(ctx, ch, text)
+			}
 			if err == nil {
 				msgID = res.MessageID
 			}
@@ -783,7 +791,11 @@ func (m Model) sendMessage(text string) tea.Cmd {
 				err = fmt.Errorf("invalid address %q", addrStr)
 			} else {
 				var res *bramble.SendResult
-				res, err = client.Send(ctx, uint32(addr), text)
+				if critical {
+					res, err = client.SendCritical(ctx, uint32(addr), text)
+				} else {
+					res, err = client.Send(ctx, uint32(addr), text)
+				}
 				if err == nil {
 					msgID = res.MessageID
 				}

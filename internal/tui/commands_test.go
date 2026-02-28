@@ -60,6 +60,41 @@ func TestCommandHandlerHelpIncludesMsg(t *testing.T) {
 	}
 }
 
+func TestCommandHandlerCriticalReturnsSendAction(t *testing.T) {
+	store := NewStore()
+	sb := NewScrollback()
+	h := NewCommandHandler(nil, store, &sb, testResolver{})
+
+	action := h.Execute(&Command{Name: "critical", Args: []string{"priority", "message"}})
+
+	if action.SendText != "priority message" {
+		t.Fatalf("expected SendText=%q, got %q", "priority message", action.SendText)
+	}
+	if !action.SendCritical {
+		t.Fatalf("expected SendCritical=true")
+	}
+}
+
+func TestCommandHandlerHelpIncludesCritical(t *testing.T) {
+	store := NewStore()
+	sb := NewScrollback()
+	h := NewCommandHandler(nil, store, &sb, testResolver{})
+
+	h.Execute(&Command{Name: "help"})
+
+	conv := store.GetActiveConversation()
+	found := false
+	for _, line := range conv.Events {
+		if strings.Contains(line.Text, "/critical <text>") {
+			found = true
+			break
+		}
+	}
+	if !found {
+		t.Fatalf("expected /help output to include /critical usage")
+	}
+}
+
 func TestCommandHandlerLocationIncludesOpenStreetMapLinks(t *testing.T) {
 	store := NewStore()
 	sb := NewScrollback()

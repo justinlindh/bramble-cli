@@ -44,6 +44,7 @@ type CmdAction struct {
 	SwitchBuffer string // non-empty = switch to this buffer
 	SendText     string // non-empty = send this text as a message
 	SendTo       string // optional DM target address for direct send (without switching)
+	SendCritical bool   // send as critical-priority message
 	Quit         bool
 	Reboot       bool // request reboot confirmation
 }
@@ -103,6 +104,8 @@ func (h *CommandHandler) Execute(cmd *Command) CmdAction {
 		return h.cmdDM(cmd.Args)
 	case "msg":
 		return h.cmdMsg(cmd.Args)
+	case "critical":
+		return h.cmdCritical(cmd.Args)
 	case "ch":
 		return h.cmdChannel(cmd.Args)
 	case "w", "windows":
@@ -172,6 +175,19 @@ func (h *CommandHandler) cmdMsg(args []string) CmdAction {
 		return CmdAction{}
 	}
 	return CmdAction{SendTo: addr, SendText: text}
+}
+
+func (h *CommandHandler) cmdCritical(args []string) CmdAction {
+	if len(args) < 1 {
+		h.addError("Usage: /critical <text>")
+		return CmdAction{}
+	}
+	text := strings.TrimSpace(strings.Join(args, " "))
+	if text == "" {
+		h.addError("Usage: /critical <text>")
+		return CmdAction{}
+	}
+	return CmdAction{SendText: text, SendCritical: true}
 }
 
 func (h *CommandHandler) cmdChannel(args []string) CmdAction {
@@ -483,6 +499,7 @@ func (h *CommandHandler) cmdHelp() {
 	h.addInfo("    /b, /broadcast        Switch to broadcast")
 	h.addInfo("    /dm <addr|name>       Open/switch to DM")
 	h.addInfo("    /msg <addr|name> <text> Send DM inline (no switch)")
+	h.addInfo("    /critical <text>      Send as critical priority (more retries; emergency airtime tier)")
 	h.addInfo("    /ch <sel>             Switch buffer (/ch 2, /ch all, /ch mesh:1)")
 	h.addInfo("    /w, /windows          List open buffers")
 	h.addInfo("    /close                Close current buffer")
