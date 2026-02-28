@@ -28,6 +28,9 @@ type ScrollLine struct {
 	Kind      LineKind
 	Timestamp time.Time
 	Text      string // pre-rendered ANSI string
+	// NickAddr is the raw hex address of the sender (for click-to-DM).
+	// Empty for non-chat lines.
+	NickAddr string
 }
 
 type Scrollback struct {
@@ -40,6 +43,9 @@ type Scrollback struct {
 
 	deliveryGroups map[string]int
 	deliveryItems  map[string][]string
+
+	// clickMap is rebuilt on each rebuildContent for nick hit testing.
+	clickMap ClickMap
 }
 
 type ScrollTheme struct {
@@ -106,16 +112,15 @@ func (s *Scrollback) AddLine(kind LineKind, text string) {
 }
 
 // AddChat adds a formatted chat message line.
-// AddChat adds a formatted chat message line.
 // sender is the resolved name, addr is the raw hex address (for short suffix).
 func (s *Scrollback) AddChat(sender, addr string, text, badge string, outgoing bool) {
 	s.AddChatAt(time.Now(), sender, addr, text, badge, outgoing)
 }
 
-func (s *Scrollback) addChatWithTimestamp(ts time.Time, sender, _ string, text, badge string, outgoing bool) {
+func (s *Scrollback) addChatWithTimestamp(ts time.Time, sender, addr string, text, badge string, outgoing bool) {
 	tsLabel := s.theme.Timestamp.Render(fmt.Sprintf("[%s]", ts.Format("15:04")))
 
-	// Check for CTCP ACTION: ACTION text
+	// Check for CTCP ACTION: ACTION text
 	if actionText, ok := parseAction(text); ok {
 		s.addActionLine(tsLabel, sender, actionText, outgoing)
 		return
@@ -136,7 +141,7 @@ func (s *Scrollback) addChatWithTimestamp(ts time.Time, sender, _ string, text, 
 	if outgoing {
 		kind = LineChatOut
 	}
-	s.lines = append(s.lines, ScrollLine{Kind: kind, Timestamp: ts, Text: line})
+	s.lines = append(s.lines, ScrollLine{Kind: kind, Timestamp: ts, Text: line, NickAddr: addr})
 	s.rebuildContent()
 	if s.autoscroll {
 		s.viewport.GotoBottom()
@@ -251,14 +256,40 @@ func (s *Scrollback) Update(msg interface{}) {
 }
 
 func (s *Scrollback) rebuildContent() {
+	s.clickMap.Reset()
+
 	var sb strings.Builder
 	for i, line := range s.lines {
 		if i > 0 {
 			sb.WriteString("\n")
 		}
 		sb.WriteString(line.Text)
+
+		// Build click map for chat lines with a known sender address.
+		if line.NickAddr != "" && (line.Kind == LineChat || line.Kind == LineChatOut) {
+			// The format is: [HH:MM] <nick> text
+			// Timestamp "[HH:MM]" has visual width 7, then space = col 8.
+			// The nick tag starts at col 8 with "<" and ends after ">".
+			// We use lipgloss.Width to find the nick tag width from the rendered text.
+			// Simpler: just find the visual position of < and > in the line.
+			text := line.Text
+			// Strip ANSI to find visual positions of < and >
+			plain := stripAnsi(text)
+			ltIdx := strings.Index(plain, "<")
+			gtIdx := strings.Index(plain, ">")
+			if ltIdx >= 0 && gtIdx > ltIdx {
+				s.clickMap.AddNick(i, ltIdx, gtIdx+1, line.NickAddr)
+			}
+		}
 	}
 	s.viewport.SetContent(sb.String())
+}
+
+// HitTestNick returns the address at viewport-relative row/col, or "".
+func (s *Scrollback) HitTestNick(viewRow, col int) string {
+	// Convert viewport row to content row.
+	contentRow := viewRow + s.viewport.YOffset()
+	return s.clickMap.HitTestNick(contentRow, col)
 }
 
 // LineCount returns the number of lines in the scrollback.
@@ -274,4 +305,28 @@ func (s *Scrollback) IsScrolled() bool {
 // AddChatAt adds a formatted chat message line with explicit timestamp metadata.
 func (s *Scrollback) AddChatAt(ts time.Time, sender, addr, text, badge string, outgoing bool) {
 	s.addChatWithTimestamp(ts, sender, addr, text, badge, outgoing)
+}
+
+// stripAnsi removes ANSI escape sequences from a string.
+func stripAnsi(s string) string {
+	var out strings.Builder
+	out.Grow(len(s))
+	i := 0
+	for i < len(s) {
+		if s[i] == '\x1b' && i+1 < len(s) && s[i+1] == '[' {
+			// Skip until we find the terminator (a letter)
+			j := i + 2
+			for j < len(s) && !((s[j] >= 'A' && s[j] <= 'Z') || (s[j] >= 'a' && s[j] <= 'z')) {
+				j++
+			}
+			if j < len(s) {
+				j++ // skip the terminator
+			}
+			i = j
+		} else {
+			out.WriteByte(s[i])
+			i++
+		}
+	}
+	return out.String()
 }

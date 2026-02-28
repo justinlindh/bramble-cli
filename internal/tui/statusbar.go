@@ -16,6 +16,13 @@ type BufferInfo struct {
 	Active bool
 }
 
+// TabHitRegion maps a column range in the status bar to a buffer ID.
+type TabHitRegion struct {
+	StartCol int
+	EndCol   int // exclusive
+	BufferID string
+}
+
 // StatusBar renders the IRC-style status line.
 type StatusBar struct {
 	width     int
@@ -26,6 +33,9 @@ type StatusBar struct {
 	buffers   []BufferInfo
 	scrolled  bool
 	style     StatusBarStyle
+
+	// TabHits stores the column ranges for each tab, rebuilt on each View().
+	TabHits []TabHitRegion
 }
 
 type StatusBarStyle struct {
@@ -95,6 +105,49 @@ func (sb *StatusBar) SetBuffers(bufs []BufferInfo) {
 
 func (sb *StatusBar) SetScrolled(scrolled bool) {
 	sb.scrolled = scrolled
+}
+
+// HitTest returns the buffer ID at column x, or "" if none.
+func (sb *StatusBar) HitTest(x int) string {
+	for _, hit := range sb.TabHits {
+		if x >= hit.StartCol && x < hit.EndCol {
+			return hit.BufferID
+		}
+	}
+	return ""
+}
+
+// rebuildTabHits recomputes tab hit regions based on current buffers.
+// Must be called whenever buffers change (e.g. from updateStatusBar).
+func (sb *StatusBar) rebuildTabHits() {
+	sb.TabHits = sb.TabHits[:0]
+
+	// The status bar layout: connection indicator (1 char "●"/"○"),
+	// then for each buffer a separator space + "[N:label]" or "[N:label +U]".
+	// Connection indicator visual width = 1.
+	col := 1 // after the connection indicator
+	sepW := 1
+
+	for i, buf := range sb.buffers {
+		label := fmt.Sprintf("%d:%s", i+1, buf.Label)
+		var plainLabel string
+		if buf.Active {
+			plainLabel = "[" + label + "]"
+		} else if buf.Unread > 0 {
+			plainLabel = fmt.Sprintf("[%s +%d]", label, buf.Unread)
+		} else {
+			plainLabel = "[" + label + "]"
+		}
+
+		startCol := col + sepW
+		renderedW := len(plainLabel) // plain text width matches visual width (ASCII only)
+		sb.TabHits = append(sb.TabHits, TabHitRegion{
+			StartCol: startCol,
+			EndCol:   startCol + renderedW,
+			BufferID: buf.ID,
+		})
+		col = startCol + renderedW
+	}
 }
 
 func (sb StatusBar) View() string {

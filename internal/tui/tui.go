@@ -373,6 +373,7 @@ func (m *Model) updateStatusBar() {
 		})
 	}
 	m.statusBar.SetBuffers(bufs)
+	m.statusBar.rebuildTabHits()
 }
 
 func (m *Model) cycleBuffer(delta int) {
@@ -428,6 +429,32 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case tea.MouseWheelMsg:
 		m.scroll.Update(msg)
+
+	case tea.MouseClickMsg:
+		if msg.Button == tea.MouseLeft {
+			// Status bar row: scrollback takes height-4 rows (rows 0..height-5),
+			// then a blank line, then status bar.
+			sbH := m.height - 4
+			if sbH < 1 {
+				sbH = 1
+			}
+			statusBarRow := sbH // row right after scrollback content
+
+			if msg.Y == statusBarRow {
+				// Click on status bar — check tab hit regions.
+				if bufID := m.statusBar.HitTest(msg.X); bufID != "" && bufID != m.activeConv {
+					m.switchBuffer(bufID)
+				}
+			} else if msg.Y < statusBarRow {
+				// Click in scrollback area — check for nickname.
+				if addr := m.scroll.HitTestNick(msg.Y, msg.X); addr != "" && addr != m.node.Address {
+					convID := fmt.Sprintf("dm:%s", addr)
+					if convID != m.activeConv {
+						m.switchBuffer(convID)
+					}
+				}
+			}
+		}
 
 	case tea.KeyPressMsg:
 		key := msg.String()
