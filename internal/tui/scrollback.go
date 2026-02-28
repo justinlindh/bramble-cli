@@ -108,12 +108,16 @@ func (s *Scrollback) AddLine(kind LineKind, text string) {
 // AddChat adds a formatted chat message line.
 // AddChat adds a formatted chat message line.
 // sender is the resolved name, addr is the raw hex address (for short suffix).
-func (s *Scrollback) AddChat(sender, _ string, text, badge string, outgoing bool) {
-	ts := s.theme.Timestamp.Render(fmt.Sprintf("[%s]", time.Now().Format("15:04")))
+func (s *Scrollback) AddChat(sender, addr string, text, badge string, outgoing bool) {
+	s.AddChatAt(time.Now(), sender, addr, text, badge, outgoing)
+}
 
-	// Check for CTCP ACTION: \x01ACTION text\x01
+func (s *Scrollback) addChatWithTimestamp(ts time.Time, sender, _ string, text, badge string, outgoing bool) {
+	tsLabel := s.theme.Timestamp.Render(fmt.Sprintf("[%s]", ts.Format("15:04")))
+
+	// Check for CTCP ACTION: ACTION text
 	if actionText, ok := parseAction(text); ok {
-		s.addActionLine(ts, sender, actionText, outgoing)
+		s.addActionLine(tsLabel, sender, actionText, outgoing)
 		return
 	}
 
@@ -123,16 +127,20 @@ func (s *Scrollback) AddChat(sender, _ string, text, badge string, outgoing bool
 	var line string
 	if outgoing {
 		nickStr := s.theme.SelfBadge.Render("<" + nick + ">")
-		line = fmt.Sprintf("%s %s %s %s", ts, nickStr, text, s.theme.SelfBadge.Render(badge))
+		line = fmt.Sprintf("%s %s %s %s", tsLabel, nickStr, text, s.theme.SelfBadge.Render(badge))
 	} else {
 		nickStr := s.theme.Sender.Render("<" + nick + ">")
-		line = fmt.Sprintf("%s %s %s", ts, nickStr, text)
+		line = fmt.Sprintf("%s %s %s", tsLabel, nickStr, text)
 	}
 	kind := LineChat
 	if outgoing {
 		kind = LineChatOut
 	}
-	s.AddLine(kind, line)
+	s.lines = append(s.lines, ScrollLine{Kind: kind, Timestamp: ts, Text: line})
+	s.rebuildContent()
+	if s.autoscroll {
+		s.viewport.GotoBottom()
+	}
 }
 
 // parseAction detects CTCP ACTION format: \x01ACTION text\x01
@@ -265,8 +273,5 @@ func (s *Scrollback) IsScrolled() bool {
 
 // AddChatAt adds a formatted chat message line with explicit timestamp metadata.
 func (s *Scrollback) AddChatAt(ts time.Time, sender, addr, text, badge string, outgoing bool) {
-	s.AddChat(sender, addr, text, badge, outgoing)
-	if len(s.lines) > 0 {
-		s.lines[len(s.lines)-1].Timestamp = ts
-	}
+	s.addChatWithTimestamp(ts, sender, addr, text, badge, outgoing)
 }

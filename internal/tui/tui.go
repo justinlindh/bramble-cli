@@ -221,7 +221,11 @@ func (m *Model) PreloadFromDB(db *MsgDB) {
 			if outgoing {
 				badge = badgeFor(sm.Status)
 			}
-			m.scroll.AddChat(sender, addr, msg.Text, badge, outgoing)
+			ts := time.Unix(msg.Timestamp, 0)
+			if msg.Timestamp <= 0 {
+				ts = time.Now()
+			}
+			m.scroll.AddChatAt(ts, sender, addr, msg.Text, badge, outgoing)
 		}
 	}
 }
@@ -625,7 +629,11 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if convID == m.activeConv {
 			addr := msg.Msg.From
 			sender := m.peerDisplayName(addr)
-			m.scroll.AddChat(sender, addr, msg.Msg.Text, "", false)
+			ts := time.Unix(msg.Msg.Timestamp, 0)
+			if msg.Msg.Timestamp <= 0 {
+				ts = time.Now()
+			}
+			m.scroll.AddChatAt(ts, sender, addr, msg.Msg.Text, "", false)
 		}
 		m.updateStatusBar()
 

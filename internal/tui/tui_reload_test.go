@@ -1,6 +1,8 @@
 package tui
 
 import (
+	"fmt"
+	"strings"
 	"testing"
 	"time"
 
@@ -29,5 +31,10 @@ func TestReloadScrollback_ReplaysConversationEvents(t *testing.T) {
 	}
 	if m.scroll.lines[2].Kind != LineInfo {
 		t.Fatalf("expected third line to be info, got %v", m.scroll.lines[2].Kind)
+	}
+
+	wantChatTS := fmt.Sprintf("[%s]", time.Unix(200, 0).Format("15:04"))
+	if !strings.Contains(m.scroll.lines[1].Text, wantChatTS) {
+		t.Fatalf("expected chat line to render original timestamp %q, got %q", wantChatTS, m.scroll.lines[1].Text)
 	}
 }
