@@ -138,7 +138,8 @@ func (sb StatusBar) View() string {
 		parts = append(parts, scrollStyle.Render("[↓ new]"))
 	}
 
-	left := strings.Join(parts, " ")
+	sep := sb.style.Bar.Render(" ")
+	left := strings.Join(parts, sep)
 
 	// Clock on right
 	clock := sb.style.Clock.Render(time.Now().Format("15:04"))
