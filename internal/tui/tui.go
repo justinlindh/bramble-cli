@@ -426,6 +426,9 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.input.SetWidth(msg.Width)
 		m.updateStatusBar()
 
+	case tea.MouseWheelMsg:
+		m.scroll.Update(msg)
+
 	case tea.KeyPressMsg:
 		key := msg.String()
 
@@ -740,6 +743,7 @@ func (m Model) View() tea.View {
 
 	v := tea.NewView(sb.String())
 	v.AltScreen = true
+	v.MouseMode = tea.MouseModeCellMotion
 	return v
 }
 
