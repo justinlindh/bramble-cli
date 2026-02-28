@@ -366,6 +366,7 @@ func (h *CommandHandler) cmdLocation() {
 	if gps != nil && gps.Valid {
 		h.addInfo(fmt.Sprintf("  My GPS: %.6f, %.6f  Alt %dm  Sats %d",
 			gps.Lat, gps.Lon, gps.AltM, gps.Sats))
+		h.addInfo("  " + openStreetMapURL(gps.Lat, gps.Lon))
 	} else {
 		h.addInfo("  My GPS: no fix")
 	}
@@ -385,7 +386,14 @@ func (h *CommandHandler) cmdLocation() {
 			pos = fmt.Sprintf("%.6f, %.6f", p.Position.Lat, p.Position.Lon)
 		}
 		h.addInfo(fmt.Sprintf("    %-12s  %s", name, pos))
+		if p.Position != nil {
+			h.addInfo("    " + openStreetMapURL(p.Position.Lat, p.Position.Lon))
+		}
 	}
+}
+
+func openStreetMapURL(lat, lon float64) string {
+	return fmt.Sprintf("https://www.openstreetmap.org/?mlat=%.6f&mlon=%.6f#map=17/%.6f/%.6f", lat, lon, lat, lon)
 }
 
 func (h *CommandHandler) cmdAlias(args []string) {

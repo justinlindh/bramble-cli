@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/justinlindh/bramble-cli/internal/tui/tabs"
+	bramble "github.com/justinlindh/bramble-go"
 )
 
 type testResolver struct {
@@ -56,5 +57,33 @@ func TestCommandHandlerHelpIncludesMsg(t *testing.T) {
 	}
 	if !found {
 		t.Fatalf("expected /help output to include /msg usage")
+	}
+}
+
+func TestCommandHandlerLocationIncludesOpenStreetMapLinks(t *testing.T) {
+	store := NewStore()
+	sb := NewScrollback()
+	h := NewCommandHandler(nil, store, &sb, testResolver{})
+
+	store.UpdateOwnGPS(bramble.GpsEvent{Valid: true, Lat: 12.345678, Lon: -98.765432, AltM: 836, Sats: 12})
+	store.UpdatePeerLocations([]bramble.LocationPeer{{
+		Addr:     "ABCD1234",
+		Position: &bramble.Position{Lat: 12.345670, Lon: -98.765440},
+	}})
+
+	h.Execute(&Command{Name: "location"})
+
+	conv := store.GetActiveConversation()
+	var lines []string
+	for _, line := range conv.Events {
+		lines = append(lines, line.Text)
+	}
+	joined := strings.Join(lines, "\n")
+
+	if !strings.Contains(joined, "https://www.openstreetmap.org/?mlat=12.345678&mlon=-98.765432#map=17/12.345678/-98.765432") {
+		t.Fatalf("expected own GPS OSM link in /location output, got:\n%s", joined)
+	}
+	if !strings.Contains(joined, "https://www.openstreetmap.org/?mlat=12.345670&mlon=-98.765440#map=17/12.345670/-98.765440") {
+		t.Fatalf("expected peer OSM link in /location output, got:\n%s", joined)
 	}
 }
