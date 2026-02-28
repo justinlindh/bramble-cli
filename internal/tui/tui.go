@@ -647,7 +647,6 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			if m.store.Resolver != nil {
 				peer = m.store.Resolver.Resolve(peer)
 			}
-			m.addDelivery("broadcast", fmt.Sprintf("%s %s", peer, status))
 			m.scroll.AddDeliveryGrouped(d.BroadcastID, fmt.Sprintf("%s %s", peer, status))
 		}
 
