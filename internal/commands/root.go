@@ -30,8 +30,13 @@ func commandContext() (context.Context, context.CancelFunc) {
 }
 
 // rootCmd is the top-level command.
+// version is the current bramble-cli version.
+const version = "0.1.0"
+
+// rootCmd is the top-level command.
 var rootCmd = &cobra.Command{
-	Use:   "bramble",
+	Use:     "bramble",
+	Version: version,
 	Short: "CLI for Bramble mesh nodes",
 	Long: `bramble — command-line interface for Bramble LoRa mesh nodes.
 
