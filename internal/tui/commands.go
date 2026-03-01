@@ -72,7 +72,6 @@ func NewCommandHandler(client *bramble.Client, store *Store, scroll *Scrollback,
 
 func boolPtr(v bool) *bool { return &v }
 
-
 func (h *CommandHandler) activeConvID() string {
 	h.store.mu.RLock()
 	defer h.store.mu.RUnlock()

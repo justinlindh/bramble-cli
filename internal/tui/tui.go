@@ -115,6 +115,7 @@ type Model struct {
 	retryIn    int
 
 	pendingConfirm bool
+	mouseEnabled   bool
 }
 
 // New creates a new IRC-style TUI model.
@@ -147,17 +148,18 @@ func New(client *bramble.Client, node NodeInfo, connectFn ConnectFn, msgdb *MsgD
 	}
 
 	m := Model{
-		client:     client,
-		connectFn:  connectFn,
-		store:      store,
-		scroll:     scroll,
-		statusBar:  statusBar,
-		input:      input,
-		cmdHandler: cmdHandler,
-		node:       node,
-		connected:  true,
-		activeConv: "broadcast",
-		backoffSec: 1,
+		client:       client,
+		connectFn:    connectFn,
+		store:        store,
+		scroll:       scroll,
+		statusBar:    statusBar,
+		input:        input,
+		cmdHandler:   cmdHandler,
+		node:         node,
+		connected:    true,
+		activeConv:   "broadcast",
+		backoffSec:   1,
+		mouseEnabled: true,
 	}
 
 	return m
@@ -428,9 +430,14 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.updateStatusBar()
 
 	case tea.MouseWheelMsg:
-		m.scroll.Update(msg)
+		if m.mouseEnabled {
+			m.scroll.Update(msg)
+		}
 
 	case tea.MouseClickMsg:
+		if !m.mouseEnabled {
+			break
+		}
 		if msg.Button == tea.MouseLeft {
 			// Status bar row: scrollback takes height-4 rows (rows 0..height-5),
 			// then a blank line, then status bar.
@@ -506,6 +513,9 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				}
 				if action.SwitchBuffer != "" {
 					m.switchBuffer(action.SwitchBuffer)
+				}
+				if action.SetMouseEnabled != nil {
+					m.mouseEnabled = *action.SetMouseEnabled
 				}
 				if action.SendText != "" {
 					if action.SendTo != "" {
@@ -770,7 +780,9 @@ func (m Model) View() tea.View {
 
 	v := tea.NewView(sb.String())
 	v.AltScreen = true
-	v.MouseMode = tea.MouseModeCellMotion
+	if m.mouseEnabled {
+		v.MouseMode = tea.MouseModeCellMotion
+	}
 	return v
 }
 
