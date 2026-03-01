@@ -61,6 +61,7 @@ func init() {
 
 	rootCmd.AddCommand(
 		newStatusCmd(),
+		newWifiCmd(),
 		newPeersCmd(),
 		newRoutesCmd(),
 		newPingCmd(),
