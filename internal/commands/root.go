@@ -37,7 +37,7 @@ const version = "0.1.0"
 var rootCmd = &cobra.Command{
 	Use:     "bramble",
 	Version: version,
-	Short: "CLI for Bramble mesh nodes",
+	Short:   "CLI for Bramble mesh nodes",
 	Long: `bramble — command-line interface for Bramble LoRa mesh nodes.
 
 Connects via USB serial (auto-detected or --port), WebSocket (--transport),
@@ -66,6 +66,7 @@ func init() {
 
 	rootCmd.AddCommand(
 		newStatusCmd(),
+		newDiagnosticsCmd(),
 		newWifiCmd(),
 		newPeersCmd(),
 		newRoutesCmd(),
