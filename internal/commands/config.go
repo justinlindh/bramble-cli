@@ -76,7 +76,7 @@ func runConfigGet(cmd *cobra.Command, args []string) error {
 func newConfigSetNameCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:   "set-name <name>",
-		Short: "Set the node display name (max 8 chars)",
+		Short: "Set the node display name (max 32 chars)",
 		Args:  cobra.ExactArgs(1),
 		RunE:  runConfigSetName,
 	}
@@ -84,8 +84,8 @@ func newConfigSetNameCmd() *cobra.Command {
 
 func runConfigSetName(cmd *cobra.Command, args []string) error {
 	name := args[0]
-	if len(name) > 8 {
-		return fmt.Errorf("bramble-cli: name %q is too long (max 8 characters)", name)
+	if len(name) > 32 {
+		return fmt.Errorf("bramble-cli: name %q is too long (max 32 characters)", name)
 	}
 
 	ctx, cancel := commandContext()

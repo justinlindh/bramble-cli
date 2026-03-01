@@ -273,7 +273,7 @@ Full-screen single-buffer design inspired by BitchX/irssi:
 | `/config` | Show configuration inline |
 | `/config set <key> <val>` | Set config value |
 | `/location` | Show GPS & peer locations |
-| `/nick <name>` | Change node name (max 8 chars) |
+| `/nick <name>` | Change node name (max 32 chars) |
 | `/me <action>` | Send action message (`* you do something`) |
 | `/alias <addr> <name>` | Set local peer alias |
 | `/probe` | Send network probe |

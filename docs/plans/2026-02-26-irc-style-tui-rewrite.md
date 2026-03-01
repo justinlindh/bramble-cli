@@ -897,7 +897,7 @@ func (h *CommandHandler) cmdConfigSet(key, value string) {
     switch strings.ToLower(key) {
     case "name":
         if len(value) > 8 {
-            h.scroll.AddError("Name max 8 characters")
+            h.scroll.AddError("Name max 32 characters")
             return
         }
         err := h.client.SetNodeName(ctx, value)

@@ -21,11 +21,11 @@ func TestNewConfigCmd_HasExpectedSubcommands(t *testing.T) {
 func TestRunConfigSetName_TooLong(t *testing.T) {
 	t.Parallel()
 
-	err := runConfigSetName(newConfigSetNameCmd(), []string{"toolongggg"})
+	err := runConfigSetName(newConfigSetNameCmd(), []string{"123456789012345678901234567890123"})
 	if err == nil {
 		t.Fatal("expected too-long name error")
 	}
-	if !strings.Contains(err.Error(), `is too long (max 8 characters)`) {
+	if !strings.Contains(err.Error(), `is too long (max 32 characters)`) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 }

@@ -89,16 +89,16 @@ func TestChannelsAddCmd_ThreeArgs(t *testing.T) {
 	}
 }
 
-func TestConfigSetName_ExactlyEightChars(t *testing.T) {
+func TestConfigSetName_ExactlyThirtyTwoChars(t *testing.T) {
 	t.Parallel()
 
-	// 8 chars should be fine (no error from validation, will fail on client connect)
-	err := runConfigSetName(newConfigSetNameCmd(), []string{"12345678"})
+	// 32 chars should be fine (no error from validation, will fail on client connect)
+	err := runConfigSetName(newConfigSetNameCmd(), []string{"12345678901234567890123456789012"})
 	// Should NOT get "too long" error — it will fail on getClient instead
 	if err != nil && err.Error() != "" {
 		// Acceptable: either no error or a client connection error
 		if strings.Contains(err.Error(), "too long") {
-			t.Fatalf("8-char name should be allowed, got: %v", err)
+			t.Fatalf("32-char name should be allowed, got: %v", err)
 		}
 	}
 }

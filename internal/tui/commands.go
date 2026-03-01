@@ -392,8 +392,8 @@ func (h *CommandHandler) cmdConfigSet(key, value string) {
 
 	switch strings.ToLower(key) {
 	case "name":
-		if len(value) > 8 {
-			h.addError("Name max 8 characters")
+		if len(value) > 32 {
+			h.addError("Name max 32 characters")
 			return
 		}
 		err := h.client.SetNodeName(ctx, value)
@@ -467,12 +467,12 @@ func (h *CommandHandler) cmdAlias(args []string) {
 
 func (h *CommandHandler) cmdNick(args []string) {
 	if len(args) < 1 {
-		h.addError("Usage: /nick <name> (max 8 chars)")
+		h.addError("Usage: /nick <name> (max 32 chars)")
 		return
 	}
 	name := strings.Join(args, " ")
-	if len(name) > 8 {
-		h.addError("Nick max 8 characters")
+	if len(name) > 32 {
+		h.addError("Nick max 32 characters")
 		return
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
@@ -556,7 +556,7 @@ func (h *CommandHandler) cmdHelp() {
 	h.addInfo("    /config set <k> <v>   Set config value")
 	h.addInfo("    /location             Show GPS & peer locations")
 	h.addInfo("    /alias <addr> <name>  Set peer alias")
-	h.addInfo("    /nick <name>          Change node name (max 8)")
+	h.addInfo("    /nick <name>          Change node name (max 32)")
 	h.addInfo("    /me <action>          Send action (* Nick does something)")
 	h.addInfo("    /slap <target>        mIRC trout slap action")
 	h.addInfo("    /probe                Send network probe")
