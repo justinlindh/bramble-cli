@@ -147,10 +147,54 @@ func TestCommandHandlerLocationIncludesOpenStreetMapLinks(t *testing.T) {
 	}
 	joined := strings.Join(lines, "\n")
 
-	if !strings.Contains(joined, "https://www.openstreetmap.org/?mlat=12.345678&mlon=-98.765432#map=17/12.345678/-98.765432") {
-		t.Fatalf("expected own GPS OSM link in /location output, got:\n%s", joined)
+	ownURL := "https://www.openstreetmap.org/?mlat=12.345678&mlon=-98.765432#map=17/12.345678/-98.765432"
+	peerURL := "https://www.openstreetmap.org/?mlat=12.345670&mlon=-98.765440#map=17/12.345670/-98.765440"
+
+	if !strings.Contains(joined, termLink(ownURL, ownURL)) {
+		t.Fatalf("expected own GPS OSC8 OSM link in /location output, got:\n%s", joined)
 	}
-	if !strings.Contains(joined, "https://www.openstreetmap.org/?mlat=12.345670&mlon=-98.765440#map=17/12.345670/-98.765440") {
-		t.Fatalf("expected peer OSM link in /location output, got:\n%s", joined)
+	if !strings.Contains(joined, termLink(peerURL, peerURL)) {
+		t.Fatalf("expected peer OSC8 OSM link in /location output, got:\n%s", joined)
+	}
+}
+
+func TestCommandHandlerMouseToggleActions(t *testing.T) {
+	store := NewStore()
+	sb := NewScrollback()
+	h := NewCommandHandler(nil, store, &sb, testResolver{})
+
+	action := h.Execute(&Command{Name: "mouse"})
+	if action.SetMouseEnabled == nil || *action.SetMouseEnabled {
+		t.Fatalf("expected /mouse to toggle from on to off")
+	}
+
+	action = h.Execute(&Command{Name: "mouse", Args: []string{"on"}})
+	if action.SetMouseEnabled == nil || !*action.SetMouseEnabled {
+		t.Fatalf("expected /mouse on to set enabled")
+	}
+
+	action = h.Execute(&Command{Name: "mouse", Args: []string{"off"}})
+	if action.SetMouseEnabled == nil || *action.SetMouseEnabled {
+		t.Fatalf("expected /mouse off to set disabled")
+	}
+}
+
+func TestCommandHandlerHelpIncludesMouse(t *testing.T) {
+	store := NewStore()
+	sb := NewScrollback()
+	h := NewCommandHandler(nil, store, &sb, testResolver{})
+
+	h.Execute(&Command{Name: "help"})
+
+	conv := store.GetActiveConversation()
+	joined := ""
+	for _, line := range conv.Events {
+		joined += line.Text + "\n"
+	}
+	if !strings.Contains(joined, "/mouse [on|off]") {
+		t.Fatalf("expected /help output to include /mouse usage")
+	}
+	if !strings.Contains(joined, "Shift+click/drag") {
+		t.Fatalf("expected /help output to mention Shift+click/drag bypass")
 	}
 }

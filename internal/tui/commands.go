@@ -41,31 +41,37 @@ func ParseCommand(input string) *Command {
 
 // CmdAction represents a side-effect the root model should apply after a command.
 type CmdAction struct {
-	SwitchBuffer string // non-empty = switch to this buffer
-	SendText     string // non-empty = send this text as a message
-	SendTo       string // optional DM target address for direct send (without switching)
-	SendCritical bool   // send as critical-priority message
-	Quit         bool
-	Reboot       bool // request reboot confirmation
+	SwitchBuffer    string // non-empty = switch to this buffer
+	SendText        string // non-empty = send this text as a message
+	SendTo          string // optional DM target address for direct send (without switching)
+	SendCritical    bool   // send as critical-priority message
+	SetMouseEnabled *bool  // nil = no change; otherwise set mouse capture on/off
+	Quit            bool
+	Reboot          bool // request reboot confirmation
 }
 
 // CommandHandler executes commands and writes output to the scrollback.
 type CommandHandler struct {
-	client   *bramble.Client
-	store    *Store
-	scroll   *Scrollback
-	resolver tabs.PeerResolver
+	client       *bramble.Client
+	store        *Store
+	scroll       *Scrollback
+	resolver     tabs.PeerResolver
+	mouseEnabled bool
 }
 
 // NewCommandHandler creates a CommandHandler. Callbacks may be set after construction.
 func NewCommandHandler(client *bramble.Client, store *Store, scroll *Scrollback, resolver tabs.PeerResolver) *CommandHandler {
 	return &CommandHandler{
-		client:   client,
-		store:    store,
-		scroll:   scroll,
-		resolver: resolver,
+		client:       client,
+		store:        store,
+		scroll:       scroll,
+		resolver:     resolver,
+		mouseEnabled: true,
 	}
 }
+
+func boolPtr(v bool) *bool { return &v }
+
 
 func (h *CommandHandler) activeConvID() string {
 	h.store.mu.RLock()
@@ -136,6 +142,8 @@ func (h *CommandHandler) Execute(cmd *Command) CmdAction {
 		return CmdAction{Reboot: true}
 	case "clear":
 		h.scroll.Clear()
+	case "mouse":
+		return h.cmdMouse(cmd.Args)
 	case "help", "h":
 		h.cmdHelp()
 	case "quit", "q":
@@ -144,6 +152,31 @@ func (h *CommandHandler) Execute(cmd *Command) CmdAction {
 		h.addError(fmt.Sprintf("Unknown command: /%s (try /help)", cmd.Name))
 	}
 	return CmdAction{}
+}
+
+func (h *CommandHandler) cmdMouse(args []string) CmdAction {
+	next := h.mouseEnabled
+	if len(args) == 0 {
+		next = !h.mouseEnabled
+	} else {
+		switch strings.ToLower(strings.TrimSpace(args[0])) {
+		case "on":
+			next = true
+		case "off":
+			next = false
+		default:
+			h.addError("Usage: /mouse [on|off]")
+			return CmdAction{}
+		}
+	}
+
+	h.mouseEnabled = next
+	if next {
+		h.addSystem("Mouse mode: on")
+	} else {
+		h.addSystem("Mouse mode: off")
+	}
+	return CmdAction{SetMouseEnabled: boolPtr(next)}
 }
 
 func (h *CommandHandler) cmdDM(args []string) CmdAction {
@@ -384,7 +417,8 @@ func (h *CommandHandler) cmdLocation() {
 	if gps != nil && gps.Valid {
 		h.addInfo(fmt.Sprintf("  My GPS: %.6f, %.6f  Alt %dm  Sats %d",
 			gps.Lat, gps.Lon, gps.AltM, gps.Sats))
-		h.addInfo("  " + openStreetMapURL(gps.Lat, gps.Lon))
+		url := openStreetMapURL(gps.Lat, gps.Lon)
+		h.addInfo("  " + termLink(url, url))
 	} else {
 		h.addInfo("  My GPS: no fix")
 	}
@@ -405,7 +439,8 @@ func (h *CommandHandler) cmdLocation() {
 		}
 		h.addInfo(fmt.Sprintf("    %-12s  %s", name, pos))
 		if p.Position != nil {
-			h.addInfo("    " + openStreetMapURL(p.Position.Lat, p.Position.Lon))
+			url := openStreetMapURL(p.Position.Lat, p.Position.Lon)
+			h.addInfo("    " + termLink(url, url))
 		}
 	}
 }
@@ -529,6 +564,7 @@ func (h *CommandHandler) cmdHelp() {
 	h.addInfo("    /ping                 Ping node")
 	h.addInfo("    /reboot               Reboot node")
 	h.addInfo("    /clear                Clear scrollback")
+	h.addInfo("    /mouse [on|off]       Toggle mouse capture (Shift+click/drag bypasses it)")
 	h.addInfo("    /help                 This help")
 	h.addInfo("    /quit                 Exit")
 	h.addInfo("")
