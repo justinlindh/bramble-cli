@@ -84,6 +84,7 @@ func init() {
 		newOTACmd(),
 		newLocationCmd(),
 		newDiscoverCmd(),
+		newMeshTestCmd(),
 		newCompletionCmd(),
 		newTrafficCmd(),
 		newTUICmd(),
