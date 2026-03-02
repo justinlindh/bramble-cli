@@ -9,7 +9,7 @@ Set Theme { "name": "Bramble", "black": "#0d0d1a", "red": "#ff6b6b", "green": "#
 
 Type "cd ~/src/bramble-cli && ./bramble tui --port /dev/ttyACM0"
 Enter
-Sleep 5s
+Sleep 10s
 Screenshot "docs/images/tui-overview.png"
 Sleep 500ms
 Type "/quit"
