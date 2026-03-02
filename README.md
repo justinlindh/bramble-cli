@@ -1,55 +1,87 @@
 # bramble-cli
 
-Command-line interface for [Bramble](https://github.com/YOUR-ORG/bramble) LoRa mesh nodes, built on [bramble-go](https://github.com/YOUR-ORG/bramble-go).
+`bramble-cli` is the command-line and terminal UI client for Bramble mesh nodes. Use it to connect over serial, WebSocket, or BLE; send and monitor mesh traffic; inspect node health; and manage configuration from a laptop shell or an interactive full-screen TUI.
 
-Current SDK protocol compatibility follows `bramble-go` (`MinProtocolVersion=0.1.0`, `MaxProtocolVersion=0.5.0`).
+It is built on [bramble-go](https://github.com/justinlindh/bramble-go), and follows its protocol compatibility (`MinProtocolVersion=0.1.0`, `MaxProtocolVersion=0.5.0`).
 
-## Examples
+## Table of Contents
 
-See the [`examples/`](examples/) directory for common usage patterns:
-
-- [`01-connect.sh`](examples/01-connect.sh) — BLE vs WiFi vs serial connection
-- [`02-send-receive.sh`](examples/02-send-receive.sh) — Basic send and receive
-- [`03-channels.sh`](examples/03-channels.sh) — Channel operations
-- [`04-location.sh`](examples/04-location.sh) — Location sharing
-- [`05-monitor.sh`](examples/05-monitor.sh) — Monitor and debug output
+- [Install](#install)
+- [Quick Start](#quick-start)
+- [Terminal UI](#terminal-ui)
+- [Global Flags](#global-flags)
+- [Commands](#commands)
+  - [Messaging](#messaging)
+  - [Monitoring and Diagnostics](#monitoring-and-diagnostics)
+  - [Configuration](#configuration)
+  - [Location](#location)
+  - [System and Network](#system-and-network)
+- [Shell Completion](#shell-completion)
+- [JSON Output](#json-output)
+- [Examples](#examples)
+- [License](#license)
 
 ## Install
 
 ```bash
-go install github.com/YOUR-ORG/bramble-cli/cmd/bramble@latest
+go install github.com/justinlindh/bramble-cli/cmd/bramble@latest
 ```
 
 Or build from source:
 
 ```bash
-git clone https://github.com/YOUR-ORG/bramble-cli.git
+git clone ssh://git@192.0.2.0:2222/justinlindh/bramble-cli.git
 cd bramble-cli
 go build -o bramble ./cmd/bramble
 ```
 
-
-## Connection / Transport
+## Quick Start
 
 Auto-detect USB serial (scans `/dev/ttyUSB*` and `/dev/ttyACM*`):
+
 ```bash
 bramble status
 ```
 
 Specify a serial port:
+
 ```bash
 bramble --port /dev/ttyUSB0 status
 ```
 
-WebSocket transport (e.g. ESP32 in AP mode):
+WebSocket transport:
+
 ```bash
 bramble --transport ws://192.168.4.1/ws status
 ```
 
-Bluetooth Low Energy transport (scan by advertised name):
+Bluetooth Low Energy transport:
+
 ```bash
 bramble --ble Bramble status
 ```
+
+## Terminal UI
+
+Launch the interactive TUI:
+
+```bash
+bramble tui --transport ws://192.0.2.0/ws
+bramble tui --port /dev/ttyUSB0
+```
+
+The TUI is designed as an IRC-style operations console for Bramble. It combines live chat, system events, slash-command output, and connection status in a single full-screen view so you can operate a node without bouncing between multiple terminal commands.
+
+![Bramble TUI overview](docs/images/tui-overview.png)
+
+![Bramble TUI chat flow](docs/images/tui-chat.gif)
+
+### What it shows
+
+- **Unified scrollback:** inbound/outbound messages, delivery updates, and node events
+- **Status bar:** transport state, active buffers, unread counts, peer counts, clock
+- **Command input:** message composition plus slash commands like `/nodes`, `/stats`, `/config`, `/location`
+- **Buffer model:** broadcast, channel, and DM buffers with quick keyboard switching
 
 ## Global Flags
 
@@ -62,242 +94,76 @@ bramble --ble Bramble status
 
 ## Commands
 
-### `bramble status`
-Show node address, firmware, radio, peers, counters, and uptime.
+### Messaging
 
-### `bramble peers`
-List direct radio neighbors with RSSI, SNR, and last-heard time.
+- `bramble send <address> <message>` — send a unicast message
+- `bramble broadcast <message>` — send a mesh-wide message
+- `bramble channels list` — list configured channels
+- `bramble channels add <name> [psk]` — add a channel
+- `bramble channels remove <index>` — remove a channel
+- `bramble channels set-default <index>` — set default outgoing channel
 
-### `bramble routes`
-Show the mesh routing table.
-
-### `bramble ping`
-Ping the connected node.
-
-### `bramble send <address> <message>`
-Send a unicast message to a specific node.
 ```bash
 bramble send CAFEBABE "hello there"
-```
-
-### `bramble broadcast <message>`
-Send a mesh-wide message.
-- Default: public Broadcast channel
-- Use `--channel <index>` to send on a specific channel
-- Use `--wait-delivery <seconds>` to wait for delivery telemetry after send
-
-```bash
 bramble broadcast "hello everyone"
 bramble broadcast --channel 2 "hello channel 2"
 bramble broadcast --wait-delivery 10 "delivery telemetry please"
 ```
 
-### `bramble monitor`
-Stream real-time node events. Press `Ctrl+C` to stop.
+### Monitoring and Diagnostics
 
-Event types include protocol-native mesh + telemetry streams. Topic filtering is supported.
-
-| Flag | Default | Description |
-|------|---------|-------------|
-| `--topic <csv>` | | Topic filter CSV (`wifi`, `gps`, `mesh`, `location`, `traffic`) |
-| `--events <csv>` | | Legacy event filter (`message`, `ack`, `neighbor`, `broadcast-delivery`) |
-| `--grep <regex>` | | Regex to filter monitor output |
-| `--follow` | `true` | Keep streaming new events (use `--follow=false` to stop after first match) |
-| `--since <duration>` | | Show only events newer than this duration (hint) |
-| `--messages` | | Shorthand: only show message events |
-| `--neighbors` | | Shorthand: only show neighbor-change events |
+- `bramble monitor` — stream real-time node events
+- `bramble traffic monitor` — live TX/RX telemetry stream
+- `bramble traffic export` — export ring-buffer traffic telemetry to JSONL
+- `bramble peers` — list direct radio neighbors
+- `bramble routes` — show routing table
+- `bramble ping` — ping connected node
+- `bramble probe` — send network probe
 
 ```bash
-bramble monitor                                      # all events
-bramble monitor --events message,ack                 # legacy event filter set
-bramble monitor --topic wifi,gps,location            # topic filter
-bramble monitor --topic traffic --grep route         # grep filter
-bramble monitor --topic gps,location --json          # structured JSON output
-bramble monitor --follow=false --topic gps           # stop after first matching event
-bramble monitor --since 30s --topic location         # recent window hint
-bramble monitor --messages                           # only message events
-bramble monitor --neighbors                          # only neighbor-change events
-```
-
-### `bramble traffic`
-Traffic debug telemetry commands:
-- `bramble traffic monitor`: live TX/RX telemetry stream
-- `bramble traffic export`: export ring-buffer events to JSONL
-
-```bash
-bramble traffic monitor
+bramble monitor --topic wifi,gps,location
+bramble monitor --messages
 bramble traffic monitor --tx-only
-bramble traffic monitor --rx-only --category routing
-
-bramble traffic export
-bramble traffic export --since 12345 --limit 100   # fetch events with seq > 12345
 bramble traffic export --format jsonl > traffic-events.jsonl
 ```
 
-### `bramble config get`
-Print the full node configuration.
+### Configuration
 
-### `bramble config set-name <name>`
-Set the node display name (max 32 characters).
+- `bramble config get` — print full node configuration
+- `bramble config set-name <name>` — set node display name
+- `bramble config set-radio` — update radio parameters
 
-### `bramble config set-radio`
-Update radio parameters:
 ```bash
+bramble config set-name my-node
 bramble config set-radio --freq 915.0 --sf 10 --bw 125 --cr 5 --txpower 20
 ```
 
-### `bramble channels list`
-List configured channels (shows 🔒 for channels with a PSK).
+### Location
 
-### `bramble channels add <name> [psk]`
-Add a channel with an optional pre-shared key.
-
-### `bramble channels remove <index>`
-Remove a channel by index.
-
-### `bramble channels set-default <index>`
-Set the default outgoing channel.
-
-### `bramble ota`
-Trigger an OTA firmware update from a URL. The node downloads and applies the firmware, then reboots.
-
-| Flag | Default | Description |
-|------|---------|-------------|
-| `--url <url>` | *(required)* | Firmware URL (`http(s)://.../bramble.bin`) |
-| `--wait` | `true` | Wait for node reboot/reconnect and report OTA outcome |
-| `--wait-timeout <duration>` | `2m` | Max time to wait for OTA reboot/reconnect |
-| `--poll-interval <duration>` | `2s` | Status poll interval while waiting for OTA outcome |
+- `bramble location status` — show known peer locations
+- `bramble location get-config` — show canonical location config
+- `bramble location set-config` — set canonical location policy
+- `bramble location set-contact <address> <tier>` — quick per-peer rule
+- `bramble location remove-contact <address>` — remove per-peer rule
+- `bramble location share-once <address>` — send one-time location update
 
 ```bash
-bramble ota --url http://192.0.2.0:8080/firmware/bramble.bin
-bramble ota --url http://192.0.2.0:8080/firmware/bramble.bin --wait-timeout 5m
-bramble ota --url http://192.0.2.0:8080/firmware/bramble.bin --wait=false
-```
-
-### `bramble probe`
-Send a network probe. Responses appear in `bramble monitor`.
-
-### `bramble discover`
-Scan for Bramble nodes on the local network via mDNS.
-
-| Flag | Default | Description |
-|------|---------|-------------|
-| `--timeout <duration>` | `3s` | How long to scan for nodes |
-
-```bash
-bramble discover
-bramble discover --timeout 10s
-```
-
-### `bramble reboot`
-Reboot the node.
-
-### `bramble location status`
-Show location data for all known peers.
-
-### `bramble location set-config`
-Set canonical location policy fields. Pass flags individually or supply a JSON file with `--file`.
-
-| Flag | Description |
-|------|-------------|
-| `--file <path>` | Path to JSON file containing canonical location config fields |
-| `--enabled` | Enable/disable location sharing |
-| `--default-tier <tier>` | Default sharing tier |
-| `--interval-s <seconds>` | Default share interval in seconds |
-| `--source <source>` | Location source |
-| `--contact-rules <json>` | JSON array for `contact_rules` |
-| `--channel-targets <json>` | JSON array for `channel_targets` |
-
-```bash
-bramble location set-config --enabled --default-tier full --interval-s 30 --source gps \
-  --contact-rules '[{"address":"6CBF8FE3","enabled":true,"tier":"full","interval_s":30}]'
-
-# Or supply a JSON file
-bramble location set-config --file location-config.json
-```
-
-### `bramble location get-config`
-Get canonical location policy block from node config.
-
-```bash
+bramble location set-config --enabled --default-tier full --interval-s 30 --source gps
 bramble location get-config --json
 ```
 
-### `bramble location set-contact <address> <tier>`
-Set a per-peer location contact rule quickly.
+### System and Network
 
-### `bramble location remove-contact <address>`
-Remove a location contact rule for a peer.
-
-### `bramble location share-once <address>`
-Send a one-time location update.
-
-## Terminal UI (`bramble tui`)
-
-Launch an IRC-style interactive terminal UI for chatting, monitoring, and configuring your Bramble mesh node.
+- `bramble status` — show node address, firmware, radio, peers, counters, uptime
+- `bramble discover` — scan local network for Bramble nodes via mDNS
+- `bramble ota --url <url>` — trigger OTA firmware update
+- `bramble reboot` — reboot node
+- `bramble tui` — launch full-screen interactive terminal UI
 
 ```bash
-bramble tui --transport ws://192.0.2.0/ws
-bramble tui --port /dev/ttyUSB0
-```
-
-### Layout
-
-Full-screen single-buffer design inspired by BitchX/irssi:
-- **Scrollback** — messages, system events, and command output flow in one window
-- **Status bar** — connection state, buffer list with unread counts, peer count, clock
-- **Input line** — always focused, type messages or `/commands`
-
-### Message Format
-
-```
-[12:42] <Node1[3079]> hey everyone        # incoming
-[12:42] <me> hello back *                  # outgoing (with delivery badge)
-[12:42] * Node1[3079] waves hello          # /me action message
--- A1B2C3D4 (NodeC) joined [RSSI -68] --  # system event
-```
-
-### Slash Commands
-
-| Command | Description |
-|---------|-------------|
-| `/help` | Show all commands |
-| `/b`, `/broadcast` | Switch to broadcast buffer |
-| `/dm <addr\|name>` | Open/switch to DM buffer |
-| `/ch <number>` | Switch to channel buffer |
-| `/w`, `/windows` | List open buffers |
-| `/close` | Close current buffer |
-| `/nodes` | Show neighbors & routes inline |
-| `/stats` | Show node statistics inline |
-| `/config` | Show configuration inline |
-| `/config set <key> <val>` | Set config value |
-| `/location` | Show GPS & peer locations |
-| `/nick <name>` | Change node name (max 32 chars) |
-| `/me <action>` | Send action message (`* you do something`) |
-| `/alias <addr> <name>` | Set local peer alias |
-| `/probe` | Send network probe |
-| `/ping` | Ping connected node |
-| `/reboot` | Reboot node (requires `/reboot-confirm`) |
-| `/clear` | Clear scrollback |
-| `/quit` | Exit |
-
-### Navigation
-
-- **Alt+1-9** — switch buffer by number
-- **Ctrl+N / Ctrl+P** — next/prev buffer
-- **PgUp / PgDn** — scroll history
-- **Home / End** — top/bottom of history
-
-### Persistence
-
-Messages are stored in SQLite at `~/.local/share/bramble/messages.db` and survive restarts. Peer aliases are also persisted.
-
-## JSON Output
-
-All commands support `--json` for machine-readable output:
-```bash
-bramble --json status | jq .address
-bramble --json peers | jq '.[].rssi'
+bramble status
+bramble discover --timeout 10s
+bramble ota --url http://192.0.2.0:8080/firmware/bramble.bin
 ```
 
 ## Shell Completion
@@ -315,19 +181,25 @@ bramble completion zsh > "${fpath[1]}/_bramble"
 bramble completion fish > ~/.config/fish/completions/bramble.fish
 ```
 
-## Docs Maintenance / Drift Check
+## JSON Output
 
-CLI help text (`./bramble <command> --help`) is the source of truth. After adding/changing flags or commands:
-
-1. Rebuild the CLI: `go build -o bramble ./cmd/bramble`
-2. Update README command snippets and flag tables.
-3. Run doc drift guard:
+All commands support `--json` for machine-readable output:
 
 ```bash
-scripts/check-doc-drift.sh
+bramble --json status | jq .address
+bramble --json peers | jq '.[].rssi'
+bramble monitor --topic location --json
 ```
 
-This script validates a small set of critical README snippets and help flags (global transport flags, `broadcast --wait-delivery`, `monitor --events`, and traffic monitor/export flags).
+## Examples
+
+See the [`examples/`](examples/) directory for common usage patterns:
+
+- [`01-connect.sh`](examples/01-connect.sh) — BLE, WiFi, and serial connection flows
+- [`02-send-receive.sh`](examples/02-send-receive.sh) — basic send/receive
+- [`03-channels.sh`](examples/03-channels.sh) — channel operations
+- [`04-location.sh`](examples/04-location.sh) — location sharing
+- [`05-monitor.sh`](examples/05-monitor.sh) — monitor and debug output
 
 ## License
 
