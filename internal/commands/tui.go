@@ -7,9 +7,9 @@ import (
 	"time"
 
 	tea "charm.land/bubbletea/v2"
+	"github.com/justinlindh/bramble-cli/internal/tui"
 	bramble "github.com/justinlindh/bramble-go"
 	"github.com/justinlindh/bramble-go/transport"
-	"github.com/justinlindh/bramble-cli/internal/tui"
 	"github.com/spf13/cobra"
 )
 
@@ -56,6 +56,7 @@ func runTUI(cmd *cobra.Command, args []string) error {
 		default:
 			t = transport.NewWebSocket("ws://bramble.local/ws")
 		}
+		applyAuthToken(t)
 		c := bramble.NewClient(t)
 		if err := c.Connect(ctx); err != nil {
 			return nil, err

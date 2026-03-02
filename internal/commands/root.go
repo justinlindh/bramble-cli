@@ -5,6 +5,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"reflect"
 	"time"
 
 	"github.com/justinlindh/bramble-cli/internal/discovery"
@@ -17,6 +18,7 @@ var (
 	flagPort      string
 	flagTransport string
 	flagBLE       string
+	flagAuthToken string
 	flagJSON      bool
 )
 
@@ -62,6 +64,7 @@ func init() {
 	rootCmd.PersistentFlags().StringVarP(&flagPort, "port", "p", "", "serial port path (e.g. /dev/ttyUSB0)")
 	rootCmd.PersistentFlags().StringVarP(&flagTransport, "transport", "t", "", "WebSocket transport URL (e.g. ws://192.168.4.1/ws)")
 	rootCmd.PersistentFlags().StringVarP(&flagBLE, "ble", "b", "", "BLE device name to scan for (e.g. Bramble)")
+	rootCmd.PersistentFlags().StringVar(&flagAuthToken, "token", "", "Auth token for node connection")
 	rootCmd.PersistentFlags().BoolVar(&flagJSON, "json", false, "output results as JSON")
 
 	rootCmd.AddCommand(
@@ -85,6 +88,25 @@ func init() {
 		newTrafficCmd(),
 		newTUICmd(),
 	)
+}
+
+func applyAuthToken(t transport.Transport) {
+	if flagAuthToken == "" {
+		return
+	}
+	v := reflect.ValueOf(t)
+	if v.Kind() != reflect.Ptr || v.IsNil() {
+		return
+	}
+	e := v.Elem()
+	if !e.IsValid() || e.Kind() != reflect.Struct {
+		return
+	}
+	f := e.FieldByName("AuthToken")
+	if !f.IsValid() || !f.CanSet() || f.Kind() != reflect.String {
+		return
+	}
+	f.SetString(flagAuthToken)
 }
 
 // getClient resolves the transport and returns a connected Bramble client.
@@ -113,6 +135,7 @@ func getClient(ctx context.Context) (*bramble.Client, error) {
 		t = transport.NewSerial(port)
 	}
 
+	applyAuthToken(t)
 	client := bramble.NewClient(t)
 	connectCtx := ctx
 	if _, hasDeadline := ctx.Deadline(); !hasDeadline {

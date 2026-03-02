@@ -91,6 +91,7 @@ The TUI is designed as an IRC-style operations console for Bramble. It combines 
 | `--ble <name>` | `-b` | BLE device name to scan for (example: `Bramble`) |
 | `--port <path>` | `-p` | Serial port path (example: `/dev/ttyUSB0`) |
 | `--transport <url>` | `-t` | WebSocket transport URL (example: `ws://192.168.4.1/ws`) |
+| `--token` | | Auth token for node connection |
 | `--json` | | Output command results as JSON |
 
 ## Commands
