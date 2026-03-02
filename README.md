@@ -30,7 +30,7 @@ go install github.com/justinlindh/bramble-cli/cmd/bramble@latest
 Or build from source:
 
 ```bash
-git clone ssh://git@192.0.2.0:2222/justinlindh/bramble-cli.git
+git clone https://github.com/justinlindh/bramble-cli.git
 cd bramble-cli
 go build -o bramble ./cmd/bramble
 ```
