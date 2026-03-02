@@ -12,7 +12,7 @@ Type "~/src/bramble-cli/docs/images/send-during-recording.sh &"
 Enter
 Sleep 1s
 
-# Launch TUI on T-Deck (ACM0) — only device that renders TUI via VHS
+# Launch TUI on T-Deck (ACM0)
 Type "cd ~/src/bramble-cli && ./bramble tui --port /dev/ttyACM0"
 Enter
 Sleep 5s
@@ -22,8 +22,13 @@ Type "Evening check-in — anyone on the mesh?"
 Enter
 Sleep 6s
 
-# Wait for incoming replies from V4b
+# Wait for incoming replies from V4a
 Sleep 6s
+
+# Slap someone
+Type "/slap Meshtastic"
+Enter
+Sleep 3s
 
 # Show nodes
 Type "/nodes"
