@@ -1,6 +1,6 @@
 # bramble-cli
 
-Command-line interface for [Bramble](https://github.com/justinlindh/bramble) LoRa mesh nodes, built on [bramble-go](https://github.com/justinlindh/bramble-go).
+Command-line interface for [Bramble](https://github.com/YOUR-ORG/bramble) LoRa mesh nodes, built on [bramble-go](https://github.com/YOUR-ORG/bramble-go).
 
 Current SDK protocol compatibility follows `bramble-go` (`MinProtocolVersion=0.1.0`, `MaxProtocolVersion=0.5.0`).
 
@@ -17,18 +17,17 @@ See the [`examples/`](examples/) directory for common usage patterns:
 ## Install
 
 ```bash
-go install github.com/justinlindh/bramble-cli/cmd/bramble@latest
+go install github.com/YOUR-ORG/bramble-cli/cmd/bramble@latest
 ```
 
 Or build from source:
 
 ```bash
-git clone ssh://git@192.0.2.0:2222/justinlindh/bramble-cli.git
+git clone https://github.com/YOUR-ORG/bramble-cli.git
 cd bramble-cli
 go build -o bramble ./cmd/bramble
 ```
 
-> **Private module note:** This depends on `github.com/justinlindh/bramble-go`, a private Gitea module. The `go.mod` uses a `replace` directive pointing to a local checkout. Configure SSH access and set `GOPRIVATE=github.com/*`.
 
 ## Connection / Transport
 
