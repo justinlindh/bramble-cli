@@ -529,6 +529,11 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				}
 			}
 		} else if strings.TrimSpace(msg.Text) != "" {
+			meta := messageByteMeta(msg.Text, false)
+			if meta.OverLimit {
+				m.addError(m.activeConv, fmt.Sprintf("Message too long (%d bytes). Max is %d bytes.", meta.ByteCount, meta.MaxBytes))
+				return m, nil
+			}
 			return m, m.sendMessage(msg.Text, false)
 		}
 
