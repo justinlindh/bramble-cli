@@ -82,6 +82,7 @@ The TUI is designed as an IRC-style operations console for Bramble. It combines 
 - **Status bar:** transport state, active buffers, unread counts, peer counts, clock
 - **Command input:** message composition plus slash commands like `/nodes`, `/stats`, `/config`, `/location`
 - **Buffer model:** broadcast, channel, and DM buffers with quick keyboard switching
+- **Mouse support:** scroll wheel for history, click a nickname to open a DM, click status bar tabs to switch buffers
 
 ## Global Flags
 
