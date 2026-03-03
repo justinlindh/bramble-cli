@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/justinlindh/bramble-cli/internal/output"
@@ -28,6 +29,7 @@ const (
 
 	pktTypeDeliveryReceipt = 0x07
 	pktTypeData            = 0x0A
+	pktTypeCoded           = 0x11
 )
 
 type meshTestConfig struct {
@@ -105,6 +107,37 @@ type meshTestReport struct {
 type meshConnectedNode struct {
 	node   *meshNode
 	client *bramble.Client
+}
+
+type trafficEventStream struct {
+	mu     sync.Mutex
+	events []bramble.TrafficEvent
+}
+
+func (s *trafficEventStream) append(evt bramble.TrafficEvent) {
+	s.mu.Lock()
+	s.events = append(s.events, evt)
+	s.mu.Unlock()
+}
+
+func (s *trafficEventStream) mark() int {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return len(s.events)
+}
+
+func (s *trafficEventStream) since(mark int) []bramble.TrafficEvent {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if mark < 0 || mark >= len(s.events) {
+		if mark >= len(s.events) {
+			return nil
+		}
+		mark = 0
+	}
+	out := make([]bramble.TrafficEvent, len(s.events)-mark)
+	copy(out, s.events[mark:])
+	return out
 }
 
 func newMeshTestCmd() *cobra.Command {
@@ -283,38 +316,41 @@ func runMeshTest(ctx context.Context, cfg meshTestConfig, verbose bool, validate
 	report.BroadcastsSent = cfg.Broadcasts
 	report.Broadcasts = make([]broadcastResult, 0, cfg.Broadcasts)
 	report.PrimitiveValidationEnabled = validatePrimitives
+	trafficStreams := map[*meshConnectedNode]*trafficEventStream{}
 	if validatePrimitives {
 		report.PrimitiveBroadcasts = make([]primitiveBroadcastResult, 0, cfg.Broadcasts)
-		for _, n := range connected {
+		for i := range connected {
+			n := &connected[i]
+			stream := &trafficEventStream{}
+			trafficStreams[n] = stream
+			n.client.OnTrafficEvent(func(evt bramble.TrafficEvent) {
+				stream.append(evt)
+			})
 			enableCtx, enableCancel := context.WithTimeout(ctx, meshPerRequestTimeout)
 			if err := ensureTrafficDebugEnabled(enableCtx, n.client); err != nil && verbose {
 				fmt.Fprintf(os.Stderr, "mesh-test: warning: traffic debug enable failed for %s: %v\n", n.node.Transport, err)
 			}
 			enableCancel()
 		}
+		/* Allow node-side traffic debug config to settle before first measured broadcast. */
+		time.Sleep(1200 * time.Millisecond)
 	}
 	perNode := map[string]int{}
 	var firstErr error
 
 	for i := 1; i <= cfg.Broadcasts; i++ {
 		drainDeliveryEvents(deliveryEvents)
-		senderSeq := uint32(0)
-		recipientSeq := map[string]uint32{}
+		senderMark := 0
+		recipientMark := map[string]int{}
 		if validatePrimitives {
-			seqCtx, seqCancel := context.WithTimeout(ctx, meshTrafficTimeout)
-			if seq, err := latestTrafficSeq(seqCtx, sender.client); err == nil {
-				senderSeq = seq
-			} else if verbose {
-				fmt.Fprintf(os.Stderr, "mesh-test: warning: sender traffic baseline failed: %v\n", err)
+			if stream, ok := trafficStreams[sender]; ok {
+				senderMark = stream.mark()
 			}
 			for addr, conn := range recipientConnByAddr {
-				if seq, err := latestTrafficSeq(seqCtx, conn.client); err == nil {
-					recipientSeq[addr] = seq
-				} else if verbose {
-					fmt.Fprintf(os.Stderr, "mesh-test: warning: recipient %s traffic baseline failed: %v\n", addr, err)
+				if stream, ok := trafficStreams[conn]; ok {
+					recipientMark[addr] = stream.mark()
 				}
 			}
-			seqCancel()
 		}
 		text := fmt.Sprintf("mesh-test #%d %d", i, time.Now().Unix())
 		sendCtx, cancel := context.WithTimeout(ctx, meshPerRequestTimeout)
@@ -390,15 +426,13 @@ func runMeshTest(ctx context.Context, cfg meshTestConfig, verbose bool, validate
 
 		if validatePrimitives {
 			prim := primitiveBroadcastResult{Index: i}
-			postCtx, postCancel := context.WithTimeout(ctx, meshTrafficTimeout)
-			senderEvents, err := trafficEventsSince(postCtx, sender.client, senderSeq)
-			if err != nil && verbose {
-				fmt.Fprintf(os.Stderr, "mesh-test: warning: sender traffic fetch failed: %v\n", err)
-			}
-			prim.SenderDataTx = hasTrafficEvent(senderEvents, pktTypeData, true)
 			delivered := map[string]bool{}
 			for _, rr := range recipients {
 				delivered[rr.Recipient] = true
+			}
+			if stream, ok := trafficStreams[sender]; ok {
+				senderEvents := stream.since(senderMark)
+				prim.SenderDataTx = hasTrafficEventAny(senderEvents, []int{pktTypeData, pktTypeCoded}, true)
 			}
 			recAddrs := make([]string, 0, len(expectedByAddress))
 			for addr := range expectedByAddress {
@@ -408,16 +442,14 @@ func runMeshTest(ctx context.Context, cfg meshTestConfig, verbose bool, validate
 			for _, addr := range recAddrs {
 				pr := primitiveRecipientResult{Recipient: addr, SenderReceiptRx: delivered[addr]}
 				if conn, ok := recipientConnByAddr[addr]; ok {
-					events, err := trafficEventsSince(postCtx, conn.client, recipientSeq[addr])
-					if err != nil && verbose {
-						fmt.Fprintf(os.Stderr, "mesh-test: warning: recipient %s traffic fetch failed: %v\n", addr, err)
+					if stream, ok := trafficStreams[conn]; ok {
+						events := stream.since(recipientMark[addr])
+						pr.BroadcastRx = hasTrafficEventAny(events, []int{pktTypeData, pktTypeCoded}, false)
+						pr.ReceiptTx = hasTrafficEvent(events, pktTypeDeliveryReceipt, true)
 					}
-					pr.BroadcastRx = hasTrafficEvent(events, pktTypeData, false)
-					pr.ReceiptTx = hasTrafficEvent(events, pktTypeDeliveryReceipt, true)
 				}
 				prim.Recipients = append(prim.Recipients, pr)
 			}
-			postCancel()
 			report.PrimitiveBroadcasts = append(report.PrimitiveBroadcasts, prim)
 		}
 
@@ -578,6 +610,15 @@ func getTrafficEventsWithRetry(parent context.Context, client *bramble.Client, p
 func hasTrafficEvent(events []bramble.TrafficEvent, pktType int, isTx bool) bool {
 	for _, evt := range events {
 		if evt.PktType == pktType && evt.IsTx == isTx {
+			return true
+		}
+	}
+	return false
+}
+
+func hasTrafficEventAny(events []bramble.TrafficEvent, pktTypes []int, isTx bool) bool {
+	for _, t := range pktTypes {
+		if hasTrafficEvent(events, t, isTx) {
 			return true
 		}
 	}

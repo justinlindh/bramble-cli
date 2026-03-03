@@ -90,6 +90,9 @@ func TestHasTrafficEvent_MatchesTypeAndDirection(t *testing.T) {
 	if hasTrafficEvent(events, 0x07, true) {
 		t.Fatalf("did not expect tx receipt match")
 	}
+	if !hasTrafficEventAny(events, []int{0x11, 0x0A}, true) {
+		t.Fatalf("expected any-match helper to find pkt type")
+	}
 }
 
 func TestFormatMeshTestReport_IncludesPrimitiveLifecycleSection(t *testing.T) {
