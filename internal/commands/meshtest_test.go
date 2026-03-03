@@ -5,6 +5,8 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	bramble "github.com/justinlindh/bramble-go"
 )
 
 func TestNewMeshTestCmd_HasFlagsAndRunE(t *testing.T) {
@@ -15,7 +17,7 @@ func TestNewMeshTestCmd_HasFlagsAndRunE(t *testing.T) {
 	if cmd.RunE == nil {
 		t.Fatal("expected RunE")
 	}
-	for _, name := range []string{"config", "sender", "count", "spacing", "wait", "json", "verbose"} {
+	for _, name := range []string{"config", "sender", "count", "spacing", "wait", "json", "verbose", "validate-primitives"} {
 		if cmd.Flags().Lookup(name) == nil {
 			t.Fatalf("missing flag --%s", name)
 		}
@@ -71,6 +73,49 @@ func TestBuildMeshNodeList_IncludesSenderTransport(t *testing.T) {
 	}
 	if !found {
 		t.Fatalf("expected sender transport %q in node list", sender)
+	}
+}
+
+func TestHasTrafficEvent_MatchesTypeAndDirection(t *testing.T) {
+	events := []bramble.TrafficEvent{
+		{PktType: 0x0A, IsTx: true},
+		{PktType: 0x07, IsTx: false},
+	}
+	if !hasTrafficEvent(events, 0x0A, true) {
+		t.Fatalf("expected tx data event match")
+	}
+	if !hasTrafficEvent(events, 0x07, false) {
+		t.Fatalf("expected rx receipt event match")
+	}
+	if hasTrafficEvent(events, 0x07, true) {
+		t.Fatalf("did not expect tx receipt match")
+	}
+}
+
+func TestFormatMeshTestReport_IncludesPrimitiveLifecycleSection(t *testing.T) {
+	report := meshTestReport{
+		PrimitiveValidationEnabled: true,
+		PrimitiveBroadcasts: []primitiveBroadcastResult{
+			{
+				Index:        1,
+				SenderDataTx: true,
+				Recipients: []primitiveRecipientResult{
+					{Recipient: "AAAA0001", BroadcastRx: true, ReceiptTx: true, SenderReceiptRx: true},
+					{Recipient: "BBBB0002", BroadcastRx: false, ReceiptTx: false, SenderReceiptRx: false},
+				},
+			},
+		},
+	}
+	out := formatMeshTestReport(report)
+	for _, want := range []string{
+		"Primitive lifecycle validation:",
+		"#1 sender_data_tx=ok",
+		"AAAA0001 rx=ok receipt_tx=ok sender_rx_receipt=ok",
+		"BBBB0002 rx=miss receipt_tx=miss sender_rx_receipt=miss",
+	} {
+		if !strings.Contains(out, want) {
+			t.Fatalf("expected output to contain %q\nOutput:\n%s", want, out)
+		}
 	}
 }
 

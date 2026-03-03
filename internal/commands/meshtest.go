@@ -24,6 +24,10 @@ const (
 	defaultWaitSeconds    = 15
 	meshConnectTimeout    = 8 * time.Second
 	meshPerRequestTimeout = 10 * time.Second
+	meshTrafficTimeout    = 30 * time.Second
+
+	pktTypeDeliveryReceipt = 0x07
+	pktTypeData            = 0x0A
 )
 
 type meshTestConfig struct {
@@ -71,16 +75,31 @@ type nodeReliability struct {
 	Expected int    `json:"expected"`
 }
 
+type primitiveRecipientResult struct {
+	Recipient       string `json:"recipient"`
+	BroadcastRx     bool   `json:"broadcast_rx"`
+	ReceiptTx       bool   `json:"receipt_tx"`
+	SenderReceiptRx bool   `json:"sender_receipt_rx"`
+}
+
+type primitiveBroadcastResult struct {
+	Index        int                        `json:"index"`
+	SenderDataTx bool                       `json:"sender_data_tx"`
+	Recipients   []primitiveRecipientResult `json:"recipients"`
+}
+
 type meshTestReport struct {
-	Nodes           []meshNode        `json:"nodes"`
-	BroadcastsSent  int               `json:"broadcasts_sent"`
-	Broadcasts      []broadcastResult `json:"broadcasts"`
-	TotalExpected   int               `json:"total_expected_receipts"`
-	TotalReceived   int               `json:"total_received_receipts"`
-	DeliveryRate    float64           `json:"delivery_rate"`
-	NodeReliability []nodeReliability `json:"node_reliability"`
-	SenderTransport string            `json:"sender_transport,omitempty"`
-	GeneratedAt     string            `json:"generated_at"`
+	Nodes                      []meshNode                 `json:"nodes"`
+	BroadcastsSent             int                        `json:"broadcasts_sent"`
+	Broadcasts                 []broadcastResult          `json:"broadcasts"`
+	TotalExpected              int                        `json:"total_expected_receipts"`
+	TotalReceived              int                        `json:"total_received_receipts"`
+	DeliveryRate               float64                    `json:"delivery_rate"`
+	NodeReliability            []nodeReliability          `json:"node_reliability"`
+	SenderTransport            string                     `json:"sender_transport,omitempty"`
+	PrimitiveValidationEnabled bool                       `json:"primitive_validation_enabled,omitempty"`
+	PrimitiveBroadcasts        []primitiveBroadcastResult `json:"primitive_broadcasts,omitempty"`
+	GeneratedAt                string                     `json:"generated_at"`
 }
 
 type meshConnectedNode struct {
@@ -96,6 +115,7 @@ func newMeshTestCmd() *cobra.Command {
 	var waitSec int
 	var jsonOut bool
 	var verbose bool
+	var validatePrimitives bool
 
 	cmd := &cobra.Command{
 		Use:   "mesh-test",
@@ -121,7 +141,7 @@ and reports delivery reliability per broadcast and per node.`,
 			}
 			setMeshDefaults(&cfg)
 
-			report, runErr := runMeshTest(cmd.Context(), cfg, verbose)
+			report, runErr := runMeshTest(cmd.Context(), cfg, verbose, validatePrimitives)
 			if jsonOut {
 				if err := output.PrintJSON(cmd.OutOrStdout(), report); err != nil {
 					return err
@@ -140,6 +160,7 @@ and reports delivery reliability per broadcast and per node.`,
 	cmd.Flags().IntVar(&waitSec, "wait", defaultWaitSeconds, "Seconds to wait for delivery receipts")
 	cmd.Flags().BoolVar(&jsonOut, "json", false, "Output results as JSON")
 	cmd.Flags().BoolVar(&verbose, "verbose", false, "Show per-event details")
+	cmd.Flags().BoolVar(&validatePrimitives, "validate-primitives", false, "Validate protocol primitives (TX/RX/receipt lifecycle) using traffic debug events")
 
 	return cmd
 }
@@ -192,7 +213,7 @@ func discoverSerialPorts() []string {
 	return ports
 }
 
-func runMeshTest(ctx context.Context, cfg meshTestConfig, verbose bool) (meshTestReport, error) {
+func runMeshTest(ctx context.Context, cfg meshTestConfig, verbose bool, validatePrimitives bool) (meshTestReport, error) {
 	report := meshTestReport{GeneratedAt: time.Now().Format(time.RFC3339)}
 
 	nodes := buildMeshNodeList(cfg)
@@ -227,8 +248,10 @@ func runMeshTest(ctx context.Context, cfg meshTestConfig, verbose bool) (meshTes
 	report.SenderTransport = sender.node.Transport
 
 	expectedByAddress := map[string]struct{}{}
+	recipientConnByAddr := map[string]*meshConnectedNode{}
 	senderAddr := strings.TrimSpace(sender.node.Address)
-	for _, n := range connected {
+	for i := range connected {
+		n := &connected[i]
 		if n.node.Transport == sender.node.Transport {
 			continue
 		}
@@ -241,6 +264,9 @@ func runMeshTest(ctx context.Context, cfg meshTestConfig, verbose bool) (meshTes
 			continue
 		}
 		expectedByAddress[addr] = struct{}{}
+		if _, ok := recipientConnByAddr[addr]; !ok {
+			recipientConnByAddr[addr] = n
+		}
 	}
 
 	/* Broadcast delivery events are emitted on the sender node connection. */
@@ -256,11 +282,40 @@ func runMeshTest(ctx context.Context, cfg meshTestConfig, verbose bool) (meshTes
 	waitWindow := time.Duration(cfg.WaitSeconds) * time.Second
 	report.BroadcastsSent = cfg.Broadcasts
 	report.Broadcasts = make([]broadcastResult, 0, cfg.Broadcasts)
+	report.PrimitiveValidationEnabled = validatePrimitives
+	if validatePrimitives {
+		report.PrimitiveBroadcasts = make([]primitiveBroadcastResult, 0, cfg.Broadcasts)
+		for _, n := range connected {
+			enableCtx, enableCancel := context.WithTimeout(ctx, meshPerRequestTimeout)
+			if err := ensureTrafficDebugEnabled(enableCtx, n.client); err != nil && verbose {
+				fmt.Fprintf(os.Stderr, "mesh-test: warning: traffic debug enable failed for %s: %v\n", n.node.Transport, err)
+			}
+			enableCancel()
+		}
+	}
 	perNode := map[string]int{}
 	var firstErr error
 
 	for i := 1; i <= cfg.Broadcasts; i++ {
 		drainDeliveryEvents(deliveryEvents)
+		senderSeq := uint32(0)
+		recipientSeq := map[string]uint32{}
+		if validatePrimitives {
+			seqCtx, seqCancel := context.WithTimeout(ctx, meshTrafficTimeout)
+			if seq, err := latestTrafficSeq(seqCtx, sender.client); err == nil {
+				senderSeq = seq
+			} else if verbose {
+				fmt.Fprintf(os.Stderr, "mesh-test: warning: sender traffic baseline failed: %v\n", err)
+			}
+			for addr, conn := range recipientConnByAddr {
+				if seq, err := latestTrafficSeq(seqCtx, conn.client); err == nil {
+					recipientSeq[addr] = seq
+				} else if verbose {
+					fmt.Fprintf(os.Stderr, "mesh-test: warning: recipient %s traffic baseline failed: %v\n", addr, err)
+				}
+			}
+			seqCancel()
+		}
 		text := fmt.Sprintf("mesh-test #%d %d", i, time.Now().Unix())
 		sendCtx, cancel := context.WithTimeout(ctx, meshPerRequestTimeout)
 		sendRes, err := sender.client.Broadcast(sendCtx, text)
@@ -332,6 +387,39 @@ func runMeshTest(ctx context.Context, cfg meshTestConfig, verbose bool) (meshTes
 			Recipients:        recipients,
 			MissingRecipients: missing,
 		})
+
+		if validatePrimitives {
+			prim := primitiveBroadcastResult{Index: i}
+			postCtx, postCancel := context.WithTimeout(ctx, meshTrafficTimeout)
+			senderEvents, err := trafficEventsSince(postCtx, sender.client, senderSeq)
+			if err != nil && verbose {
+				fmt.Fprintf(os.Stderr, "mesh-test: warning: sender traffic fetch failed: %v\n", err)
+			}
+			prim.SenderDataTx = hasTrafficEvent(senderEvents, pktTypeData, true)
+			delivered := map[string]bool{}
+			for _, rr := range recipients {
+				delivered[rr.Recipient] = true
+			}
+			recAddrs := make([]string, 0, len(expectedByAddress))
+			for addr := range expectedByAddress {
+				recAddrs = append(recAddrs, addr)
+			}
+			sort.Strings(recAddrs)
+			for _, addr := range recAddrs {
+				pr := primitiveRecipientResult{Recipient: addr, SenderReceiptRx: delivered[addr]}
+				if conn, ok := recipientConnByAddr[addr]; ok {
+					events, err := trafficEventsSince(postCtx, conn.client, recipientSeq[addr])
+					if err != nil && verbose {
+						fmt.Fprintf(os.Stderr, "mesh-test: warning: recipient %s traffic fetch failed: %v\n", addr, err)
+					}
+					pr.BroadcastRx = hasTrafficEvent(events, pktTypeData, false)
+					pr.ReceiptTx = hasTrafficEvent(events, pktTypeDeliveryReceipt, true)
+				}
+				prim.Recipients = append(prim.Recipients, pr)
+			}
+			postCancel()
+			report.PrimitiveBroadcasts = append(report.PrimitiveBroadcasts, prim)
+		}
 
 		if i < cfg.Broadcasts && spacing > 0 {
 			time.Sleep(spacing)
@@ -427,6 +515,75 @@ func drainDeliveryEvents(ch <-chan bramble.BroadcastDelivery) {
 	}
 }
 
+func ensureTrafficDebugEnabled(ctx context.Context, client *bramble.Client) error {
+	status, err := client.GetTrafficDebug(ctx)
+	if err != nil {
+		return err
+	}
+	if status.Enabled && status.IncludeTx && status.IncludeRx {
+		return nil
+	}
+	enabled := true
+	includeTx := true
+	includeRx := true
+	_, err = client.SetTrafficDebug(ctx, bramble.SetTrafficDebugParams{
+		Enabled:   &enabled,
+		IncludeTx: &includeTx,
+		IncludeRx: &includeRx,
+	})
+	return err
+}
+
+func latestTrafficSeq(ctx context.Context, client *bramble.Client) (uint32, error) {
+	limit := 512
+	resp, err := getTrafficEventsWithRetry(ctx, client, bramble.GetTrafficEventsParams{Limit: &limit})
+	if err != nil {
+		return 0, err
+	}
+	if len(resp.Events) == 0 {
+		return 0, nil
+	}
+	maxSeq := resp.Events[0].Seq
+	for _, evt := range resp.Events[1:] {
+		if evt.Seq > maxSeq {
+			maxSeq = evt.Seq
+		}
+	}
+	return maxSeq, nil
+}
+
+func trafficEventsSince(ctx context.Context, client *bramble.Client, since uint32) ([]bramble.TrafficEvent, error) {
+	limit := 512
+	resp, err := getTrafficEventsWithRetry(ctx, client, bramble.GetTrafficEventsParams{SinceSeq: &since, Limit: &limit})
+	if err != nil {
+		return nil, err
+	}
+	return resp.Events, nil
+}
+
+func getTrafficEventsWithRetry(parent context.Context, client *bramble.Client, params bramble.GetTrafficEventsParams) (*bramble.GetTrafficEventsResponse, error) {
+	var lastErr error
+	for attempt := 0; attempt < 2; attempt++ {
+		ctx, cancel := context.WithTimeout(parent, meshTrafficTimeout)
+		resp, err := client.GetTrafficEvents(ctx, params)
+		cancel()
+		if err == nil {
+			return resp, nil
+		}
+		lastErr = err
+	}
+	return nil, lastErr
+}
+
+func hasTrafficEvent(events []bramble.TrafficEvent, pktType int, isTx bool) bool {
+	for _, evt := range events {
+		if evt.PktType == pktType && evt.IsTx == isTx {
+			return true
+		}
+	}
+	return false
+}
+
 func missingRecipients(expected map[string]struct{}, received map[string]receiptResult) []string {
 	missing := make([]string, 0)
 	for addr := range expected {
@@ -520,6 +677,32 @@ func formatMeshTestReport(report meshTestReport) string {
 				pct = (float64(nr.Received) / float64(nr.Expected)) * 100
 			}
 			fmt.Fprintf(&b, "  %s %d/%d (%.0f%%)\n", nr.Address, nr.Received, nr.Expected, pct)
+		}
+	}
+	if report.PrimitiveValidationEnabled {
+		fmt.Fprintln(&b)
+		fmt.Fprintln(&b, "Primitive lifecycle validation:")
+		for _, pb := range report.PrimitiveBroadcasts {
+			senderState := "miss"
+			if pb.SenderDataTx {
+				senderState = "ok"
+			}
+			fmt.Fprintf(&b, "  #%d sender_data_tx=%s\n", pb.Index, senderState)
+			for _, pr := range pb.Recipients {
+				rx := "miss"
+				if pr.BroadcastRx {
+					rx = "ok"
+				}
+				tx := "miss"
+				if pr.ReceiptTx {
+					tx = "ok"
+				}
+				srx := "miss"
+				if pr.SenderReceiptRx {
+					srx = "ok"
+				}
+				fmt.Fprintf(&b, "    %s rx=%s receipt_tx=%s sender_rx_receipt=%s\n", pr.Recipient, rx, tx, srx)
+			}
 		}
 	}
 	return b.String()
