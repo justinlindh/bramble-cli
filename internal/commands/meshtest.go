@@ -226,27 +226,24 @@ func runMeshTest(ctx context.Context, cfg meshTestConfig, verbose bool) (meshTes
 	sender.node.Sender = true
 	report.SenderTransport = sender.node.Transport
 
-	targets := make([]meshConnectedNode, 0, len(connected)-1)
 	expectedByAddress := map[string]struct{}{}
 	for _, n := range connected {
 		if n.node.Transport == sender.node.Transport {
 			continue
 		}
-		targets = append(targets, n)
 		if n.node.Address != "" {
 			expectedByAddress[n.node.Address] = struct{}{}
 		}
 	}
 
+	/* Broadcast delivery events are emitted on the sender node connection. */
 	deliveryEvents := make(chan bramble.BroadcastDelivery, 128)
-	for _, n := range targets {
-		n.client.OnBroadcastDelivery(func(evt bramble.BroadcastDelivery) {
-			select {
-			case deliveryEvents <- evt:
-			default:
-			}
-		})
-	}
+	sender.client.OnBroadcastDelivery(func(evt bramble.BroadcastDelivery) {
+		select {
+		case deliveryEvents <- evt:
+		default:
+		}
+	})
 
 	spacing := time.Duration(cfg.SpacingSeconds) * time.Second
 	waitWindow := time.Duration(cfg.WaitSeconds) * time.Second
