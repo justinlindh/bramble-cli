@@ -43,6 +43,14 @@ func clockTickCmd() tea.Cmd {
 	})
 }
 
+type airtimeLockTickMsg time.Time
+
+func airtimeLockTickCmd() tea.Cmd {
+	return tea.Tick(time.Second, func(t time.Time) tea.Msg {
+		return airtimeLockTickMsg(t)
+	})
+}
+
 // ── Fetch result Msgs ─────────────────────────────────────────────────────────
 
 type fetchStatusResult struct {
@@ -115,7 +123,8 @@ type Model struct {
 	retryIn    int
 
 	pendingConfirm bool
-	mouseEnabled   bool
+	mouseEnabled       bool
+	airtimeLockTicking bool
 }
 
 // New creates a new IRC-style TUI model.
@@ -247,6 +256,7 @@ func (m *Model) switchBuffer(convID string) {
 	m.input.SetPrompt("[" + label + "]")
 	m.reloadScrollback()
 	m.addSystem(convID, fmt.Sprintf("Switched to %s", label))
+	_ = m.refreshInputLockout(time.Now())
 }
 
 func (m *Model) addConversationLine(convID string, kind LineKind, rendered string) {
@@ -394,6 +404,79 @@ func (m *Model) cycleBuffer(delta int) {
 	m.switchBuffer(convs[next].ID)
 }
 
+func (m Model) airtimeTierForText(text string, critical bool) string {
+	if critical || strings.HasPrefix(strings.TrimSpace(text), "/critical") {
+		return "critical"
+	}
+	switch {
+	case m.activeConv == "broadcast", strings.HasPrefix(m.activeConv, "ch:"):
+		return "broadcast"
+	case strings.HasPrefix(m.activeConv, "dm:"):
+		return "normal"
+	default:
+		return "normal"
+	}
+}
+
+func findAirtimeTier(stats *bramble.AirtimeStats, tier string) *bramble.AirtimeTier {
+	if stats == nil {
+		return nil
+	}
+	for i := range stats.Tiers {
+		if strings.EqualFold(stats.Tiers[i].Name, tier) {
+			return &stats.Tiers[i]
+		}
+	}
+	return nil
+}
+
+func refillSeconds(refillAtMs int64, now time.Time) int {
+	if refillAtMs <= 0 {
+		return 0
+	}
+	remainingMs := refillAtMs - now.UnixMilli()
+	if remainingMs <= 0 {
+		return 0
+	}
+	return int((remainingMs + 999) / 1000)
+}
+
+func (m *Model) currentAirtimeLockout(text string, critical bool, now time.Time) *InputLockout {
+	tier := m.airtimeTierForText(text, critical)
+	m.store.mu.RLock()
+	stats := m.store.Airtime
+	m.store.mu.RUnlock()
+	t := findAirtimeTier(stats, tier)
+	if t == nil || t.RemainingMs > 0 {
+		return nil
+	}
+	return &InputLockout{Tier: tier, RefillInSecs: refillSeconds(t.RefillAtMs, now)}
+}
+
+func (m *Model) refreshInputLockout(now time.Time) tea.Cmd {
+	lockout := m.currentAirtimeLockout(m.input.Value(), false, now)
+	m.input.SetLockout(lockout)
+	if lockout != nil {
+		if !m.airtimeLockTicking {
+			m.airtimeLockTicking = true
+			return airtimeLockTickCmd()
+		}
+		return nil
+	}
+	m.airtimeLockTicking = false
+	return nil
+}
+
+func (m *Model) blockedAirtimeMessage(lockout *InputLockout) string {
+	if lockout == nil {
+		return "Cannot send: airtime budget depleted."
+	}
+	if lockout.RefillInSecs > 0 {
+		return fmt.Sprintf("Cannot send: airtime budget depleted for %s. Refill in %ds.", lockout.Tier, lockout.RefillInSecs)
+	}
+	return fmt.Sprintf("Cannot send: airtime budget depleted for %s.", lockout.Tier)
+}
+
 // Init implements tea.Model.
 func (m Model) Init() tea.Cmd {
 	m.addSystem("broadcast", fmt.Sprintf("Connected to %s via %s", m.node.Address, m.node.Transport))
@@ -407,6 +490,7 @@ func (m Model) Init() tea.Cmd {
 		clockTickCmd(),
 		m.input.Focus(),
 		m.fetchInitialData(),
+		m.refreshInputLockout(time.Now()),
 	)
 }
 
@@ -497,6 +581,12 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		var inputCmd tea.Cmd
 		m.input, inputCmd = m.input.Update(msg)
 		cmds = append(cmds, inputCmd)
+		if lockCmd := m.refreshInputLockout(time.Now()); lockCmd != nil {
+			cmds = append(cmds, lockCmd)
+		}
+
+	case InputBlockedMsg:
+		m.addSystem(m.activeConv, m.blockedAirtimeMessage(&InputLockout{Tier: msg.Tier, RefillInSecs: msg.RefillInSecs}))
 
 	case InputMsg:
 		if msg.IsCommand {
@@ -518,6 +608,10 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					m.mouseEnabled = *action.SetMouseEnabled
 				}
 				if action.SendText != "" {
+					if lockout := m.currentAirtimeLockout(action.SendText, action.SendCritical, time.Now()); lockout != nil {
+						m.addSystem(m.activeConv, m.blockedAirtimeMessage(lockout))
+						return m, m.refreshInputLockout(time.Now())
+					}
 					if action.SendTo != "" {
 						return m, m.sendDirectMessage(action.SendTo, action.SendText)
 					}
@@ -533,6 +627,10 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			if meta.OverLimit {
 				m.addError(m.activeConv, fmt.Sprintf("Message too long (%d bytes). Max is %d bytes.", meta.ByteCount, meta.MaxBytes))
 				return m, nil
+			}
+			if lockout := m.currentAirtimeLockout(msg.Text, false, time.Now()); lockout != nil {
+				m.addSystem(m.activeConv, m.blockedAirtimeMessage(lockout))
+				return m, m.refreshInputLockout(time.Now())
 			}
 			return m, m.sendMessage(msg.Text, false)
 		}
@@ -587,6 +685,16 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case clockTickMsg:
 		m.updateStatusBar()
 		return m, clockTickCmd()
+
+	case airtimeLockTickMsg:
+		if lockout := m.currentAirtimeLockout(m.input.Value(), false, time.Now()); lockout != nil {
+			m.input.SetLockout(lockout)
+			m.airtimeLockTicking = true
+			return m, airtimeLockTickCmd()
+		}
+		m.input.SetLockout(nil)
+		m.airtimeLockTicking = false
+		return m, nil
 
 	case fetchStatusResult:
 		if msg.err != nil && m.connected {
@@ -650,6 +758,9 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case fetchAirtimeResult:
 		if msg.err == nil {
 			m.store.UpdateAirtime(msg.airtime)
+			if lockCmd := m.refreshInputLockout(time.Now()); lockCmd != nil {
+				cmds = append(cmds, lockCmd)
+			}
 		}
 
 	case fetchPeerLocsResult:
@@ -757,6 +868,9 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		var inputCmd tea.Cmd
 		m.input, inputCmd = m.input.Update(msg)
 		cmds = append(cmds, inputCmd)
+		if lockCmd := m.refreshInputLockout(time.Now()); lockCmd != nil {
+			cmds = append(cmds, lockCmd)
+		}
 	}
 
 	return m, tea.Batch(cmds...)

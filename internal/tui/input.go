@@ -21,16 +21,29 @@ type InputMsg struct {
 	IsCommand bool // starts with /
 }
 
+// InputBlockedMsg is sent when Enter is pressed but sending is lock-gated.
+type InputBlockedMsg struct {
+	Tier         string
+	RefillInSecs int
+}
+
 // InputLine is the always-visible input line at the bottom.
 type InputLine struct {
 	textarea textarea.Model
 	prompt   string // e.g. "[broadcast]" or "[dm:NodeB]"
 	width    int
 	style    InputStyle
+	lockout  *InputLockout
+}
+
+type InputLockout struct {
+	Tier         string
+	RefillInSecs int
 }
 
 type InputStyle struct {
 	Prompt       lipgloss.Style
+	PromptLocked lipgloss.Style
 	Border       lipgloss.Style
 	Typeahead    lipgloss.Style
 	ByteOK       lipgloss.Style
@@ -62,6 +75,9 @@ func NewInputLine() InputLine {
 			Prompt: lipgloss.NewStyle().
 				Foreground(lipgloss.Color("#00FF87")).
 				Bold(true),
+			PromptLocked: lipgloss.NewStyle().
+				Foreground(lipgloss.Color("#FF8800")).
+				Bold(true),
 			Border: lipgloss.NewStyle().
 				BorderTop(true).
 				BorderStyle(lipgloss.NormalBorder()).
@@ -84,6 +100,14 @@ func NewInputLine() InputLine {
 
 func (il *InputLine) SetPrompt(p string) {
 	il.prompt = p
+}
+
+func (il *InputLine) SetLockout(lockout *InputLockout) {
+	il.lockout = lockout
+}
+
+func (il InputLine) Value() string {
+	return il.textarea.Value()
 }
 
 func (il *InputLine) SetWidth(w int) {
@@ -119,6 +143,12 @@ func (il InputLine) Update(msg tea.Msg) (InputLine, tea.Cmd) {
 			if text == "" {
 				return il, nil
 			}
+			if il.lockout != nil {
+				locked := *il.lockout
+				return il, func() tea.Msg {
+					return InputBlockedMsg{Tier: locked.Tier, RefillInSecs: locked.RefillInSecs}
+				}
+			}
 			il.textarea.SetValue("")
 			isCmd := strings.HasPrefix(text, "/")
 			return il, func() tea.Msg {
@@ -136,7 +166,18 @@ func (il InputLine) Update(msg tea.Msg) (InputLine, tea.Cmd) {
 }
 
 func (il InputLine) View() string {
-	prompt := il.style.Prompt.Render(il.prompt)
+	promptText := il.prompt
+	promptStyle := il.style.Prompt
+	if il.lockout != nil {
+		promptStyle = il.style.PromptLocked
+		indicator := "[airtime depleted"
+		if il.lockout.RefillInSecs > 0 {
+			indicator += fmt.Sprintf(" — refill in %ds", il.lockout.RefillInSecs)
+		}
+		indicator += "]"
+		promptText = promptText + " " + indicator
+	}
+	prompt := promptStyle.Render(promptText)
 	ta := il.textarea.View()
 	if suffix := commandSuggestionSuffix(il.textarea.Value()); suffix != "" {
 		ta += il.style.Typeahead.Render(suffix)

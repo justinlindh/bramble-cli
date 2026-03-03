@@ -3,8 +3,10 @@ package tui
 import (
 	"strings"
 	"testing"
+	"time"
 
 	tea "charm.land/bubbletea/v2"
+	bramble "github.com/justinlindh/bramble-go"
 )
 
 func TestCommandSuggestionSuffix(t *testing.T) {
@@ -35,6 +37,100 @@ func TestInputLineTabAutocompletesCommand(t *testing.T) {
 	updated, _ := il.Update(tea.KeyPressMsg{Code: tea.KeyTab})
 	if got := updated.textarea.Value(); got != "/help" {
 		t.Fatalf("tab autocomplete value=%q want %q", got, "/help")
+	}
+}
+
+func TestInputLineEnterBlockedWhenLockoutActive(t *testing.T) {
+	il := NewInputLine()
+	il.textarea.SetValue("hello")
+	il.SetLockout(&InputLockout{Tier: "broadcast", RefillInSecs: 9})
+
+	updated, cmd := il.Update(tea.KeyPressMsg{Code: tea.KeyEnter})
+	if cmd == nil {
+		t.Fatal("expected blocked-send cmd")
+	}
+	msg := cmd()
+	blocked, ok := msg.(InputBlockedMsg)
+	if !ok {
+		t.Fatalf("expected InputBlockedMsg, got %T", msg)
+	}
+	if blocked.Tier != "broadcast" || blocked.RefillInSecs != 9 {
+		t.Fatalf("unexpected block details: %+v", blocked)
+	}
+	if got := updated.textarea.Value(); got != "hello" {
+		t.Fatalf("message should remain in input; got %q", got)
+	}
+}
+
+func TestInputLineRefillReenablesEnterSend(t *testing.T) {
+	il := NewInputLine()
+	il.textarea.SetValue("hello")
+	il.SetLockout(&InputLockout{Tier: "broadcast", RefillInSecs: 2})
+	il.SetLockout(nil)
+
+	updated, cmd := il.Update(tea.KeyPressMsg{Code: tea.KeyEnter})
+	if cmd == nil {
+		t.Fatal("expected send cmd")
+	}
+	msg := cmd()
+	inputMsg, ok := msg.(InputMsg)
+	if !ok {
+		t.Fatalf("expected InputMsg, got %T", msg)
+	}
+	if inputMsg.Text != "hello" {
+		t.Fatalf("unexpected text: %q", inputMsg.Text)
+	}
+	if got := updated.textarea.Value(); got != "" {
+		t.Fatalf("input should clear after send, got %q", got)
+	}
+}
+
+func TestAirtimeTierMatchingByConversationAndCriticalPrefix(t *testing.T) {
+	m := Model{activeConv: "broadcast"}
+	if got := m.airtimeTierForText("hello", false); got != "broadcast" {
+		t.Fatalf("broadcast tier=%q want broadcast", got)
+	}
+
+	m.activeConv = "ch:2"
+	if got := m.airtimeTierForText("hello", false); got != "broadcast" {
+		t.Fatalf("channel tier=%q want broadcast", got)
+	}
+
+	m.activeConv = "dm:ABCD"
+	if got := m.airtimeTierForText("hello", false); got != "normal" {
+		t.Fatalf("dm tier=%q want normal", got)
+	}
+	if got := m.airtimeTierForText("/critical urgent", false); got != "critical" {
+		t.Fatalf("critical prefix tier=%q want critical", got)
+	}
+	if got := m.airtimeTierForText("hello", true); got != "critical" {
+		t.Fatalf("explicit critical tier=%q want critical", got)
+	}
+}
+
+func TestCurrentAirtimeLockoutUsesRelevantTier(t *testing.T) {
+	now := time.Unix(100, 0)
+	refill := now.Add(8 * time.Second).UnixMilli()
+	m := Model{activeConv: "dm:ABCD", store: NewStore()}
+	m.store.UpdateAirtime(&bramble.AirtimeStats{Tiers: []bramble.AirtimeTier{
+		{Name: "broadcast", RemainingMs: 0, RefillAtMs: refill},
+		{Name: "normal", RemainingMs: 1000, RefillAtMs: refill},
+	}})
+
+	if lock := m.currentAirtimeLockout("hello", false, now); lock != nil {
+		t.Fatalf("expected dm send unlocked when normal tier has budget, got %+v", lock)
+	}
+
+	m.store.UpdateAirtime(&bramble.AirtimeStats{Tiers: []bramble.AirtimeTier{
+		{Name: "broadcast", RemainingMs: 0, RefillAtMs: refill},
+		{Name: "normal", RemainingMs: 0, RefillAtMs: refill},
+	}})
+	lock := m.currentAirtimeLockout("hello", false, now)
+	if lock == nil {
+		t.Fatal("expected lockout when normal tier is depleted")
+	}
+	if lock.Tier != "normal" || lock.RefillInSecs <= 0 {
+		t.Fatalf("unexpected lockout: %+v", lock)
 	}
 }
 
