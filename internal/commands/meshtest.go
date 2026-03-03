@@ -227,13 +227,20 @@ func runMeshTest(ctx context.Context, cfg meshTestConfig, verbose bool) (meshTes
 	report.SenderTransport = sender.node.Transport
 
 	expectedByAddress := map[string]struct{}{}
+	senderAddr := strings.TrimSpace(sender.node.Address)
 	for _, n := range connected {
 		if n.node.Transport == sender.node.Transport {
 			continue
 		}
-		if n.node.Address != "" {
-			expectedByAddress[n.node.Address] = struct{}{}
+		addr := strings.TrimSpace(n.node.Address)
+		if addr == "" {
+			continue
 		}
+		/* Exclude sender identity even when it appears on multiple transports (e.g. serial + ws). */
+		if senderAddr != "" && addr == senderAddr {
+			continue
+		}
+		expectedByAddress[addr] = struct{}{}
 	}
 
 	/* Broadcast delivery events are emitted on the sender node connection. */
