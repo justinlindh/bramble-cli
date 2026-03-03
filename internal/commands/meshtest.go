@@ -339,6 +339,12 @@ func runMeshTest(ctx context.Context, cfg meshTestConfig, verbose bool) (meshTes
 
 func buildMeshNodeList(cfg meshTestConfig) []meshNode {
 	byTransport := map[string]meshNode{}
+
+	/* Ensure explicit sender transport is included even if not listed in nodes. */
+	if s := strings.TrimSpace(cfg.Sender); s != "" {
+		byTransport[s] = meshNode{Name: "sender", Transport: s, FromConfig: true}
+	}
+
 	for _, n := range cfg.Nodes {
 		t := strings.TrimSpace(n.Transport)
 		if t == "" {

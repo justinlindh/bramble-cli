@@ -56,6 +56,24 @@ func TestLoadMeshTestConfig_MissingIsAllowed(t *testing.T) {
 	}
 }
 
+func TestBuildMeshNodeList_IncludesSenderTransport(t *testing.T) {
+	sender := "ws://192.0.2.0/ws"
+	nodes := buildMeshNodeList(meshTestConfig{Sender: sender})
+	found := false
+	for _, n := range nodes {
+		if n.Transport == sender {
+			found = true
+			if !n.FromConfig {
+				t.Fatalf("sender node should be marked FromConfig")
+			}
+			break
+		}
+	}
+	if !found {
+		t.Fatalf("expected sender transport %q in node list", sender)
+	}
+}
+
 func TestFormatMeshTestReport(t *testing.T) {
 	report := meshTestReport{
 		Nodes: []meshNode{
