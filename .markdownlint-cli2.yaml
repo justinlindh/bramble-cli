@@ -1,0 +1,16 @@
+config:
+  default: true
+  MD013: false # line-length: too noisy for existing docs/plans and command examples
+  MD022: false # headings not always surrounded by blank lines in existing docs
+  MD031: false # fenced blocks often intentionally compact
+  MD032: false # list surrounding blank lines too noisy for current docs
+  MD036: false # allows emphasized "Step N" pseudo-headings in plans
+  MD040: false # allow fenced blocks without explicit language
+  MD058: false # don't require blank lines around tables
+  MD060: false # don't enforce table pipe style/alignment
+
+globs:
+  - "**/*.md"
+ignores:
+  - ".venv-hooks/**"
+  - ".venv/**"

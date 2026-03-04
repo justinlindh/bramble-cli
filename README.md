@@ -19,6 +19,7 @@ It is built on [bramble-go](https://github.com/justinlindh/bramble-go), and foll
 - [Shell Completion](#shell-completion)
 - [JSON Output](#json-output)
 - [Examples](#examples)
+- [Quality Checks](#quality-checks)
 - [License](#license)
 
 ## Install
@@ -125,6 +126,7 @@ bramble broadcast --wait-delivery 10 "delivery telemetry please"
 ```bash
 bramble monitor --topic wifi,gps,location
 bramble monitor --messages
+bramble monitor --events
 bramble traffic monitor --tx-only
 bramble traffic export --format jsonl > traffic-events.jsonl
 ```
@@ -202,6 +204,79 @@ See the [`examples/`](examples/) directory for common usage patterns:
 - [`03-channels.sh`](examples/03-channels.sh) — channel operations
 - [`04-location.sh`](examples/04-location.sh) — location sharing
 - [`05-monitor.sh`](examples/05-monitor.sh) — monitor and debug output
+
+## Quality Checks
+
+The repository includes a dedicated quality workflow at `.gitea/workflows/quality.yml`.
+
+- **Required checks (Phase C):**
+  - `go test ./...`
+  - `go vet ./...`
+  - `golangci-lint run ./...`
+  - `shellcheck scripts/*.sh examples/*.sh`
+  - `bash scripts/check-doc-drift.sh`
+  - `npx --yes markdownlint-cli2 "**/*.md"`
+  - `govulncheck ./...`
+- **Advisory checks:**
+  - `actionlint`
+
+`govulncheck ./...` is required in Phase C by default because current scans show no vulnerability backlog and produce high-signal output (`No vulnerabilities found.`).
+
+Staged promotion policy, Phase B → C migration notes, required-vs-advisory matrix, and explicit rollback levers are documented in [`docs/quality-policy.md`](docs/quality-policy.md).
+
+To run local required + advisory checks before pushing:
+
+```bash
+go test ./...
+go vet ./...
+go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest
+golangci-lint run ./...
+
+# ShellCheck (install once; package name may vary by distro)
+shellcheck scripts/*.sh examples/*.sh
+
+# Docs correctness + markdown (required in Phase C)
+bash scripts/check-doc-drift.sh
+npx --yes markdownlint-cli2 "**/*.md"
+
+# govulncheck is required in CI Phase C
+go install golang.org/x/vuln/cmd/govulncheck@latest
+govulncheck ./...
+
+# Optional advisory check
+go install github.com/rhysd/actionlint/cmd/actionlint@latest
+actionlint
+```
+
+### Local Git hooks with pre-commit
+
+Install hooks once in your clone:
+
+```bash
+# Pre-commit checks (format, lint, shellcheck, markdown)
+pre-commit install
+
+# Optional: also install pre-push checks (docs drift)
+pre-commit install -t pre-push
+```
+
+Run hooks on demand:
+
+```bash
+pre-commit run --all-files
+pre-commit run --hook-stage pre-push check-doc-drift
+```
+
+Emergency bypass (use sparingly, and fix immediately after):
+
+```bash
+# Skip specific pre-commit hooks
+SKIP=golangci-lint,markdownlint-cli2 git commit -m "..."
+
+# Bypass all hooks for one commit/push
+git commit --no-verify -m "..."
+git push --no-verify
+```
 
 ## License
 

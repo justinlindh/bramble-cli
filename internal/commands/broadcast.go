@@ -5,9 +5,10 @@ import (
 	"os"
 	"time"
 
-	"github.com/justinlindh/bramble-cli/internal/output"
 	bramble "github.com/justinlindh/bramble-go"
 	"github.com/spf13/cobra"
+
+	"github.com/justinlindh/bramble-cli/internal/output"
 )
 
 var broadcastChannel int

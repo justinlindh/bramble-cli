@@ -7,10 +7,11 @@ import (
 	"time"
 
 	tea "charm.land/bubbletea/v2"
-	"github.com/justinlindh/bramble-cli/internal/tui"
 	bramble "github.com/justinlindh/bramble-go"
 	"github.com/justinlindh/bramble-go/transport"
 	"github.com/spf13/cobra"
+
+	"github.com/justinlindh/bramble-cli/internal/tui"
 )
 
 func newTUICmd() *cobra.Command {

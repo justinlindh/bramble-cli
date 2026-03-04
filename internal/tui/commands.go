@@ -154,7 +154,7 @@ func (h *CommandHandler) Execute(cmd *Command) CmdAction {
 }
 
 func (h *CommandHandler) cmdMouse(args []string) CmdAction {
-	next := h.mouseEnabled
+	var next bool
 	if len(args) == 0 {
 		next = !h.mouseEnabled
 	} else {

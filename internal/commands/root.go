@@ -8,10 +8,11 @@ import (
 	"reflect"
 	"time"
 
-	"github.com/justinlindh/bramble-cli/internal/discovery"
 	bramble "github.com/justinlindh/bramble-go"
 	"github.com/justinlindh/bramble-go/transport"
 	"github.com/spf13/cobra"
+
+	"github.com/justinlindh/bramble-cli/internal/discovery"
 )
 
 var (

@@ -10,8 +10,9 @@ import (
 
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
-	"github.com/justinlindh/bramble-cli/internal/tui/tabs"
 	bramble "github.com/justinlindh/bramble-go"
+
+	"github.com/justinlindh/bramble-cli/internal/tui/tabs"
 )
 
 // NodeInfo holds the fetched node identity/status for display.
@@ -176,17 +177,11 @@ func New(client *bramble.Client, node NodeInfo, connectFn ConnectFn, msgdb *MsgD
 
 // ClassifyMessageConvID returns the conversation ID for a bramble.Message.
 func ClassifyMessageConvID(msg bramble.Message, selfAddr string) string {
-	if msg.To == "broadcast" || msg.To == "FFFFFFFF" {
+	if msg.To == "" || msg.To == "broadcast" || msg.To == "FFFFFFFF" {
 		return "broadcast"
 	}
 	if len(msg.To) > 3 && msg.To[:3] == "ch:" {
 		return msg.To
-	}
-	if msg.To == "" {
-		if msg.From == "" {
-			return "broadcast"
-		}
-		return fmt.Sprintf("dm:%s", msg.From)
 	}
 	if msg.From == selfAddr || msg.From == "" {
 		return fmt.Sprintf("dm:%s", msg.To)
@@ -949,7 +944,11 @@ func (m Model) sendMessage(text string, critical bool) tea.Cmd {
 		case strings.HasPrefix(convID, "ch:"):
 			chStr := strings.TrimPrefix(convID, "ch:")
 			ch := 0
-			fmt.Sscanf(chStr, "%d", &ch)
+			_, parseErr := fmt.Sscanf(chStr, "%d", &ch)
+			if parseErr != nil {
+				err = fmt.Errorf("invalid channel %q", chStr)
+				break
+			}
 			var res *bramble.SendResult
 			if critical {
 				res, err = client.BroadcastOnChannelCritical(ctx, ch, text)

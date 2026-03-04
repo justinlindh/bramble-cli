@@ -4,8 +4,9 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/justinlindh/bramble-cli/internal/tui/tabs"
 	bramble "github.com/justinlindh/bramble-go"
+
+	"github.com/justinlindh/bramble-cli/internal/tui/tabs"
 )
 
 type testResolver struct {

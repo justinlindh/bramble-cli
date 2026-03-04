@@ -74,7 +74,7 @@ timeout 10 bramble traffic monitor --rx-only --category routing || true
 
 echo
 echo "=== Traffic debug: export ring-buffer to JSONL ==="
-bramble traffic export --format jsonl > /tmp/bramble-traffic-$(date +%s).jsonl
+bramble traffic export --format jsonl > "/tmp/bramble-traffic-$(date +%s).jsonl"
 echo "Exported to /tmp/bramble-traffic-*.jsonl"
 
 echo

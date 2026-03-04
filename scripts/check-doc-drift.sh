@@ -19,7 +19,11 @@ check_help_flag() {
   local cmd="$1"
   local flag="$2"
   local out
-  out="$($BIN $cmd --help 2>/dev/null || true)"
+  local -a cmd_parts=()
+  if [[ -n "$cmd" ]]; then
+    read -r -a cmd_parts <<<"$cmd"
+  fi
+  out="$("$BIN" "${cmd_parts[@]}" --help 2>/dev/null || true)"
   if ! grep -Fq -- "$flag" <<<"$out"; then
     echo "[FAIL] '$BIN $cmd --help' missing: $flag"
     failures=$((failures + 1))

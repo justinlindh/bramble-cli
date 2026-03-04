@@ -2,7 +2,7 @@ package tui
 
 // NickHitRegion maps a region in rendered scrollback to a node address.
 type NickHitRegion struct {
-	Row      int    // line index in the viewport content
+	Row      int // line index in the viewport content
 	StartCol int
 	EndCol   int    // exclusive
 	Address  string // raw hex address for DM

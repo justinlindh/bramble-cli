@@ -11,9 +11,10 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/justinlindh/bramble-cli/internal/output"
 	bramble "github.com/justinlindh/bramble-go"
 	"github.com/spf13/cobra"
+
+	"github.com/justinlindh/bramble-cli/internal/output"
 )
 
 type monitorEvent struct {
@@ -172,7 +173,7 @@ func runMonitor(cmd *cobra.Command, args []string) error {
 					msg.From, msg.To, msg.Text, msg.Tier, msg.MsgID,
 				}, " "),
 				Payload: msg,
-				Line: fmt.Sprintf("[%s] MSG %s→%s  %q", ts.Format("15:04:05"), msg.From, msg.To, msg.Text),
+				Line:    fmt.Sprintf("[%s] MSG %s→%s  %q", ts.Format("15:04:05"), msg.From, msg.To, msg.Text),
 			})
 		})
 	}
@@ -185,8 +186,8 @@ func runMonitor(cmd *cobra.Command, args []string) error {
 				Topic:      "mesh",
 				Timestamp:  now,
 				SearchText: fmt.Sprintf("packet#%s status=%s", ack.PacketID, ack.Status),
-				Payload: ack,
-				Line: fmt.Sprintf("[%s] ACK  packet#%s  status=%s", now.Format("15:04:05"), ack.PacketID, ack.Status),
+				Payload:    ack,
+				Line:       fmt.Sprintf("[%s] ACK  packet#%s  status=%s", now.Format("15:04:05"), ack.PacketID, ack.Status),
 			})
 		})
 	}
@@ -219,7 +220,7 @@ func runMonitor(cmd *cobra.Command, args []string) error {
 					evt.BroadcastID, evt.Recipient, evt.Status,
 				}, " "),
 				Payload: evt,
-				Line: monitorBroadcastDeliveryLine(ts, evt),
+				Line:    monitorBroadcastDeliveryLine(ts, evt),
 			})
 		})
 	}
@@ -236,8 +237,8 @@ func runMonitor(cmd *cobra.Command, args []string) error {
 				Topic:      "traffic",
 				Timestamp:  now,
 				SearchText: fmt.Sprintf("%s %s pkt=%d len=%d tier=%s", direction, evt.Category, evt.PktType, evt.PacketLen, evt.AirtimeTier),
-				Payload: evt,
-				Line: fmt.Sprintf("[%s] TRAFFIC %-2s %-10s pkt=%d len=%d tier=%s", now.Format("15:04:05"), direction, evt.Category, evt.PktType, evt.PacketLen, evt.AirtimeTier),
+				Payload:    evt,
+				Line:       fmt.Sprintf("[%s] TRAFFIC %-2s %-10s pkt=%d len=%d tier=%s", now.Format("15:04:05"), direction, evt.Category, evt.PktType, evt.PacketLen, evt.AirtimeTier),
 			})
 		})
 	}

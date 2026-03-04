@@ -2,17 +2,16 @@ module github.com/justinlindh/bramble-cli
 
 go 1.25.7
 
-replace github.com/justinlindh/bramble-go => ../bramble-go
-
 require (
-	github.com/justinlindh/bramble-go v0.0.0-00010101000000-000000000000
+	charm.land/bubbles/v2 v2.0.0
+	charm.land/bubbletea/v2 v2.0.0
+	charm.land/lipgloss/v2 v2.0.0
+	github.com/justinlindh/bramble-go v0.2.1
 	github.com/spf13/cobra v1.10.2
+	modernc.org/sqlite v1.46.1
 )
 
 require (
-	charm.land/bubbles/v2 v2.0.0 // indirect
-	charm.land/bubbletea/v2 v2.0.0 // indirect
-	charm.land/lipgloss/v2 v2.0.0 // indirect
 	github.com/atotto/clipboard v0.1.4 // indirect
 	github.com/charmbracelet/colorprofile v0.4.2 // indirect
 	github.com/charmbracelet/ultraviolet v0.0.0-20260205113103-524a6607adb8 // indirect
@@ -50,7 +49,6 @@ require (
 	modernc.org/libc v1.67.6 // indirect
 	modernc.org/mathutil v1.7.1 // indirect
 	modernc.org/memory v1.11.0 // indirect
-	modernc.org/sqlite v1.46.1 // indirect
 	nhooyr.io/websocket v1.8.17 // indirect
 	tinygo.org/x/bluetooth v0.14.0 // indirect
 )

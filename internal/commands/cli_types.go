@@ -51,7 +51,7 @@ type LocationAddrResult struct {
 
 // LocationSetConfigResult is the JSON output for the location set-config command.
 type LocationSetConfigResult struct {
-	Status   string               `json:"status"`
+	Status   string                 `json:"status"`
 	Location bramble.LocationConfig `json:"location"`
 }
 

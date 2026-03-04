@@ -45,7 +45,11 @@ usage() {
 }
 
 die() { echo "FATAL: $1" >&2; exit 1; }
-log() { $VERBOSE && echo "[smoke] $*" >&2 || true; }
+log() {
+  if $VERBOSE; then
+    echo "[smoke] $*" >&2
+  fi
+}
 
 now_ms() { date +%s%3N; }
 
@@ -55,9 +59,9 @@ now_ms() { date +%s%3N; }
 run_cli() {
   local endpoint="$1"; shift
   if [[ "$endpoint" == ws://* || "$endpoint" == wss://* ]]; then
-    timeout "$TIMEOUT" "$CLI" --transport "$endpoint" --json $* 2>/dev/null || true
+    timeout "$TIMEOUT" "$CLI" --transport "$endpoint" --json "$@" 2>/dev/null || true
   else
-    timeout "$TIMEOUT" "$CLI" --port "$endpoint" --json $* 2>/dev/null || true
+    timeout "$TIMEOUT" "$CLI" --port "$endpoint" --json "$@" 2>/dev/null || true
   fi
 }
 
@@ -199,10 +203,12 @@ log "Node 2: $NODE2_NAME ($NODE2_ADDR) on $PORT2 [$NODE2_HW]"
 
 test_status() {
   local label="$1" port="$2"
-  local t0=$(now_ms)
+  local t0
+  t0=$(now_ms)
   local out
   out=$(run_cli "$port" status)
-  local dur=$(( $(now_ms) - t0 ))
+  local dur
+  dur=$(( $(now_ms) - t0 ))
 
   if echo "$out" | python3 -c "
 import sys,json
@@ -227,10 +233,12 @@ test_status "node2" "$PORT2"
 
 test_config_get() {
   local label="$1" port="$2"
-  local t0=$(now_ms)
+  local t0
+  t0=$(now_ms)
   local out
   out=$(run_cli "$port" config get)
-  local dur=$(( $(now_ms) - t0 ))
+  local dur
+  dur=$(( $(now_ms) - t0 ))
 
   if echo "$out" | python3 -c "
 import sys,json
@@ -241,7 +249,8 @@ assert 'radio' in d, 'missing radio'
 assert 'channels' in d, 'missing channels'
 assert isinstance(d['channels'], list), 'channels not list'
 " 2>/dev/null; then
-    local name=$(echo "$out" | python3 -c "import sys,json;print(json.load(sys.stdin)['node_name'])")
+    local name
+    name=$(echo "$out" | python3 -c "import sys,json;print(json.load(sys.stdin)['node_name'])")
     record_test "config_get.$label" pass "name=$name" "$dur"
   else
     record_test "config_get.$label" fail "Invalid config: $(echo "$out" | head -c 200)" "$dur"
@@ -255,10 +264,12 @@ test_config_get "node2" "$PORT2"
 
 test_peers() {
   local label="$1" port="$2" expect_addr="$3"
-  local t0=$(now_ms)
+  local t0
+  t0=$(now_ms)
   local out
   out=$(run_cli "$port" peers)
-  local dur=$(( $(now_ms) - t0 ))
+  local dur
+  dur=$(( $(now_ms) - t0 ))
 
   if echo "$out" | python3 -c "
 import sys,json
@@ -273,8 +284,10 @@ for p in peers:
 # Check that the other node is visible
 assert '$expect_addr' in addrs, 'peer $expect_addr not found in ' + str(addrs)
 " 2>/dev/null; then
-    local count=$(echo "$out" | python3 -c "import sys,json;print(len(json.load(sys.stdin)))")
-    local names=$(echo "$out" | python3 -c "import sys,json;print(', '.join(p.get('name','?') for p in json.load(sys.stdin)))")
+    local count
+    count=$(echo "$out" | python3 -c "import sys,json;print(len(json.load(sys.stdin)))")
+    local names
+    names=$(echo "$out" | python3 -c "import sys,json;print(', '.join(p.get('name','?') for p in json.load(sys.stdin)))")
     record_test "peers.$label" pass "count=$count names=[$names] (includes $expect_addr)" "$dur"
   else
     record_test "peers.$label" fail "Peer $expect_addr not found or bad response: $(echo "$out" | head -c 300)" "$dur"
@@ -288,10 +301,12 @@ test_peers "node2_sees_node1" "$PORT2" "$NODE1_ADDR"
 
 test_peer_names() {
   local label="$1" port="$2"
-  local t0=$(now_ms)
+  local t0
+  t0=$(now_ms)
   local out
   out=$(run_cli "$port" peers)
-  local dur=$(( $(now_ms) - t0 ))
+  local dur
+  dur=$(( $(now_ms) - t0 ))
 
   if echo "$out" | python3 -c "
 import sys,json
@@ -301,7 +316,8 @@ unnamed = [p for p in peers if not p.get('name','').strip()]
 assert len(named) > 0, 'no peers have names'
 print(f'named={len(named)} unnamed={len(unnamed)}')
 " 2>/dev/null; then
-    local detail=$(echo "$out" | python3 -c "
+    local detail
+    detail=$(echo "$out" | python3 -c "
 import sys,json
 peers=json.load(sys.stdin)
 named=[p for p in peers if p.get('name','').strip()]
@@ -321,17 +337,20 @@ test_peer_names "node2" "$PORT2"
 
 test_routes() {
   local label="$1" port="$2"
-  local t0=$(now_ms)
+  local t0
+  t0=$(now_ms)
   local out
   out=$(run_cli "$port" routes)
-  local dur=$(( $(now_ms) - t0 ))
+  local dur
+  dur=$(( $(now_ms) - t0 ))
 
   if echo "$out" | python3 -c "
 import sys,json
 routes=json.load(sys.stdin)
 assert isinstance(routes, list), 'not a list'
 " 2>/dev/null; then
-    local count=$(echo "$out" | python3 -c "import sys,json;print(len(json.load(sys.stdin)))")
+    local count
+    count=$(echo "$out" | python3 -c "import sys,json;print(len(json.load(sys.stdin)))")
     record_test "routes.$label" pass "count=$count" "$dur"
   else
     record_test "routes.$label" fail "Invalid routes response: $(echo "$out" | head -c 200)" "$dur"
@@ -345,10 +364,12 @@ test_routes "node2" "$PORT2"
 
 test_channels_list() {
   local label="$1" port="$2"
-  local t0=$(now_ms)
+  local t0
+  t0=$(now_ms)
   local out
   out=$(run_cli "$port" channels list)
-  local dur=$(( $(now_ms) - t0 ))
+  local dur
+  dur=$(( $(now_ms) - t0 ))
 
   if echo "$out" | python3 -c "
 import sys,json
@@ -361,7 +382,8 @@ for ch in chs:
 has_default = any(ch.get('is_default') for ch in chs)
 assert has_default, 'no default channel'
 " 2>/dev/null; then
-    local names=$(echo "$out" | python3 -c "import sys,json;print(', '.join(f\"{c['id']}:{c['name']}\" for c in json.load(sys.stdin)))")
+    local names
+    names=$(echo "$out" | python3 -c "import sys,json;print(', '.join(f\"{c['id']}:{c['name']}\" for c in json.load(sys.stdin)))")
     record_test "channels_list.$label" pass "channels=[$names]" "$dur"
   else
     record_test "channels_list.$label" fail "Invalid channels: $(echo "$out" | head -c 200)" "$dur"
@@ -375,10 +397,12 @@ test_channels_list "node2" "$PORT2"
 
 test_ping() {
   local label="$1" port="$2"
-  local t0=$(now_ms)
+  local t0
+  t0=$(now_ms)
   local out
   out=$(run_cli "$port" ping)
-  local dur=$(( $(now_ms) - t0 ))
+  local dur
+  dur=$(( $(now_ms) - t0 ))
 
   if [[ -n "$out" ]] && ! echo "$out" | grep -qi "error"; then
     record_test "ping.$label" pass "$(echo "$out" | head -c 100)" "$dur"
@@ -393,12 +417,15 @@ test_ping "node2" "$PORT2"
 # ── 8. Broadcast message (node1 → all, verify no RPC error) ─────────────
 
 test_broadcast() {
-  local ts=$(date +%s)
+  local ts
+  ts=$(date +%s)
   local msg="smoke-broadcast-$ts"
-  local t0=$(now_ms)
+  local t0
+  t0=$(now_ms)
   local out
   out=$(run_cli "$PORT1" "broadcast \"$msg\"")
-  local dur=$(( $(now_ms) - t0 ))
+  local dur
+  dur=$(( $(now_ms) - t0 ))
 
   if echo "$out" | python3 -c "
 import sys,json
@@ -420,12 +447,15 @@ test_broadcast
 # ── 9. DM send (node1 → node2) ──────────────────────────────────────────
 
 test_dm_send() {
-  local ts=$(date +%s)
+  local ts
+  ts=$(date +%s)
   local msg="smoke-dm-$ts"
-  local t0=$(now_ms)
+  local t0
+  t0=$(now_ms)
   local out
   out=$(run_cli "$PORT1" "send $NODE2_ADDR \"$msg\"")
-  local dur=$(( $(now_ms) - t0 ))
+  local dur
+  dur=$(( $(now_ms) - t0 ))
 
   if echo "$out" | python3 -c "
 import sys,json
@@ -445,12 +475,15 @@ test_dm_send
 # ── 10. DM send (node2 → node1) ─────────────────────────────────────────
 
 test_dm_reverse() {
-  local ts=$(date +%s)
+  local ts
+  ts=$(date +%s)
   local msg="smoke-dm-rev-$ts"
-  local t0=$(now_ms)
+  local t0
+  t0=$(now_ms)
   local out
   out=$(run_cli "$PORT2" "send $NODE1_ADDR \"$msg\"")
-  local dur=$(( $(now_ms) - t0 ))
+  local dur
+  dur=$(( $(now_ms) - t0 ))
 
   if echo "$out" | python3 -c "
 import sys,json
@@ -476,16 +509,18 @@ test_set_name() {
   orig_name=$(run_cli "$port" config get | python3 -c "import sys,json;print(json.load(sys.stdin)['node_name'])")
   local test_name="SmkTst"
 
-  local t0=$(now_ms)
+  local t0
+  t0=$(now_ms)
   # Set temporary name
-  run_cli "$port" "config set-name $test_name" >/dev/null
+  run_cli "$port" config set-name "$test_name" >/dev/null
   sleep 1
   # Read back
   local new_name
   new_name=$(run_cli "$port" config get | python3 -c "import sys,json;print(json.load(sys.stdin)['node_name'])")
   # Restore
-  run_cli "$port" "config set-name $orig_name" >/dev/null
-  local dur=$(( $(now_ms) - t0 ))
+  run_cli "$port" config set-name "$orig_name" >/dev/null
+  local dur
+  dur=$(( $(now_ms) - t0 ))
 
   if [[ "$new_name" == "$test_name" ]]; then
     record_test "set_name_roundtrip.$label" pass "set=$test_name read=$new_name restored=$orig_name" "$dur"
@@ -500,10 +535,12 @@ test_set_name "node2" "$PORT2"
 
 test_location_config() {
   local label="$1" port="$2"
-  local t0=$(now_ms)
+  local t0
+  t0=$(now_ms)
   local out
   out=$(run_cli "$port" location get-config)
-  local dur=$(( $(now_ms) - t0 ))
+  local dur
+  dur=$(( $(now_ms) - t0 ))
 
   if echo "$out" | python3 -c "
 import sys,json
@@ -513,7 +550,8 @@ assert 'default_tier' in d, 'missing default_tier'
 assert 'interval_s' in d, 'missing interval_s'
 assert 'source' in d, 'missing source'
 " 2>/dev/null; then
-    local enabled=$(echo "$out" | python3 -c "import sys,json;d=json.load(sys.stdin);print(f\"enabled={d['enabled']} tier={d['default_tier']} src={d['source']}\")")
+    local enabled
+    enabled=$(echo "$out" | python3 -c "import sys,json;d=json.load(sys.stdin);print(f\"enabled={d['enabled']} tier={d['default_tier']} src={d['source']}\")")
     record_test "location_config.$label" pass "$enabled" "$dur"
   else
     record_test "location_config.$label" fail "Invalid location config: $(echo "$out" | head -c 200)" "$dur"
@@ -526,16 +564,18 @@ test_location_config "node2" "$PORT2"
 # ── 13. Location set-contact (round-trip on node2) ───────────────────────
 
 test_location_set_contact() {
-  local t0=$(now_ms)
+  local t0
+  t0=$(now_ms)
   # Set contact on node2 sharing with node1
   local out
-  out=$(run_cli "$PORT2" "location set-contact $NODE1_ADDR full")
+  out=$(run_cli "$PORT2" location set-contact "$NODE1_ADDR" full)
 
   # Verify it appears in config
   sleep 1
   local config
   config=$(run_cli "$PORT2" location get-config)
-  local dur=$(( $(now_ms) - t0 ))
+  local dur
+  dur=$(( $(now_ms) - t0 ))
 
   if echo "$config" | python3 -c "
 import sys,json
@@ -555,10 +595,12 @@ test_location_set_contact
 # ── 14. Location share-once ──────────────────────────────────────────────
 
 test_location_share_once() {
-  local t0=$(now_ms)
+  local t0
+  t0=$(now_ms)
   local out
-  out=$(run_cli "$PORT1" "location share-once $NODE2_ADDR")
-  local dur=$(( $(now_ms) - t0 ))
+  out=$(run_cli "$PORT1" location share-once "$NODE2_ADDR")
+  local dur
+  dur=$(( $(now_ms) - t0 ))
 
   if [[ -z "$out" ]] || ! echo "$out" | grep -qi "error"; then
     record_test "location_share_once.node1_to_node2" pass "$(echo "$out" | head -c 100)" "$dur"
@@ -573,17 +615,20 @@ test_location_share_once
 
 test_location_status() {
   local label="$1" port="$2"
-  local t0=$(now_ms)
+  local t0
+  t0=$(now_ms)
   local out
   out=$(run_cli "$port" location status)
-  local dur=$(( $(now_ms) - t0 ))
+  local dur
+  dur=$(( $(now_ms) - t0 ))
 
   if echo "$out" | python3 -c "
 import sys,json
 d=json.load(sys.stdin)
 assert isinstance(d, list), 'not a list'
 " 2>/dev/null; then
-    local count=$(echo "$out" | python3 -c "import sys,json;print(len(json.load(sys.stdin)))")
+    local count
+    count=$(echo "$out" | python3 -c "import sys,json;print(len(json.load(sys.stdin)))")
     record_test "location_status.$label" pass "peer_locations=$count" "$dur"
   else
     record_test "location_status.$label" fail "Invalid: $(echo "$out" | head -c 200)" "$dur"
@@ -597,10 +642,12 @@ test_location_status "node2" "$PORT2"
 
 test_probe() {
   local label="$1" port="$2"
-  local t0=$(now_ms)
+  local t0
+  t0=$(now_ms)
   local out
   out=$(run_cli "$port" probe)
-  local dur=$(( $(now_ms) - t0 ))
+  local dur
+  dur=$(( $(now_ms) - t0 ))
 
   if [[ -n "$out" ]] && ! echo "$out" | grep -qi "error"; then
     record_test "probe.$label" pass "$(echo "$out" | head -c 150)" "$dur"
@@ -616,13 +663,16 @@ test_probe "node1" "$PORT1"
 # ── 17. Broadcast with delivery wait ────────────────────────────────────
 
 test_broadcast_delivery() {
-  local ts=$(date +%s)
+  local ts
+  ts=$(date +%s)
   local msg="smoke-delivery-$ts"
-  local t0=$(now_ms)
+  local t0
+  t0=$(now_ms)
   local out
   # Wait up to 5s for delivery telemetry
-  out=$(run_cli "$PORT1" "broadcast --wait-delivery 5 \"$msg\"")
-  local dur=$(( $(now_ms) - t0 ))
+  out=$(run_cli "$PORT1" broadcast --wait-delivery 5 "$msg")
+  local dur
+  dur=$(( $(now_ms) - t0 ))
 
   if echo "$out" | python3 -c "
 import sys,json
@@ -631,7 +681,8 @@ assert 'error' not in d or not d['error'], f'error: {d.get(\"error\")}'
 # Check for delivery field if present
 delivery = d.get('delivery', d.get('deliveries', []))
 " 2>/dev/null; then
-    local detail=$(echo "$out" | python3 -c "
+    local detail
+    detail=$(echo "$out" | python3 -c "
 import sys,json
 d=json.load(sys.stdin)
 dl = d.get('delivery', d.get('deliveries', []))
@@ -653,10 +704,12 @@ test_broadcast_delivery
 # ── 18. Discover (mDNS) ─────────────────────────────────────────────────
 
 test_discover() {
-  local t0=$(now_ms)
+  local t0
+  t0=$(now_ms)
   local out
   out=$(timeout 6 "$CLI" --json discover 2>/dev/null || true)
-  local dur=$(( $(now_ms) - t0 ))
+  local dur
+  dur=$(( $(now_ms) - t0 ))
 
   if [[ -z "$out" ]]; then
     record_test "discover" skip "mDNS discover returned empty (WiFi nodes may not be advertising)" "$dur"
@@ -672,11 +725,13 @@ test_discover
 # ── 19. Radio symmetry check ────────────────────────────────────────────
 
 test_radio_symmetry() {
-  local t0=$(now_ms)
+  local t0
+  t0=$(now_ms)
   local r1 r2
   r1=$(run_cli "$PORT1" config get | python3 -c "import sys,json;r=json.load(sys.stdin)['radio'];print(f\"{r['frequency_mhz']},{r['sf']},{r['bw_hz']},{r['tx_power_dbm']}\")")
   r2=$(run_cli "$PORT2" config get | python3 -c "import sys,json;r=json.load(sys.stdin)['radio'];print(f\"{r['frequency_mhz']},{r['sf']},{r['bw_hz']},{r['tx_power_dbm']}\")")
-  local dur=$(( $(now_ms) - t0 ))
+  local dur
+  dur=$(( $(now_ms) - t0 ))
 
   if [[ "$r1" == "$r2" ]]; then
     record_test "radio_symmetry" pass "both=$r1" "$dur"
@@ -696,7 +751,8 @@ TOTAL=$((PASS_COUNT + FAIL_COUNT + SKIP_COUNT))
 # Write tests JSON to temp file to avoid shell quoting issues with newlines
 TESTS_TMP=$(mktemp)
 echo "$TESTS_JSON" > "$TESTS_TMP"
-trap "rm -f '$TESTS_TMP'" EXIT
+cleanup() { rm -f "$TESTS_TMP"; }
+trap cleanup EXIT
 
 python3 - "$TESTS_TMP" "$PORT1" "$NODE1_ADDR" "$NODE1_NAME" "$NODE1_HW" \
   "$PORT2" "$NODE2_ADDR" "$NODE2_NAME" "$NODE2_HW" \

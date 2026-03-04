@@ -5,8 +5,9 @@ import (
 	"os"
 	"strconv"
 
-	"github.com/justinlindh/bramble-cli/internal/output"
 	"github.com/spf13/cobra"
+
+	"github.com/justinlindh/bramble-cli/internal/output"
 )
 
 func newChannelsCmd() *cobra.Command {

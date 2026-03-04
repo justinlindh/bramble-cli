@@ -6,8 +6,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/justinlindh/bramble-cli/internal/output"
 	bramble "github.com/justinlindh/bramble-go"
+
+	"github.com/justinlindh/bramble-cli/internal/output"
 )
 
 func TestBroadcastSendStatus_IncludesBroadcastID(t *testing.T) {

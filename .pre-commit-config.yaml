@@ -1,0 +1,40 @@
+default_install_hook_types:
+  - pre-commit
+  - pre-push
+
+exclude: ^(\.venv-hooks/|\.venv/)
+
+repos:
+  - repo: local
+    hooks:
+      - id: go-fmt
+        name: go-fmt
+        entry: bash -c 'gofmt -w "$@"' --
+        language: system
+        types: [go]
+      - id: goimports
+        name: goimports
+        entry: bash -c 'go run golang.org/x/tools/cmd/goimports@latest -w "$@"' --
+        language: system
+        types: [go]
+      - id: golangci-lint
+        name: golangci-lint (fast)
+        entry: bash -c 'LINT_BIN="$(go env GOBIN)"; if [ -z "$LINT_BIN" ]; then LINT_BIN="$(go env GOPATH)/bin"; fi; "$LINT_BIN/golangci-lint" run --fast ./...'
+        language: system
+        pass_filenames: false
+      - id: shellcheck
+        name: shellcheck (scripts/examples)
+        entry: bash -c 'shellcheck "$@"' --
+        language: system
+        files: ^(scripts|examples)/.*\.sh$
+      - id: markdownlint-cli2
+        name: markdownlint-cli2
+        entry: npx --yes markdownlint-cli2
+        language: system
+        files: \.md$
+      - id: check-doc-drift
+        name: check-doc-drift (pre-push)
+        entry: bash scripts/check-doc-drift.sh
+        language: system
+        pass_filenames: false
+        stages: [pre-push]

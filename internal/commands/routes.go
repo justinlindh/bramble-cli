@@ -4,8 +4,9 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/justinlindh/bramble-cli/internal/output"
 	"github.com/spf13/cobra"
+
+	"github.com/justinlindh/bramble-cli/internal/output"
 )
 
 func newRoutesCmd() *cobra.Command {

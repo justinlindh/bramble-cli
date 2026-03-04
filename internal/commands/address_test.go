@@ -118,5 +118,3 @@ func TestConfigSetRadio_SingleFlag(t *testing.T) {
 		t.Fatalf("single flag should be accepted, got: %v", err)
 	}
 }
-
-

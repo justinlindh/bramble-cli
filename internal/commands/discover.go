@@ -5,8 +5,9 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/justinlindh/bramble-cli/internal/discovery"
 	"github.com/spf13/cobra"
+
+	"github.com/justinlindh/bramble-cli/internal/discovery"
 )
 
 func newDiscoverCmd() *cobra.Command {

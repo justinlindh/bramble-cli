@@ -1,0 +1,25 @@
+run:
+  timeout: 5m
+
+issues:
+  max-same-issues: 0
+  exclude-rules:
+    - path: ".*_generated\\.go"
+      linters:
+        - gofmt
+        - goimports
+
+linters:
+  disable-all: true
+  enable:
+    - govet
+    - errcheck
+    - staticcheck
+    - ineffassign
+    - typecheck
+    - gofmt
+    - goimports
+
+linters-settings:
+  goimports:
+    local-prefixes: github.com/justinlindh/bramble-cli
