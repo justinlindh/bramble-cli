@@ -181,20 +181,11 @@ func (il InputLine) View() string {
 	suffix := commandSuggestionSuffix(il.textarea.Value())
 	taModel := il.textarea
 	if suffix != "" {
-		avail := taModel.Width() - lipgloss.Width(suffix)
-		if avail < 8 {
-			avail = 8
-		}
-		taModel.SetWidth(avail)
+		typed := il.textarea.Value()
+		taModel.SetValue(typed + suffix)
+		taModel.SetCursorColumn(len([]rune(typed)))
 	}
 	ta := taModel.View()
-	if suffix != "" {
-		lines := strings.Split(ta, "\n")
-		if len(lines) > 0 {
-			lines[0] = strings.TrimRight(lines[0], " ") + il.style.Typeahead.Render(suffix)
-			ta = strings.Join(lines, "\n")
-		}
-	}
 
 	meta := messageByteMeta(il.textarea.Value(), strings.HasPrefix(strings.TrimSpace(il.textarea.Value()), "/"))
 	byteStyle := il.style.ByteOK

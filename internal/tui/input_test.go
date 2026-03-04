@@ -1,6 +1,7 @@
 package tui
 
 import (
+	"regexp"
 	"strings"
 	"testing"
 	"time"
@@ -170,7 +171,13 @@ func TestInputLineTypeaheadRendersInline(t *testing.T) {
 	if len(lines) < 2 {
 		t.Fatalf("unexpected view shape:\n%s", view)
 	}
-	if !strings.Contains(lines[1], "des") {
-		t.Fatalf("expected first input row to contain inline suffix 'des', got row:\n%s", lines[1])
+	row := stripANSI(lines[1])
+	if !strings.Contains(row, "/nodes") {
+		t.Fatalf("expected inline completion '/nodes' on input row, got row:\n%s", row)
 	}
+}
+
+func stripANSI(s string) string {
+	re := regexp.MustCompile(`\x1b\[[0-9;]*m`)
+	return re.ReplaceAllString(s, "")
 }
