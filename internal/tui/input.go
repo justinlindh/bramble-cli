@@ -180,7 +180,13 @@ func (il InputLine) View() string {
 	prompt := promptStyle.Render(promptText)
 	ta := il.textarea.View()
 	if suffix := commandSuggestionSuffix(il.textarea.Value()); suffix != "" {
-		ta += il.style.Typeahead.Render(suffix)
+		lines := strings.Split(ta, "\n")
+		if len(lines) > 0 {
+			lines[0] = strings.TrimRight(lines[0], " ") + il.style.Typeahead.Render(suffix)
+			ta = strings.Join(lines, "\n")
+		} else {
+			ta += il.style.Typeahead.Render(suffix)
+		}
 	}
 
 	meta := messageByteMeta(il.textarea.Value(), strings.HasPrefix(strings.TrimSpace(il.textarea.Value()), "/"))

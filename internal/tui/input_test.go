@@ -156,3 +156,17 @@ func TestMessageByteMetaShowsFragmentCount(t *testing.T) {
 		t.Fatalf("label=%q want %q", meta.Label, "2 fragments")
 	}
 }
+
+func TestInputLineTypeaheadRendersInline(t *testing.T) {
+	il := NewInputLine()
+	il.SetWidth(80)
+	il.textarea.SetValue("/no")
+
+	view := il.View()
+	if strings.Contains(view, "\ndes") {
+		t.Fatalf("expected typeahead suffix to render inline, got view:\n%s", view)
+	}
+	if !strings.Contains(view, "des") {
+		t.Fatalf("expected rendered view to contain suggestion suffix 'des', got view:\n%s", view)
+	}
+}
