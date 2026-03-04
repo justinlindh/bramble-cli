@@ -8,7 +8,8 @@ on:
 
 jobs:
   release:
-    runs-on: ubuntu-latest
+    runs-on: linux
+    # Gitea runner labels in this environment use "linux" (not GitHub's "ubuntu-latest").
     steps:
       - name: Checkout
         uses: actions/checkout@v4
