@@ -13,6 +13,7 @@ env:
   SEMREL_COMMIT_ANALYZER_VERSION: '13.0.1'
   SEMREL_NOTES_GENERATOR_VERSION: '14.1.0'
   SEMREL_GITEA_PLUGIN_VERSION: '2.1.0'
+  RUNNER_TOOL_CACHE: /home/runner/.cache/hostedtoolcache
 
 jobs:
   release:
@@ -23,6 +24,9 @@ jobs:
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
+
+      - name: Prepare writable toolcache directory
+        run: mkdir -p "$RUNNER_TOOL_CACHE"
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
