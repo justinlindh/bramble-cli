@@ -166,7 +166,11 @@ func TestInputLineTypeaheadRendersInline(t *testing.T) {
 	if strings.Contains(view, "\ndes") {
 		t.Fatalf("expected typeahead suffix to render inline, got view:\n%s", view)
 	}
-	if !strings.Contains(view, "des") {
-		t.Fatalf("expected rendered view to contain suggestion suffix 'des', got view:\n%s", view)
+	lines := strings.Split(view, "\n")
+	if len(lines) < 2 {
+		t.Fatalf("unexpected view shape:\n%s", view)
+	}
+	if !strings.Contains(lines[1], "des") {
+		t.Fatalf("expected first input row to contain inline suffix 'des', got row:\n%s", lines[1])
 	}
 }

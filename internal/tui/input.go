@@ -178,14 +178,21 @@ func (il InputLine) View() string {
 		promptText = promptText + " " + indicator
 	}
 	prompt := promptStyle.Render(promptText)
-	ta := il.textarea.View()
-	if suffix := commandSuggestionSuffix(il.textarea.Value()); suffix != "" {
+	suffix := commandSuggestionSuffix(il.textarea.Value())
+	taModel := il.textarea
+	if suffix != "" {
+		avail := taModel.Width() - lipgloss.Width(suffix)
+		if avail < 8 {
+			avail = 8
+		}
+		taModel.SetWidth(avail)
+	}
+	ta := taModel.View()
+	if suffix != "" {
 		lines := strings.Split(ta, "\n")
 		if len(lines) > 0 {
 			lines[0] = strings.TrimRight(lines[0], " ") + il.style.Typeahead.Render(suffix)
 			ta = strings.Join(lines, "\n")
-		} else {
-			ta += il.style.Typeahead.Render(suffix)
 		}
 	}
 
