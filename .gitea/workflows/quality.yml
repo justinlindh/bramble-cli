@@ -5,6 +5,14 @@ on:
   push:
     branches:
       - main
+  workflow_dispatch:
+
+concurrency:
+  group: quality-${{ gitea.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
 
 env:
   GO_VERSION: '1.25.x'
@@ -17,6 +25,7 @@ jobs:
   go-baseline:
     name: Go baseline (required)
     runs-on: linux
+    timeout-minutes: 20
     env:
       GOPRIVATE: github.com
       GONOPROXY: github.com
@@ -64,6 +73,7 @@ jobs:
   quality-required:
     name: Quality gates (required)
     runs-on: linux
+    timeout-minutes: 25
     env:
       GOPRIVATE: github.com
       GONOPROXY: github.com
@@ -145,6 +155,7 @@ jobs:
   quality-advisory:
     name: Quality checks (advisory)
     runs-on: linux
+    timeout-minutes: 10
     needs:
       - quality-required
     continue-on-error: true

@@ -6,6 +6,11 @@ This repository uses a staged quality rollout so we can tighten checks without b
 
 CI workflow: `.gitea/workflows/quality.yml`
 
+Recent hardening additions:
+- workflow-level concurrency cancellation for superseded runs on the same ref
+- per-job timeouts to prevent hung quality runs
+- `workflow_dispatch` trigger for manual reruns
+
 ## Required vs Advisory Matrix
 
 | Check | Phase A | Phase B | Phase C (current) |
