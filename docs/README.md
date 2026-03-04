@@ -6,6 +6,7 @@ This folder contains operational docs plus historical implementation notes.
 
 - [`quality-policy.md`](quality-policy.md) — CI quality gates, required/advisory checks, rollout policy.
 - [`release.md`](release.md) — semantic-release flow, required repository secrets, release trigger behavior.
+- [`public-publishing.md`](public-publishing.md) — checklist for pre-publication hygiene and validation.
 
 ## Historical plans / implementation records
 

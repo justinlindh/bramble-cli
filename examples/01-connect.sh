@@ -31,10 +31,10 @@ echo "=== WiFi / WebSocket transport (node on your LAN) ==="
 # Use bramble discover to find nodes advertising via mDNS
 bramble discover
 # Expected output (example):
-#   Found: Bramble-CAFEBABE at ws://192.0.2.0:8080/ws
+#   Found: Bramble-CAFEBABE at ws://<node-host>:8080/ws
 
 # Then connect directly:
-# bramble --transport ws://192.0.2.0:8080/ws status
+# bramble --transport ws://<node-host>:8080/ws status
 
 echo
 echo "=== Bluetooth Low Energy (BLE) ==="

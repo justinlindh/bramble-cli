@@ -21,6 +21,7 @@ It is built on [bramble-go](https://github.com/justinlindh/bramble-go), and foll
 - [Examples](#examples)
 - [Quality Checks](#quality-checks)
 - [Release Process](#release-process)
+- [Public Publishing Checklist](#public-publishing-checklist)
 - [License](#license)
 
 ## Install
@@ -62,6 +63,8 @@ Bluetooth Low Energy transport:
 ```bash
 bramble --ble Bramble status
 ```
+
+> Note: IP addresses and hostnames shown in examples are placeholders from local test networks. Replace them with values from your own environment.
 
 ## Terminal UI
 
@@ -168,7 +171,7 @@ bramble location get-config --json
 ```bash
 bramble status
 bramble discover --timeout 10s
-bramble ota --url http://192.0.2.0:8080/firmware/bramble.bin
+bramble ota --url http://<ota-host>:8080/firmware/bramble.bin
 ```
 
 ## Shell Completion
@@ -283,6 +286,10 @@ git push --no-verify
 ## Release Process
 
 Release automation and required secrets are documented in [`docs/release.md`](docs/release.md).
+
+## Public Publishing Checklist
+
+Before publishing externally, run through [`docs/public-publishing.md`](docs/public-publishing.md).
 
 ## License
 
