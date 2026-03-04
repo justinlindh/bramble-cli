@@ -17,6 +17,9 @@ env:
 
 jobs:
   release:
+    defaults:
+      run:
+        shell: bash
     # Gitea runner labels in this environment use "linux" (not GitHub's "ubuntu-latest").
     runs-on: linux
     container:
