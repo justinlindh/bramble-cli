@@ -2,6 +2,7 @@ package tui
 
 import (
 	"fmt"
+	"regexp"
 	"strings"
 
 	"charm.land/bubbles/v2/textarea"
@@ -14,6 +15,8 @@ const (
 	fragmentPayloadBytes = 154
 	fragmentedMaxBytes   = 616
 )
+
+var ansiEscapeRE = regexp.MustCompile(`\x1b\[[0-9;]*m`)
 
 // InputMsg is sent when the user presses Enter with non-empty text.
 type InputMsg struct {
@@ -185,7 +188,25 @@ func (il InputLine) View() string {
 		taModel.SetValue(typed + suffix)
 		taModel.SetCursorColumn(len([]rune(typed)))
 	}
-	ta := taModel.View()
+	ta := strings.ReplaceAll(taModel.View(), "\r", "")
+	if suffix != "" {
+		lines := strings.Split(ta, "\n")
+		for i, line := range lines {
+			if !strings.Contains(ansiEscapeRE.ReplaceAllString(line, ""), il.textarea.Value()) {
+				continue
+			}
+			if strings.Contains(line, suffix) {
+				lines[i] = strings.Replace(line, suffix, il.style.Typeahead.Render(suffix), 1)
+			} else if len(suffix) > 1 {
+				tail := suffix[1:]
+				if strings.Contains(line, tail) {
+					lines[i] = strings.Replace(line, tail, il.style.Typeahead.Render(tail), 1)
+				}
+			}
+			break
+		}
+		ta = strings.Join(lines, "\n")
+	}
 
 	meta := messageByteMeta(il.textarea.Value(), strings.HasPrefix(strings.TrimSpace(il.textarea.Value()), "/"))
 	byteStyle := il.style.ByteOK

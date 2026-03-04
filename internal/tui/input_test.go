@@ -177,6 +177,20 @@ func TestInputLineTypeaheadRendersInline(t *testing.T) {
 	}
 }
 
+func TestInputLineTypeaheadUsesDimStyle(t *testing.T) {
+	il := NewInputLine()
+	il.SetWidth(80)
+	il.textarea.SetValue("/he")
+
+	view := il.View()
+	if !strings.Contains(view, "38;2;102;102;136m") {
+		t.Fatalf("expected dim typeahead color escape in view, got:\n%s", view)
+	}
+	if !strings.Contains(stripANSI(view), "/help") {
+		t.Fatalf("expected rendered completion '/help', got:\n%s", stripANSI(view))
+	}
+}
+
 func stripANSI(s string) string {
 	re := regexp.MustCompile(`\x1b\[[0-9;]*m`)
 	return re.ReplaceAllString(s, "")
