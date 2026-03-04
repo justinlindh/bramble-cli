@@ -20,6 +20,7 @@ It is built on [bramble-go](https://github.com/justinlindh/bramble-go), and foll
 - [JSON Output](#json-output)
 - [Examples](#examples)
 - [Quality Checks](#quality-checks)
+- [Release Process](#release-process)
 - [License](#license)
 
 ## Install
@@ -208,6 +209,7 @@ See the [`examples/`](examples/) directory for common usage patterns:
 ## Quality Checks
 
 The repository includes a dedicated quality workflow at `.gitea/workflows/quality.yml`.
+See [`docs/README.md`](docs/README.md) for docs index and status.
 
 - **Required checks (Phase C):**
   - `go test ./...`
@@ -277,6 +279,10 @@ SKIP=golangci-lint,markdownlint-cli2 git commit -m "..."
 git commit --no-verify -m "..."
 git push --no-verify
 ```
+
+## Release Process
+
+Release automation and required secrets are documented in [`docs/release.md`](docs/release.md).
 
 ## License
 
