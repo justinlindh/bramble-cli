@@ -3,8 +3,8 @@ package tui
 
 import (
 	"fmt"
-	"time"
 	"sync"
+	"time"
 
 	bramble "github.com/justinlindh/bramble-go"
 )
@@ -277,11 +277,17 @@ func (s *Store) GetActiveConversation() *Conversation {
 
 // convIDForMessage derives the conversation ID for a message.
 func (s *Store) convIDForMessage(msg bramble.Message) string {
-	if msg.To == "" || msg.To == "broadcast" || msg.To == "FFFFFFFF" {
+	if msg.To == "broadcast" || msg.To == "FFFFFFFF" {
 		return "broadcast"
 	}
 	if len(msg.To) > 3 && msg.To[:3] == "ch:" {
 		return msg.To
+	}
+	if msg.To == "" {
+		if msg.From == "" {
+			return "broadcast"
+		}
+		return fmt.Sprintf("dm:%s", msg.From)
 	}
 	// DM: key by peer address
 	if s.Identity != nil && msg.From == s.Identity.Address {

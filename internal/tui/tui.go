@@ -122,7 +122,7 @@ type Model struct {
 	backoffSec int
 	retryIn    int
 
-	pendingConfirm bool
+	pendingConfirm     bool
 	mouseEnabled       bool
 	airtimeLockTicking bool
 }
@@ -176,11 +176,17 @@ func New(client *bramble.Client, node NodeInfo, connectFn ConnectFn, msgdb *MsgD
 
 // ClassifyMessageConvID returns the conversation ID for a bramble.Message.
 func ClassifyMessageConvID(msg bramble.Message, selfAddr string) string {
-	if msg.To == "" || msg.To == "broadcast" || msg.To == "FFFFFFFF" {
+	if msg.To == "broadcast" || msg.To == "FFFFFFFF" {
 		return "broadcast"
 	}
 	if len(msg.To) > 3 && msg.To[:3] == "ch:" {
 		return msg.To
+	}
+	if msg.To == "" {
+		if msg.From == "" {
+			return "broadcast"
+		}
+		return fmt.Sprintf("dm:%s", msg.From)
 	}
 	if msg.From == selfAddr || msg.From == "" {
 		return fmt.Sprintf("dm:%s", msg.To)
