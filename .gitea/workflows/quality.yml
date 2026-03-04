@@ -25,6 +25,8 @@ jobs:
   go-baseline:
     name: Go baseline (required)
     runs-on: linux
+    container:
+      image: ghcr.io/catthehacker/ubuntu:full-latest
     timeout-minutes: 20
     env:
       GOPRIVATE: github.com
@@ -73,6 +75,8 @@ jobs:
   quality-required:
     name: Quality gates (required)
     runs-on: linux
+    container:
+      image: ghcr.io/catthehacker/ubuntu:full-latest
     timeout-minutes: 25
     env:
       GOPRIVATE: github.com
@@ -155,6 +159,8 @@ jobs:
   quality-advisory:
     name: Quality checks (advisory)
     runs-on: linux
+    container:
+      image: ghcr.io/catthehacker/ubuntu:full-latest
     timeout-minutes: 10
     needs:
       - quality-required
