@@ -49,7 +49,9 @@ jobs:
 
       - name: Lint latest commit message (Conventional Commits)
         run: |
-          export PATH="$HOME/.cache/bramble-cli/release-tools/node_modules/.bin:$PATH"
+          export TOOLS_DIR="$HOME/.cache/bramble-cli/release-tools"
+          export PATH="$TOOLS_DIR/node_modules/.bin:$PATH"
+          export NODE_PATH="$TOOLS_DIR/node_modules"
           commitlint --config .commitlintrc.cjs --last --verbose
 
       - name: Run semantic-release
@@ -57,5 +59,7 @@ jobs:
           GITEA_TOKEN: ${{ secrets.GITEA_TOKEN }}
           GITEA_URL: ${{ secrets.GITEA_URL }}
         run: |
-          export PATH="$HOME/.cache/bramble-cli/release-tools/node_modules/.bin:$PATH"
+          export TOOLS_DIR="$HOME/.cache/bramble-cli/release-tools"
+          export PATH="$TOOLS_DIR/node_modules/.bin:$PATH"
+          export NODE_PATH="$TOOLS_DIR/node_modules"
           semantic-release
