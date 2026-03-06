@@ -289,14 +289,6 @@ func (m *Model) addInfo(convID, text string) {
 	}
 }
 
-func (m *Model) addDelivery(convID, text string) {
-	rendered := m.scroll.theme.Delivery.Render("-- " + text + " --")
-	m.addConversationLine(convID, LineDelivery, rendered)
-	if convID == m.activeConv {
-		m.scroll.AddDelivery(text)
-	}
-}
-
 func (m *Model) convDisplayLabel(convID string) string {
 	switch {
 	case convID == "broadcast":

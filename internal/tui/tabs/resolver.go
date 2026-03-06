@@ -10,14 +10,3 @@ type PeerResolver interface {
 	// ReverseLookup finds an address by alias or firmware name.
 	ReverseLookup(name string) (string, bool)
 }
-
-// noopResolver always returns the raw address unchanged.
-type noopResolver struct{}
-
-func (noopResolver) Resolve(addr string) string               { return addr }
-func (noopResolver) GetAlias(addr string) (string, bool)      { return "", false }
-func (noopResolver) SetAlias(addr, alias string) error        { return nil }
-func (noopResolver) ReverseLookup(name string) (string, bool) { return "", false }
-
-// defaultResolver is used when no real resolver is set.
-var defaultResolver PeerResolver = noopResolver{}

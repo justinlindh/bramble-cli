@@ -567,47 +567,6 @@ func ensureTrafficDebugEnabled(ctx context.Context, client *bramble.Client) erro
 	return err
 }
 
-func latestTrafficSeq(ctx context.Context, client *bramble.Client) (uint32, error) {
-	limit := 512
-	resp, err := getTrafficEventsWithRetry(ctx, client, bramble.GetTrafficEventsParams{Limit: &limit})
-	if err != nil {
-		return 0, err
-	}
-	if len(resp.Events) == 0 {
-		return 0, nil
-	}
-	maxSeq := resp.Events[0].Seq
-	for _, evt := range resp.Events[1:] {
-		if evt.Seq > maxSeq {
-			maxSeq = evt.Seq
-		}
-	}
-	return maxSeq, nil
-}
-
-func trafficEventsSince(ctx context.Context, client *bramble.Client, since uint32) ([]bramble.TrafficEvent, error) {
-	limit := 512
-	resp, err := getTrafficEventsWithRetry(ctx, client, bramble.GetTrafficEventsParams{SinceSeq: &since, Limit: &limit})
-	if err != nil {
-		return nil, err
-	}
-	return resp.Events, nil
-}
-
-func getTrafficEventsWithRetry(parent context.Context, client *bramble.Client, params bramble.GetTrafficEventsParams) (*bramble.GetTrafficEventsResponse, error) {
-	var lastErr error
-	for attempt := 0; attempt < 2; attempt++ {
-		ctx, cancel := context.WithTimeout(parent, meshTrafficTimeout)
-		resp, err := client.GetTrafficEvents(ctx, params)
-		cancel()
-		if err == nil {
-			return resp, nil
-		}
-		lastErr = err
-	}
-	return nil, lastErr
-}
-
 func hasTrafficEvent(events []bramble.TrafficEvent, pktType int, isTx bool) bool {
 	for _, evt := range events {
 		if evt.PktType == pktType && evt.IsTx == isTx {
