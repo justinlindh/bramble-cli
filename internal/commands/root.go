@@ -92,8 +92,16 @@ func init() {
 	)
 }
 
+func resolvedAuthToken() string {
+	if flagAuthToken != "" {
+		return flagAuthToken
+	}
+	return os.Getenv("BRAMBLE_TOKEN")
+}
+
 func applyAuthToken(t transport.Transport) {
-	if flagAuthToken == "" {
+	token := resolvedAuthToken()
+	if token == "" {
 		return
 	}
 	v := reflect.ValueOf(t)
@@ -108,7 +116,7 @@ func applyAuthToken(t transport.Transport) {
 	if !f.IsValid() || !f.CanSet() || f.Kind() != reflect.String {
 		return
 	}
-	f.SetString(flagAuthToken)
+	f.SetString(token)
 }
 
 // getClient resolves the transport and returns a connected Bramble client.
