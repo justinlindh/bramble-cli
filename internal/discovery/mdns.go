@@ -10,6 +10,17 @@ import (
 	"time"
 )
 
+type udpConn interface {
+	WriteToUDP([]byte, *net.UDPAddr) (int, error)
+	ReadFromUDP([]byte) (int, *net.UDPAddr, error)
+	SetReadDeadline(time.Time) error
+	Close() error
+}
+
+var listenUDP = func(network string, laddr *net.UDPAddr) (udpConn, error) {
+	return net.ListenUDP(network, laddr)
+}
+
 // Node represents a Bramble node discovered via mDNS.
 type Node struct {
 	Hostname string // e.g. "bramble-1ee6"
@@ -34,7 +45,7 @@ func DiscoverMDNS(ctx context.Context, timeout time.Duration) ([]Node, error) {
 		Port: 5353,
 	}
 
-	conn, err := net.ListenUDP("udp4", &net.UDPAddr{IP: net.IPv4zero, Port: 0})
+	conn, err := listenUDP("udp4", &net.UDPAddr{IP: net.IPv4zero, Port: 0})
 	if err != nil {
 		return nil, fmt.Errorf("mdns listen: %w", err)
 	}

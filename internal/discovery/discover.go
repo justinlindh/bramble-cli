@@ -7,6 +7,8 @@ import (
 	"sort"
 )
 
+var globPaths = filepath.Glob
+
 // Detect scans /dev/ttyUSB* and /dev/ttyACM* for potential Bramble nodes.
 // Returns the port path if exactly one device is found.
 // Returns an error if zero or more than one device is found.
@@ -14,7 +16,7 @@ func Detect() (string, error) {
 	var ports []string
 
 	for _, pattern := range []string{"/dev/ttyUSB*", "/dev/ttyACM*"} {
-		matches, err := filepath.Glob(pattern)
+		matches, err := globPaths(pattern)
 		if err != nil {
 			return "", fmt.Errorf("glob %s: %w", pattern, err)
 		}
