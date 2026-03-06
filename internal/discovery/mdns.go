@@ -38,7 +38,7 @@ func DiscoverMDNS(ctx context.Context, timeout time.Duration) ([]Node, error) {
 	if err != nil {
 		return nil, fmt.Errorf("mdns listen: %w", err)
 	}
-	defer conn.Close()
+	defer conn.Close() //nolint:errcheck // UDP conn close in CLI
 
 	// Build DNS query for _bramble._tcp.local PTR records
 	query := buildMDNSQuery("_bramble._tcp.local.")

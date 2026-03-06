@@ -18,8 +18,8 @@ repos:
         language: system
         types: [go]
       - id: golangci-lint
-        name: golangci-lint (fast)
-        entry: bash -c 'LINT_BIN="$(go env GOBIN)"; if [ -z "$LINT_BIN" ]; then LINT_BIN="$(go env GOPATH)/bin"; fi; "$LINT_BIN/golangci-lint" run --fast ./...'
+        name: golangci-lint
+        entry: bash -c 'LINT_BIN="$(go env GOBIN)"; if [ -z "$LINT_BIN" ]; then LINT_BIN="$(go env GOPATH)/bin"; fi; "$LINT_BIN/golangci-lint" run ./...'
         language: system
         pass_filenames: false
       - id: shellcheck

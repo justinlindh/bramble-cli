@@ -1,13 +1,7 @@
+version: "2"
+
 run:
   timeout: 5m
-
-issues:
-  max-same-issues: 0
-  exclude-rules:
-    - path: ".*_generated\\.go"
-      linters:
-        - gofmt
-        - goimports
 
 linters:
   disable-all: true
@@ -16,10 +10,44 @@ linters:
     - errcheck
     - staticcheck
     - ineffassign
-    - typecheck
+  settings:
+    errcheck:
+      # CLI tool: unchecked fmt prints and defer .Close() are standard practice
+      exclude-functions:
+        - fmt.Fprint
+        - fmt.Fprintf
+        - fmt.Fprintln
+        - (io.Closer).Close
+        - (*database/sql.Rows).Close
+        - (*database/sql.DB).Close
+        - (*github.com/justinlindh/bramble-go.Client).Close
+        - (*github.com/justinlindh/bramble-cli/internal/tui.MsgDB).Close
+        - (*net.UDPConn).Close
+      check-type-assertions: false
+    staticcheck:
+      checks:
+        - "all"
+        - "-ST*"    # style suggestions
+        - "-QF*"    # quick fixes
+        - "-S1016"  # struct conversion style
+
+formatters:
+  enable:
     - gofmt
     - goimports
+  settings:
+    goimports:
+      local-prefixes:
+        - github.com/justinlindh/bramble-cli
 
-linters-settings:
-  goimports:
-    local-prefixes: github.com/justinlindh/bramble-cli
+issues:
+  max-same-issues: 0
+  exclude-rules:
+    - path: ".*_generated\\.go"
+      linters:
+        - gofmt
+        - goimports
+    # defer .Close() in CLI — no recovery path, universally safe to ignore
+    - linters:
+        - errcheck
+      text: "Error return value of .+\\.Close\\(\\)"
