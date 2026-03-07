@@ -6,7 +6,7 @@ require (
 	charm.land/bubbles/v2 v2.0.0
 	charm.land/bubbletea/v2 v2.0.0
 	charm.land/lipgloss/v2 v2.0.0
-	github.com/justinlindh/bramble-go v0.2.1
+	github.com/justinlindh/bramble-go v0.5.0
 	github.com/spf13/cobra v1.10.2
 	modernc.org/sqlite v1.46.1
 )

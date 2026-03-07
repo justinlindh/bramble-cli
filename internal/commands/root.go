@@ -5,7 +5,6 @@ import (
 	"context"
 	"fmt"
 	"os"
-	"reflect"
 	"time"
 
 	bramble "github.com/justinlindh/bramble-go"
@@ -106,19 +105,7 @@ func applyAuthToken(t transport.Transport) {
 	if token == "" {
 		return
 	}
-	v := reflect.ValueOf(t)
-	if v.Kind() != reflect.Ptr || v.IsNil() {
-		return
-	}
-	e := v.Elem()
-	if !e.IsValid() || e.Kind() != reflect.Struct {
-		return
-	}
-	f := e.FieldByName("AuthToken")
-	if !f.IsValid() || !f.CanSet() || f.Kind() != reflect.String {
-		return
-	}
-	f.SetString(token)
+	t.SetAuthToken(token)
 }
 
 // getClient resolves the transport and returns a connected Bramble client.
