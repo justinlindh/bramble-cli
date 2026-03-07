@@ -1,12 +1,12 @@
 module github.com/justinlindh/bramble-cli
 
-go 1.25.7
+go 1.26.1
 
 require (
 	charm.land/bubbles/v2 v2.0.0
 	charm.land/bubbletea/v2 v2.0.0
 	charm.land/lipgloss/v2 v2.0.0
-	github.com/justinlindh/bramble-go v0.5.1-0.20260307212722-af9bb1cddbef
+	github.com/justinlindh/bramble-go v0.6.1-0.20260307231813-f48155dacefe
 	github.com/spf13/cobra v1.10.2
 	modernc.org/sqlite v1.46.1
 )

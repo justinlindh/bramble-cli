@@ -19,11 +19,12 @@ defaults:
     shell: bash
 
 env:
-  GO_VERSION: '1.25.x'
+  GO_VERSION: '1.26.x'
   GOLANGCI_LINT_VERSION: 'v2.1.6'
   GOVULNCHECK_VERSION: 'v1.1.4'
   ACTIONLINT_VERSION: 'v1.7.11'
   MARKDOWNLINT_VERSION: '0.21.0'
+  RUNNER_TOOL_CACHE: /home/runner/.cache/hostedtoolcache
 
 jobs:
   go-baseline:
