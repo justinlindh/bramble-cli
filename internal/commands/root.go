@@ -90,6 +90,8 @@ func init() {
 		newCompletionCmd(),
 		newTrafficCmd(),
 		newTUICmd(),
+		newPairCmd(),
+		newAuthCmd(),
 	)
 }
 
