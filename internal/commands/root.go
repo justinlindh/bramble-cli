@@ -32,9 +32,11 @@ func commandContext() (context.Context, context.CancelFunc) {
 	return context.WithTimeout(context.Background(), requestTimeout)
 }
 
-// rootCmd is the top-level command.
 // version is the current bramble-cli version.
-const version = "0.1.0"
+// It defaults to "dev" and is meant to be overridden at build time via:
+//
+//	-ldflags "-X github.com/justinlindh/bramble-cli/internal/commands.version=<version>"
+var version = "dev"
 
 // rootCmd is the top-level command.
 var rootCmd = &cobra.Command{
