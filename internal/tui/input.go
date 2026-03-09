@@ -14,6 +14,7 @@ const (
 	singlePacketMaxBytes = 203
 	fragmentPayloadBytes = 154
 	fragmentedMaxBytes   = 616
+	inputHistoryMax      = 50
 )
 
 var ansiEscapeRE = regexp.MustCompile(`\x1b\[[0-9;]*m`)
@@ -32,11 +33,14 @@ type InputBlockedMsg struct {
 
 // InputLine is the always-visible input line at the bottom.
 type InputLine struct {
-	textarea textarea.Model
-	prompt   string // e.g. "[broadcast]" or "[dm:NodeB]"
-	width    int
-	style    InputStyle
-	lockout  *InputLockout
+	textarea   textarea.Model
+	prompt     string // e.g. "[broadcast]" or "[dm:NodeB]"
+	width      int
+	style      InputStyle
+	lockout    *InputLockout
+	history    []string
+	historyIdx int // -1 when not browsing history
+	draft      string
 }
 
 type InputLockout struct {
@@ -72,8 +76,9 @@ func NewInputLine() InputLine {
 	ta.Focus()
 
 	return InputLine{
-		textarea: ta,
-		prompt:   "[broadcast]",
+		textarea:   ta,
+		prompt:     "[broadcast]",
+		historyIdx: -1,
 		style: InputStyle{
 			Prompt: lipgloss.NewStyle().
 				Foreground(lipgloss.Color("#00FF87")).
@@ -135,13 +140,21 @@ func (il *InputLine) Blur() {
 func (il InputLine) Update(msg tea.Msg) (InputLine, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.KeyPressMsg:
-		switch msg.String() {
-		case "tab":
+		switch msg.Code {
+		case tea.KeyUp:
+			if il.handleHistoryUp() {
+				return il, nil
+			}
+		case tea.KeyDown:
+			if il.handleHistoryDown() {
+				return il, nil
+			}
+		case tea.KeyTab:
 			if suffix := commandSuggestionSuffix(il.textarea.Value()); suffix != "" {
 				il.textarea.SetValue(il.textarea.Value() + suffix)
 				return il, nil
 			}
-		case "enter":
+		case tea.KeyEnter:
 			text := strings.TrimSpace(il.textarea.Value())
 			if text == "" {
 				return il, nil
@@ -152,13 +165,18 @@ func (il InputLine) Update(msg tea.Msg) (InputLine, tea.Cmd) {
 					return InputBlockedMsg{Tier: locked.Tier, RefillInSecs: locked.RefillInSecs}
 				}
 			}
+			il.addHistory(text)
 			il.textarea.SetValue("")
+			il.historyIdx = -1
+			il.draft = ""
 			isCmd := strings.HasPrefix(text, "/")
 			return il, func() tea.Msg {
 				return InputMsg{Text: text, IsCommand: isCmd}
 			}
-		case "esc":
+		case tea.KeyEsc:
 			il.textarea.SetValue("")
+			il.historyIdx = -1
+			il.draft = ""
 			return il, nil
 		}
 	}
@@ -166,6 +184,66 @@ func (il InputLine) Update(msg tea.Msg) (InputLine, tea.Cmd) {
 	var cmd tea.Cmd
 	il.textarea, cmd = il.textarea.Update(msg)
 	return il, cmd
+}
+
+func (il *InputLine) addHistory(text string) {
+	if text == "" {
+		return
+	}
+	if n := len(il.history); n > 0 && il.history[n-1] == text {
+		return
+	}
+	il.history = append(il.history, text)
+	if len(il.history) > inputHistoryMax {
+		il.history = il.history[len(il.history)-inputHistoryMax:]
+	}
+}
+
+func (il InputLine) canStartHistoryBrowse() bool {
+	if len(il.history) == 0 {
+		return false
+	}
+	if il.textarea.Value() == "" {
+		return true
+	}
+	if il.textarea.LineCount() <= 1 {
+		return true
+	}
+	return il.textarea.Line() == 0 && il.textarea.Column() == 0
+}
+
+func (il *InputLine) setInputValue(text string) {
+	il.textarea.SetValue(text)
+	il.textarea.SetCursorColumn(len([]rune(text)))
+}
+
+func (il *InputLine) handleHistoryUp() bool {
+	if il.historyIdx == -1 {
+		if !il.canStartHistoryBrowse() {
+			return false
+		}
+		il.draft = il.textarea.Value()
+		il.historyIdx = len(il.history) - 1
+	} else if il.historyIdx > 0 {
+		il.historyIdx--
+	}
+	il.setInputValue(il.history[il.historyIdx])
+	return true
+}
+
+func (il *InputLine) handleHistoryDown() bool {
+	if il.historyIdx == -1 {
+		return false
+	}
+	if il.historyIdx < len(il.history)-1 {
+		il.historyIdx++
+		il.setInputValue(il.history[il.historyIdx])
+		return true
+	}
+	il.historyIdx = -1
+	il.setInputValue(il.draft)
+	il.draft = ""
+	return true
 }
 
 func (il InputLine) View() string {

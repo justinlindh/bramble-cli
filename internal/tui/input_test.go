@@ -191,6 +191,140 @@ func TestInputLineTypeaheadUsesDimStyle(t *testing.T) {
 	}
 }
 
+func TestInputHistoryRecallBasic(t *testing.T) {
+	il := NewInputLine()
+
+	il.textarea.SetValue("first")
+	updated, cmd := il.Update(tea.KeyPressMsg{Code: tea.KeyEnter})
+	il = updated
+	if cmd == nil {
+		t.Fatal("expected send cmd for first message")
+	}
+
+	il.textarea.SetValue("second")
+	updated, cmd = il.Update(tea.KeyPressMsg{Code: tea.KeyEnter})
+	il = updated
+	if cmd == nil {
+		t.Fatal("expected send cmd for second message")
+	}
+
+	updated, _ = il.Update(tea.KeyPressMsg{Code: tea.KeyUp})
+	if got := updated.textarea.Value(); got != "second" {
+		t.Fatalf("up recall=%q want %q", got, "second")
+	}
+}
+
+func TestInputHistoryCycleAndDraftRestore(t *testing.T) {
+	il := NewInputLine()
+	for _, msg := range []string{"one", "two", "three"} {
+		il.textarea.SetValue(msg)
+		updated, cmd := il.Update(tea.KeyPressMsg{Code: tea.KeyEnter})
+		il = updated
+		if cmd == nil {
+			t.Fatalf("expected send cmd for %q", msg)
+		}
+	}
+
+	il.textarea.SetValue("draft")
+	updated, _ := il.Update(tea.KeyPressMsg{Code: tea.KeyUp})
+	if got := updated.textarea.Value(); got != "three" {
+		t.Fatalf("first up=%q want %q", got, "three")
+	}
+
+	updated, _ = updated.Update(tea.KeyPressMsg{Code: tea.KeyUp})
+	if got := updated.textarea.Value(); got != "two" {
+		t.Fatalf("second up=%q want %q", got, "two")
+	}
+
+	updated, _ = updated.Update(tea.KeyPressMsg{Code: tea.KeyDown})
+	if got := updated.textarea.Value(); got != "three" {
+		t.Fatalf("down=%q want %q", got, "three")
+	}
+
+	updated, _ = updated.Update(tea.KeyPressMsg{Code: tea.KeyDown})
+	if got := updated.textarea.Value(); got != "draft" {
+		t.Fatalf("down past newest should restore draft=%q want %q", got, "draft")
+	}
+}
+
+func TestInputHistoryDedupsOnSend(t *testing.T) {
+	il := NewInputLine()
+	il.textarea.SetValue("hello")
+	updated, cmd := il.Update(tea.KeyPressMsg{Code: tea.KeyEnter})
+	il = updated
+	if cmd == nil {
+		t.Fatal("expected send cmd")
+	}
+
+	updated, _ = il.Update(tea.KeyPressMsg{Code: tea.KeyUp})
+	if got := updated.textarea.Value(); got != "hello" {
+		t.Fatalf("up recall=%q want hello", got)
+	}
+	updated, cmd = updated.Update(tea.KeyPressMsg{Code: tea.KeyEnter})
+	if cmd == nil {
+		t.Fatal("expected send cmd from recalled message")
+	}
+
+	if got := len(updated.history); got != 1 {
+		t.Fatalf("history length=%d want 1 (dedup)", got)
+	}
+}
+
+func TestInputHistoryBoundaryCases(t *testing.T) {
+	il := NewInputLine()
+
+	updated, _ := il.Update(tea.KeyPressMsg{Code: tea.KeyUp})
+	if got := updated.textarea.Value(); got != "" {
+		t.Fatalf("up with empty history changed input=%q", got)
+	}
+
+	il.textarea.SetValue("typed")
+	updated, _ = il.Update(tea.KeyPressMsg{Code: tea.KeyDown})
+	if got := updated.textarea.Value(); got != "typed" {
+		t.Fatalf("down while not browsing changed input=%q", got)
+	}
+}
+
+func TestInputHistoryUpRequiresTopLeftForMultiline(t *testing.T) {
+	il := NewInputLine()
+	il.textarea.SetValue("prev")
+	updated, _ := il.Update(tea.KeyPressMsg{Code: tea.KeyEnter})
+	il = updated
+
+	il.textarea.SetValue("a\nb")
+	il.textarea.CursorDown()
+	updated, _ = il.Update(tea.KeyPressMsg{Code: tea.KeyUp})
+	if got := updated.textarea.Value(); got != "a\nb" {
+		t.Fatalf("up should not trigger history off first line, got=%q", got)
+	}
+
+	updated.textarea.CursorStart()
+	updated.textarea.CursorUp()
+	updated, _ = updated.Update(tea.KeyPressMsg{Code: tea.KeyUp})
+	if got := updated.textarea.Value(); got != "prev" {
+		t.Fatalf("up should trigger history at top-left on multiline, got=%q", got)
+	}
+}
+
+func TestInputHistoryEscClearsAndExitsBrowse(t *testing.T) {
+	il := NewInputLine()
+	il.textarea.SetValue("one")
+	updated, _ := il.Update(tea.KeyPressMsg{Code: tea.KeyEnter})
+	il = updated
+
+	updated, _ = il.Update(tea.KeyPressMsg{Code: tea.KeyUp})
+	if got := updated.textarea.Value(); got != "one" {
+		t.Fatalf("up recall=%q want one", got)
+	}
+	updated, _ = updated.Update(tea.KeyPressMsg{Code: tea.KeyEsc})
+	if got := updated.textarea.Value(); got != "" {
+		t.Fatalf("esc should clear input, got=%q", got)
+	}
+	if updated.historyIdx != -1 {
+		t.Fatalf("esc should exit history browse, historyIdx=%d", updated.historyIdx)
+	}
+}
+
 func stripANSI(s string) string {
 	re := regexp.MustCompile(`\x1b\[[0-9;]*m`)
 	return re.ReplaceAllString(s, "")

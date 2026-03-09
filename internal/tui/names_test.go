@@ -7,7 +7,7 @@ import (
 	bramble "github.com/justinlindh/bramble-go"
 )
 
-func newTestMsgDB(t *testing.T) *MsgDB {
+func newTestNamesMsgDB(t *testing.T) *MsgDB {
 	t.Helper()
 	dbPath := filepath.Join(t.TempDir(), "msg.db")
 	db, err := NewMsgDB(dbPath)
@@ -19,7 +19,7 @@ func newTestMsgDB(t *testing.T) *MsgDB {
 }
 
 func TestNameResolver_ResolveAliasLifecycleAndPersistence(t *testing.T) {
-	db := newTestMsgDB(t)
+	db := newTestNamesMsgDB(t)
 	const nodeAddr = "A1B2"
 	const peerAddr = "0x0000BEEF"
 
