@@ -89,6 +89,36 @@ The TUI is designed as an IRC-style operations console for Bramble. It combines 
 - **Buffer model:** broadcast, channel, and DM buffers with quick keyboard switching
 - **Mouse support:** scroll wheel for history, click a nickname to open a DM, click status bar tabs to switch buffers
 
+### Slash Commands
+
+| Command | Description |
+|---------|-------------|
+| `/b`, `/broadcast` | Switch to broadcast buffer |
+| `/dm <addr\|name>` | Open or switch to a DM buffer |
+| `/msg <addr\|name> <text>` | Send a DM inline without switching buffers |
+| `/critical <text>` | Send as critical priority (more retries; emergency airtime tier) |
+| `/ch <sel>` | Switch buffer (`/ch 2`, `/ch all`, `/ch mesh:1`) |
+| `/w`, `/windows` | List open buffers |
+| `/close` | Close the current buffer |
+| `/nodes` | Show neighbors and routes |
+| `/stats` | Show node statistics (uptime, TX/RX counts, airtime) |
+| `/config` | Show node configuration |
+| `/config set <key> <value>` | Set a config value (e.g. `/config set name my-node`) |
+| `/location`, `/loc` | Show GPS fix and peer locations |
+| `/alias <addr> <name>` | Set a display alias for a peer address |
+| `/nick <name>` | Change node display name (max 32 chars) |
+| `/me <action>` | Send an action message (*Nick does something*) |
+| `/slap <target>` | Classic mIRC trout-slap action |
+| `/probe` | Send a network reachability probe |
+| `/ping` | Ping the connected node |
+| `/reboot` | Reboot the node (with confirmation) |
+| `/clear` | Clear scrollback history |
+| `/mouse [on\|off]` | Toggle mouse capture (Shift+click/drag bypasses) |
+| `/help` | Show command help |
+| `/quit` | Exit the TUI |
+
+**Keyboard shortcuts:** Alt+1–9 to switch buffers, Ctrl+N/Ctrl+P for next/prev, PgUp/PgDn to scroll history.
+
 ## Global Flags
 
 | Flag | Short | Description |
@@ -164,6 +194,9 @@ bramble location get-config --json
 
 - `bramble status` — show node address, firmware, radio, peers, counters, uptime
 - `bramble discover` — scan local network for Bramble nodes via mDNS
+- `bramble wifi` — show WiFi mode and link status
+- `bramble mesh-test` — automated mesh reliability test (multi-node broadcast/delivery)
+- `bramble pair` — retrieve auth token from a serial-connected device for WebSocket auth
 - `bramble ota --url <url>` — trigger OTA firmware update
 - `bramble reboot` — reboot node
 - `bramble tui` — launch full-screen interactive terminal UI
