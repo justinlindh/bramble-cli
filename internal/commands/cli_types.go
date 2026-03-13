@@ -71,8 +71,9 @@ type SendCommandResult struct {
 
 // ProbeCommandResult is the JSON output for the probe command.
 type ProbeCommandResult struct {
-	ProbeID   int `json:"probe_id"`
-	AckWindow int `json:"ack_window"`
+	ProbeID   int                   `json:"probe_id"`
+	AckWindow int                   `json:"ack_window"`
+	Responses []bramble.ProbeResult `json:"responses,omitempty"`
 }
 
 // monitorEventOutput is the JSON envelope for each monitor event.
