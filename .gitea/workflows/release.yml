@@ -43,8 +43,8 @@ jobs:
           set -euo pipefail
           TOOLS_DIR="$HOME/.cache/bramble-cli/release-tools"
           mkdir -p "$TOOLS_DIR"
-          rm -rf "$TOOLS_DIR/node_modules"
-          npm install --prefix "$TOOLS_DIR" --no-save \
+          rm -rf "$TOOLS_DIR/node_modules" "$TOOLS_DIR/package-lock.json"
+          npm install --prefix "$TOOLS_DIR" --no-save --install-strategy=hoisted \
             "@commitlint/cli@${COMMITLINT_VERSION}" \
             "@commitlint/config-conventional@${COMMITLINT_VERSION}" \
             "semantic-release@${SEMANTIC_RELEASE_VERSION}" \
