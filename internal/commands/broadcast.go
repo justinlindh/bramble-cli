@@ -61,7 +61,7 @@ func runBroadcast(cmd *cobra.Command, args []string) error {
 			return fmt.Errorf("bramble-cli: broadcast on channel %d: %w", broadcastChannel, err)
 		}
 	} else {
-		r, err = client.Broadcast(ctx, text)
+		r, err = client.SendBroadcast(ctx, text)
 		if err != nil {
 			return fmt.Errorf("bramble-cli: broadcast: %w", err)
 		}
