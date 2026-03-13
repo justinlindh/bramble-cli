@@ -31,13 +31,13 @@ func TestApplyAuthToken_SetsTransportField(t *testing.T) {
 
 	w := transport.NewWebSocket("ws://example")
 	applyAuthToken(w)
-	if w.AuthToken != "env-token" {
-		t.Fatalf("expected env token on websocket, got %q", w.AuthToken)
+	if w.GetAuthToken() != "env-token" {
+		t.Fatalf("expected env token on websocket, got %q", w.GetAuthToken())
 	}
 
 	s := transport.NewSerial("/dev/fake")
 	applyAuthToken(s)
-	if s.AuthToken != "env-token" {
-		t.Fatalf("expected env token on serial, got %q", s.AuthToken)
+	if s.GetAuthToken() != "env-token" {
+		t.Fatalf("expected env token on serial, got %q", s.GetAuthToken())
 	}
 }

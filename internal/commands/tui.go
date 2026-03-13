@@ -49,7 +49,7 @@ func runTUI(cmd *cobra.Command, args []string) error {
 		var t transport.Transport
 		switch {
 		case tBLE != "":
-			t = transport.NewBLE(transport.BLEConfig{DeviceName: tBLE})
+			t = transport.NewBLE(tBLE)
 		case tURL != "":
 			t = transport.NewWebSocket(tURL)
 		case tPort != "":

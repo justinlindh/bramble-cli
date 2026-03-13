@@ -140,7 +140,7 @@ func getClient(ctx context.Context) (*bramble.Client, error) {
 
 	switch {
 	case flagBLE != "":
-		t = transport.NewBLE(transport.BLEConfig{DeviceName: flagBLE})
+		t = transport.NewBLE(flagBLE)
 
 	case flagTransport != "":
 		t = transport.NewWebSocket(flagTransport)
