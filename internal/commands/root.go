@@ -20,15 +20,37 @@ var (
 	flagBLE       string
 	flagAuthToken string
 	flagJSON      bool
+	flagTimeout   time.Duration
 )
 
 const (
 	connectTimeout = 30 * time.Second
 	requestTimeout = 10 * time.Second
+	// bleTimeout provides enough headroom for BLE scan (≤10s) + connect + RPC.
+	bleTimeout = 45 * time.Second
 )
 
+// commandContext returns a context with an appropriate deadline for the active
+// transport.  Resolution order:
+//  1. --timeout flag (explicit user override)
+//  2. BLE transport: bleTimeout (45s) — scan alone can take up to 10s
+//  3. All other transports: requestTimeout (10s)
 func commandContext() (context.Context, context.CancelFunc) {
-	return context.WithTimeout(context.Background(), requestTimeout)
+	d := effectiveTimeout()
+	return context.WithTimeout(context.Background(), d)
+}
+
+// effectiveTimeout returns the deadline duration that commandContext should use.
+// It is a pure function of package-level flag state, making it straightforward
+// to test without starting a real cobra command.
+func effectiveTimeout() time.Duration {
+	if flagTimeout > 0 {
+		return flagTimeout
+	}
+	if flagBLE != "" {
+		return bleTimeout
+	}
+	return requestTimeout
 }
 
 // version is the current bramble-cli version.
@@ -68,6 +90,7 @@ func init() {
 	rootCmd.PersistentFlags().StringVarP(&flagBLE, "ble", "b", "", "BLE device name to scan for (e.g. Bramble)")
 	rootCmd.PersistentFlags().StringVar(&flagAuthToken, "token", "", "Auth token for node connection")
 	rootCmd.PersistentFlags().BoolVar(&flagJSON, "json", false, "output results as JSON")
+	rootCmd.PersistentFlags().DurationVar(&flagTimeout, "timeout", 0, "override command timeout (e.g. 30s, 1m); default is 45s for BLE, 10s otherwise")
 
 	rootCmd.AddCommand(
 		newStatusCmd(),
