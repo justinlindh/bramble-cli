@@ -8,7 +8,7 @@ on:
   workflow_dispatch:
 
 concurrency:
-  group: quality-${{ gitea.ref }}
+  group: quality-${{ github.ref }}
   cancel-in-progress: true
 
 permissions:
@@ -124,6 +124,7 @@ jobs:
 
           command -v golangci-lint >/dev/null || go install "github.com/golangci/golangci-lint/v2/cmd/golangci-lint@${GOLANGCI_LINT_VERSION}"
           command -v govulncheck >/dev/null || go install "golang.org/x/vuln/cmd/govulncheck@${GOVULNCHECK_VERSION}"
+          command -v actionlint >/dev/null || go install "github.com/rhysd/actionlint/cmd/actionlint@${ACTIONLINT_VERSION}"
 
           NPM_TOOLS_DIR="$HOME/.cache/bramble-cli/npm-tools"
           mkdir -p "$NPM_TOOLS_DIR"
@@ -161,36 +162,7 @@ jobs:
           export PATH="$HOME/.cache/bramble-cli/go-tools/bin:$PATH"
           govulncheck ./...
 
-  quality-advisory:
-    name: Quality checks (advisory)
-    runs-on: linux
-    container:
-      image: ghcr.io/catthehacker/ubuntu:full-latest
-    timeout-minutes: 10
-    needs:
-      - quality-required
-    continue-on-error: true
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Setup Go
-        uses: actions/setup-go@v5
-        with:
-          go-version: ${{ env.GO_VERSION }}
-          cache: false
-          cache-dependency-path: go.sum
-
-      - name: Install workflow lint tool
-        continue-on-error: true
-        run: |
-          export GOBIN="$HOME/.cache/bramble-cli/go-tools/bin"
-          export PATH="$GOBIN:$PATH"
-          mkdir -p "$GOBIN"
-          command -v actionlint >/dev/null || go install "github.com/rhysd/actionlint/cmd/actionlint@${ACTIONLINT_VERSION}"
-
-      - name: Workflow lint (advisory)
-        continue-on-error: true
+      - name: Workflow lint (required)
         run: |
           export PATH="$HOME/.cache/bramble-cli/go-tools/bin:$PATH"
           actionlint .gitea/workflows/*.yml

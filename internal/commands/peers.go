@@ -41,13 +41,22 @@ func runPeers(cmd *cobra.Command, args []string) error {
 		return nil
 	}
 
-	headers := []string{"ADDRESS", "RSSI", "SNR", "LAST SEEN"}
+	headers := []string{"ADDRESS", "NAME", "RSSI", "SNR", "DELIVERY", "AIRTIME", "LAST SEEN"}
 	rows := make([][]string, len(neighbors))
 	for i, n := range neighbors {
+		name := n.Name
+		if name == "" {
+			name = "—"
+		}
+		deliveryPct := fmt.Sprintf("%d%%", n.DeliveryRate*100/255)
+		airtimePct := fmt.Sprintf("%d%%", n.AirtimeRemaining)
 		rows[i] = []string{
 			n.Address,
+			name,
 			fmt.Sprintf("%d dBm", n.RSSI),
 			fmt.Sprintf("%.1f dB", n.SNR),
+			deliveryPct,
+			airtimePct,
 			output.FormatMs(n.LastSeenAgoMs),
 		}
 	}

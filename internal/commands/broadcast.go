@@ -13,6 +13,7 @@ import (
 
 var broadcastChannel int
 var broadcastWaitDeliverySec int
+var broadcastCritical bool
 
 func newBroadcastCmd() *cobra.Command {
 	cmd := &cobra.Command{
@@ -31,6 +32,7 @@ Examples:
 	}
 	cmd.Flags().IntVar(&broadcastChannel, "channel", -1, "channel index for channel-scoped broadcast")
 	cmd.Flags().IntVar(&broadcastWaitDeliverySec, "wait-delivery", 0, "seconds to wait for broadcast delivery telemetry after send")
+	cmd.Flags().BoolVar(&broadcastCritical, "critical", false, "send with critical priority")
 	return cmd
 }
 
@@ -55,7 +57,12 @@ func runBroadcast(cmd *cobra.Command, args []string) error {
 	})
 
 	var r *bramble.SendResult
-	if broadcastChannel >= 0 {
+	if broadcastCritical {
+		r, err = client.SendBroadcastCritical(ctx, text)
+		if err != nil {
+			return fmt.Errorf("bramble-cli: broadcast critical: %w", err)
+		}
+	} else if broadcastChannel >= 0 {
 		r, err = client.BroadcastOnChannel(ctx, broadcastChannel, text)
 		if err != nil {
 			return fmt.Errorf("bramble-cli: broadcast on channel %d: %w", broadcastChannel, err)
