@@ -24,8 +24,7 @@ func newTUICmd() *cobra.Command {
 }
 
 func runTUI(cmd *cobra.Command, args []string) error {
-	// Use a longer context for TUI (not the short requestTimeout).
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	ctx, cancel := commandContext()
 	client, err := getClient(ctx)
 	cancel()
 	if err != nil {
