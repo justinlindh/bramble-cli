@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"strings"
 	"time"
 
 	bramble "github.com/justinlindh/bramble-go"
@@ -12,6 +13,20 @@ import (
 
 	"github.com/justinlindh/bramble-cli/internal/output"
 )
+
+var validLocationTiers = map[string]struct{}{
+	"full":     {},
+	"presence": {},
+	"coarse":   {},
+}
+
+func normalizeAndValidateLocationTier(raw string) (string, error) {
+	tier := strings.ToLower(strings.TrimSpace(raw))
+	if _, ok := validLocationTiers[tier]; !ok {
+		return "", fmt.Errorf("bramble-cli: invalid location tier %q (supported: full, presence, coarse)", raw)
+	}
+	return tier, nil
+}
 
 func newLocationCmd() *cobra.Command {
 	cmd := &cobra.Command{
@@ -97,11 +112,11 @@ func newLocationSetContactCmd() *cobra.Command {
 		Use:   "set-contact <address> <tier>",
 		Short: "Add or update a location sharing contact",
 		Long: `Configure location sharing with a specific peer.
-Tier controls what data is shared: "exact", "city", or "region".
+Tier controls what data is shared: "full", "presence", or "coarse".
 
 Example:
-  bramble location set-contact DEADBEEF exact
-  bramble location set-contact CAFEBABE city`,
+  bramble location set-contact DEADBEEF full
+  bramble location set-contact CAFEBABE coarse`,
 		Args: cobra.ExactArgs(2),
 		RunE: runLocationSetContact,
 	}
@@ -113,7 +128,10 @@ func runLocationSetContact(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return fmt.Errorf("bramble-cli: invalid address %q: %w", args[0], err)
 	}
-	tier := args[1]
+	tier, err := normalizeAndValidateLocationTier(args[1])
+	if err != nil {
+		return err
+	}
 
 	ctx, cancel := commandContext()
 	defer cancel()
@@ -235,7 +253,7 @@ func newLocationSetConfigCmd() *cobra.Command {
 	}
 	cmd.Flags().String("file", "", "path to JSON file containing canonical location config fields")
 	cmd.Flags().Bool("enabled", false, "enable/disable location sharing")
-	cmd.Flags().String("default-tier", "", "default sharing tier")
+	cmd.Flags().String("default-tier", "", "default sharing tier (full|presence|coarse)")
 	cmd.Flags().Int("interval-s", 0, "default share interval in seconds")
 	cmd.Flags().String("source", "", "location source")
 	cmd.Flags().String("contact-rules", "", "JSON array for contact_rules")
@@ -296,6 +314,10 @@ func buildLocationConfigFromInput(cmd *cobra.Command) (bramble.LocationConfig, b
 	}
 	if cmd.Flags().Changed("default-tier") {
 		v, _ := cmd.Flags().GetString("default-tier")
+		v, err := normalizeAndValidateLocationTier(v)
+		if err != nil {
+			return bramble.LocationConfig{}, false, err
+		}
 		cfg.DefaultTier = &v
 		changed = true
 	}
@@ -314,6 +336,16 @@ func buildLocationConfigFromInput(cmd *cobra.Command) (bramble.LocationConfig, b
 		if err := json.Unmarshal([]byte(v), &cfg.ContactRules); err != nil {
 			return bramble.LocationConfig{}, false, fmt.Errorf("bramble-cli: parse contact_rules JSON: %w", err)
 		}
+		for i := range cfg.ContactRules {
+			if cfg.ContactRules[i].Tier == "" {
+				continue
+			}
+			tier, err := normalizeAndValidateLocationTier(cfg.ContactRules[i].Tier)
+			if err != nil {
+				return bramble.LocationConfig{}, false, err
+			}
+			cfg.ContactRules[i].Tier = tier
+		}
 		changed = true
 	}
 	if cmd.Flags().Changed("channel-targets") {
@@ -321,8 +353,56 @@ func buildLocationConfigFromInput(cmd *cobra.Command) (bramble.LocationConfig, b
 		if err := json.Unmarshal([]byte(v), &cfg.ChannelTargets); err != nil {
 			return bramble.LocationConfig{}, false, fmt.Errorf("bramble-cli: parse channel_targets JSON: %w", err)
 		}
+		for i := range cfg.ChannelTargets {
+			if cfg.ChannelTargets[i].Tier == "" {
+				continue
+			}
+			tier, err := normalizeAndValidateLocationTier(cfg.ChannelTargets[i].Tier)
+			if err != nil {
+				return bramble.LocationConfig{}, false, err
+			}
+			cfg.ChannelTargets[i].Tier = tier
+		}
 		changed = true
 	}
 
+	if err := validateLocationConfigTiers(&cfg); err != nil {
+		return bramble.LocationConfig{}, false, err
+	}
+
 	return cfg, changed, nil
+}
+
+func validateLocationConfigTiers(cfg *bramble.LocationConfig) error {
+	if cfg.DefaultTier != nil {
+		tier, err := normalizeAndValidateLocationTier(*cfg.DefaultTier)
+		if err != nil {
+			return err
+		}
+		*cfg.DefaultTier = tier
+	}
+
+	for i := range cfg.ContactRules {
+		if cfg.ContactRules[i].Tier == "" {
+			continue
+		}
+		tier, err := normalizeAndValidateLocationTier(cfg.ContactRules[i].Tier)
+		if err != nil {
+			return err
+		}
+		cfg.ContactRules[i].Tier = tier
+	}
+
+	for i := range cfg.ChannelTargets {
+		if cfg.ChannelTargets[i].Tier == "" {
+			continue
+		}
+		tier, err := normalizeAndValidateLocationTier(cfg.ChannelTargets[i].Tier)
+		if err != nil {
+			return err
+		}
+		cfg.ChannelTargets[i].Tier = tier
+	}
+
+	return nil
 }

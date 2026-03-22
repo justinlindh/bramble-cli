@@ -39,7 +39,7 @@ func TestBuildLocationConfigFromInput_Flags(t *testing.T) {
 	if err := cmd.Flags().Set("enabled", "true"); err != nil {
 		t.Fatalf("set enabled flag: %v", err)
 	}
-	if err := cmd.Flags().Set("default-tier", "critical"); err != nil {
+	if err := cmd.Flags().Set("default-tier", "full"); err != nil {
 		t.Fatalf("set default-tier flag: %v", err)
 	}
 	if err := cmd.Flags().Set("interval-s", "120"); err != nil {
@@ -48,10 +48,10 @@ func TestBuildLocationConfigFromInput_Flags(t *testing.T) {
 	if err := cmd.Flags().Set("source", "gps"); err != nil {
 		t.Fatalf("set source flag: %v", err)
 	}
-	if err := cmd.Flags().Set("contact-rules", `[{"address":"AABBCCDD","enabled":true,"tier":"city","interval_s":90}]`); err != nil {
+	if err := cmd.Flags().Set("contact-rules", `[{"address":"AABBCCDD","enabled":true,"tier":"presence","interval_s":90}]`); err != nil {
 		t.Fatalf("set contact-rules flag: %v", err)
 	}
-	if err := cmd.Flags().Set("channel-targets", `[{"channel":1,"enabled":false,"tier":"region","interval_s":300}]`); err != nil {
+	if err := cmd.Flags().Set("channel-targets", `[{"channel":1,"enabled":false,"tier":"coarse","interval_s":300}]`); err != nil {
 		t.Fatalf("set channel-targets flag: %v", err)
 	}
 
@@ -65,8 +65,8 @@ func TestBuildLocationConfigFromInput_Flags(t *testing.T) {
 	if cfg.Enabled == nil || !*cfg.Enabled {
 		t.Fatalf("expected enabled=true, got %+v", cfg.Enabled)
 	}
-	if cfg.DefaultTier == nil || *cfg.DefaultTier != "critical" {
-		t.Fatalf("expected default_tier=critical, got %+v", cfg.DefaultTier)
+	if cfg.DefaultTier == nil || *cfg.DefaultTier != "full" {
+		t.Fatalf("expected default_tier=full, got %+v", cfg.DefaultTier)
 	}
 	if cfg.IntervalS == nil || *cfg.IntervalS != 120 {
 		t.Fatalf("expected interval_s=120, got %+v", cfg.IntervalS)
@@ -87,7 +87,7 @@ func TestBuildLocationConfigFromInput_FileRejectsAliasFields(t *testing.T) {
 
 	dir := t.TempDir()
 	path := filepath.Join(dir, "location.json")
-	content := `{"defaultTier":"critical"}`
+	content := `{"defaultTier":"full"}`
 	if err := os.WriteFile(path, []byte(content), 0o600); err != nil {
 		t.Fatalf("write temp file: %v", err)
 	}
@@ -103,5 +103,34 @@ func TestBuildLocationConfigFromInput_FileRejectsAliasFields(t *testing.T) {
 	}
 	if !strings.Contains(err.Error(), "decode location config file") {
 		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
+func TestBuildLocationConfigFromInput_InvalidTierRejected(t *testing.T) {
+	t.Parallel()
+
+	cmd := newLocationSetConfigCmd()
+	if err := cmd.Flags().Set("default-tier", "exact"); err != nil {
+		t.Fatalf("set default-tier flag: %v", err)
+	}
+
+	_, _, err := buildLocationConfigFromInput(cmd)
+	if err == nil {
+		t.Fatal("expected invalid tier error")
+	}
+	if !strings.Contains(err.Error(), "invalid location tier") {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
+func TestNormalizeAndValidateLocationTier_NormalizesCase(t *testing.T) {
+	t.Parallel()
+
+	tier, err := normalizeAndValidateLocationTier(" Presence ")
+	if err != nil {
+		t.Fatalf("normalizeAndValidateLocationTier error: %v", err)
+	}
+	if tier != "presence" {
+		t.Fatalf("expected normalized presence, got %q", tier)
 	}
 }
