@@ -7,6 +7,33 @@ and this project follows [Conventional Commits](https://www.conventionalcommits.
 
 ## [Unreleased]
 
+### Added
+
+- feat(tui): add up-arrow message history recall (#20) (625341e)
+- feat(commands): add pair command for serial token retrieval (#15) (93435f8)
+- feat(cli): add BRAMBLE_TOKEN fallback for auth token (#12) (15b9688)
+- docs: add missing commands, TUI slash commands, fix discover port (#21) (7a06c2a)
+- test(tui): add coverage for name resolver alias behavior (#17) (acf5475)
+- test(tui): add state store coverage (#18) (5d131dc)
+- test(tui): add msgdb persistence coverage (#19) (24ba0da)
+- test: raise output/discovery coverage with edge-case mDNS tests (#11) (73fa3de)
+
+### Fixed
+
+- fix(cli): address audit findings C35-C36 (f3b9cee)
+- fix(broadcast): replace deprecated Broadcast() with SendBroadcast() (#24) (bfe9a15)
+- fix(probe): wait for ack_window before closing connection (#25) (3f5332c)
+- fix(commands): update auth token test to use GetAuthToken() accessor (#26) (cd771c1)
+- fix(cli): increase BLE command timeout and add --timeout flag (#22) (6031be6)
+- fix: inject bramble-cli version at build time (#13) (a842277)
+- fix: update golangci-lint config for v2 compatibility (#10) (12ced81)
+
+### Changed
+
+- commands: replace reflect-based applyAuthToken with interface method (#14) (22156b1)
+- refactor: remove 5 verified dead code items (#9) (ed4ddee)
+- build: bump Go to 1.26.1, add local quality script (#16) (8da1117)
+
 ## [2026-03-01]
 
 _Changes captured from `git log --oneline --since=2026-02-01`._
