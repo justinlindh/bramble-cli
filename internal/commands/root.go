@@ -115,6 +115,15 @@ func init() {
 		newTUICmd(),
 		newPairCmd(),
 		newAuthCmd(),
+		newBatteryCmd(),
+		newGpsCmd(),
+		newAudioCmd(),
+		newStorageCmd(),
+		newBeaconPolicyCmd(),
+		newBacklightCmd(),
+		newSleepCmd(),
+		newTelemetryCmd(),
+		newMailboxCmd(),
 	)
 }
 
