@@ -137,6 +137,9 @@ func runConfigSetRadio(cmd *cobra.Command, args []string) error {
 	}
 	if cmd.Flags().Changed("sf") {
 		v, _ := cmd.Flags().GetInt("sf")
+		if v < 7 || v > 12 {
+			return fmt.Errorf("bramble-cli: --sf %d out of range: spreading factor must be 7–12", v)
+		}
 		config.SF = &v
 		changed = true
 	}
@@ -147,11 +150,17 @@ func runConfigSetRadio(cmd *cobra.Command, args []string) error {
 	}
 	if cmd.Flags().Changed("cr") {
 		v, _ := cmd.Flags().GetInt("cr")
+		if v < 5 || v > 8 {
+			return fmt.Errorf("bramble-cli: --cr %d out of range: coding rate must be 5–8 (meaning 4/5..4/8)", v)
+		}
 		config.CR = &v
 		changed = true
 	}
 	if cmd.Flags().Changed("txpower") {
 		v, _ := cmd.Flags().GetInt("txpower")
+		if v < -20 || v > 22 {
+			return fmt.Errorf("bramble-cli: --txpower %d out of range: TX power must be –20..22 dBm", v)
+		}
 		config.TxPowerDbm = &v
 		changed = true
 	}
