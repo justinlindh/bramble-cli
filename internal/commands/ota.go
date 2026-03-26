@@ -81,6 +81,15 @@ func newOTACmd() *cobra.Command {
 		Short: "Trigger OTA firmware update from URL",
 		Long:  "Instruct the connected Bramble node to perform an OTA update using a firmware URL.",
 		RunE: func(cmd *cobra.Command, args []string) error {
+			parsed, parseErr := url.Parse(firmwareURL)
+			if parseErr != nil || parsed == nil || (parsed.Scheme != "http" && parsed.Scheme != "https") {
+				scheme := ""
+				if parsed != nil {
+					scheme = parsed.Scheme
+				}
+				return fmt.Errorf("bramble-cli: ota: invalid URL scheme %q: must be http or https", scheme)
+			}
+
 			ctx, cancel := commandContext()
 			defer cancel()
 

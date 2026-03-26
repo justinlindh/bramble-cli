@@ -10,6 +10,61 @@ import (
 	bramble "github.com/justinlindh/bramble-go"
 )
 
+func TestOTACmd_RejectsNonHTTPScheme(t *testing.T) {
+	tests := []struct {
+		name string
+		url  string
+	}{
+		{"ftp scheme", "ftp://example.com/bramble.bin"},
+		{"file scheme", "file:///etc/passwd"},
+		{"no scheme", "example.com/bramble.bin"},
+		{"empty scheme", "://example.com/bramble.bin"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			cmd := newOTACmd()
+			cmd.SetArgs([]string{"--url", tt.url, "--wait=false"})
+			err := cmd.Execute()
+			if err == nil {
+				t.Fatalf("expected error for URL %q, got nil", tt.url)
+			}
+			if !strings.Contains(err.Error(), "invalid URL scheme") {
+				t.Fatalf("expected 'invalid URL scheme' in error, got: %v", err)
+			}
+		})
+	}
+}
+
+func TestOTACmd_AcceptsHTTPSScheme(t *testing.T) {
+	oldRunner := runOTAUpdate
+	t.Cleanup(func() { runOTAUpdate = oldRunner })
+
+	runOTAUpdate = func(ctx context.Context, url string) (*bramble.OTAUpdateResponse, error) {
+		return &bramble.OTAUpdateResponse{OK: true}, nil
+	}
+
+	cmd := newOTACmd()
+	cmd.SetArgs([]string{"--url", "https://example.com/bramble.bin", "--wait=false"})
+	if err := cmd.Execute(); err != nil {
+		t.Fatalf("expected no error for https URL, got: %v", err)
+	}
+}
+
+func TestOTACmd_AcceptsHTTPScheme(t *testing.T) {
+	oldRunner := runOTAUpdate
+	t.Cleanup(func() { runOTAUpdate = oldRunner })
+
+	runOTAUpdate = func(ctx context.Context, url string) (*bramble.OTAUpdateResponse, error) {
+		return &bramble.OTAUpdateResponse{OK: true}, nil
+	}
+
+	cmd := newOTACmd()
+	cmd.SetArgs([]string{"--url", "http://192.0.2.0/bramble.bin", "--wait=false"})
+	if err := cmd.Execute(); err != nil {
+		t.Fatalf("expected no error for http URL, got: %v", err)
+	}
+}
+
 func TestOTACmd_RequiresURL(t *testing.T) {
 	cmd := newOTACmd()
 	cmd.SetArgs([]string{})
