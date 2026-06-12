@@ -6,7 +6,7 @@ VERSION ?= $(shell \
 	if [ -f $(VERSION_FILE) ]; then \
 		tr -d '\n' < $(VERSION_FILE); \
 	else \
-		git describe --tags --abbrev=0 2>/dev/null || echo dev; \
+		git describe --tags --dirty 2>/dev/null || echo dev; \
 	fi)
 
 LDFLAGS = -X github.com/justinlindh/bramble-cli/internal/commands.version=$(VERSION)

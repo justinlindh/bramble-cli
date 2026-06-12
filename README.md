@@ -35,7 +35,14 @@ Or build from source:
 ```bash
 git clone https://github.com/justinlindh/bramble-cli.git
 cd bramble-cli
-go build -o bramble ./cmd/bramble
+make build
+```
+
+`make build` injects the version (from `git describe --tags --dirty`) via
+ldflags; a bare `go build` produces a binary that reports version `dev`:
+
+```bash
+go build -ldflags "-X github.com/justinlindh/bramble-cli/internal/commands.version=$(git describe --tags --dirty)" -o bramble ./cmd/bramble
 ```
 
 ## Quick Start
