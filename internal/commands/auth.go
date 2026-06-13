@@ -51,7 +51,7 @@ func newAuthStatusCmd() *cobra.Command {
 			}
 			defer client.Close()
 
-			token, err := client.GetAuthToken(ctx)
+			token, err := client.AuthToken(ctx)
 			if err != nil {
 				return fmt.Errorf("bramble auth: %w", err)
 			}
@@ -139,7 +139,7 @@ To set a specific token: bramble auth enable --set <token>`,
 			}
 
 			// Verify the token was set
-			token, err := client.GetAuthToken(ctx)
+			token, err := client.AuthToken(ctx)
 			if err != nil {
 				return fmt.Errorf("bramble auth enable: verify: %w", err)
 			}

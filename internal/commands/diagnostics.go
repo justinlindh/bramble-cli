@@ -35,7 +35,7 @@ func runDiagnostics(cmd *cobra.Command, args []string) error {
 	}
 	defer client.Close()
 
-	d, err := client.GetDiagnostics(ctx, diagnosticsHeapDump)
+	d, err := client.Diagnostics(ctx, diagnosticsHeapDump)
 	if err != nil {
 		return fmt.Errorf("bramble-cli: get diagnostics: %w", err)
 	}

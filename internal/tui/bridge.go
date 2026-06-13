@@ -31,8 +31,8 @@ type BroadcastDeliveryReceived struct{ Delivery bramble.BroadcastDelivery }
 // WifiEventReceived is sent on a WiFi event.
 type WifiEventReceived struct{ Event bramble.WifiEvent }
 
-// GpsEventReceived is sent on a GPS event.
-type GpsEventReceived struct{ Event bramble.GpsEvent }
+// GPSEventReceived is sent on a GPS event.
+type GPSEventReceived struct{ Event bramble.GPSEvent }
 
 // LocationEventReceived is sent on a location push event.
 type LocationEventReceived struct{ Event bramble.LocationEvent }
@@ -69,8 +69,8 @@ func (b *Bridge) Start(client *bramble.Client) {
 	client.OnWifiEvent(func(ev bramble.WifiEvent) {
 		b.program.Send(WifiEventReceived{Event: ev})
 	})
-	client.OnGpsEvent(func(ev bramble.GpsEvent) {
-		b.program.Send(GpsEventReceived{Event: ev})
+	client.OnGPSEvent(func(ev bramble.GPSEvent) {
+		b.program.Send(GPSEventReceived{Event: ev})
 	})
 	client.OnLocationEvent(func(ev bramble.LocationEvent) {
 		b.program.Send(LocationEventReceived{Event: ev})

@@ -27,7 +27,7 @@ func runStorage(cmd *cobra.Command, args []string) error {
 	}
 	defer client.Close()
 
-	info, err := client.GetStorageInfo(ctx)
+	info, err := client.StorageInfo(ctx)
 	if err != nil {
 		return fmt.Errorf("bramble-cli: get storage info: %w", err)
 	}

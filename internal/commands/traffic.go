@@ -83,7 +83,7 @@ func runTrafficMonitor(cmd *cobra.Command, args []string) error {
 	defer client.Close()
 
 	// Check if traffic debug is enabled
-	status, err := client.GetTrafficDebug(ctx)
+	status, err := client.TrafficDebug(ctx)
 	if err != nil {
 		return fmt.Errorf("bramble-cli: get traffic debug status: %w", err)
 	}
@@ -165,14 +165,14 @@ func runTrafficExport(cmd *cobra.Command, args []string) error {
 	}
 	defer client.Close()
 
-	params := bramble.GetTrafficEventsParams{
+	params := bramble.TrafficEventsParams{
 		Limit: &limit,
 	}
 	if sinceSeq > 0 {
 		params.SinceSeq = &sinceSeq
 	}
 
-	resp, err := client.GetTrafficEvents(ctx, params)
+	resp, err := client.TrafficEvents(ctx, params)
 	if err != nil {
 		return fmt.Errorf("bramble-cli: get traffic events: %w", err)
 	}

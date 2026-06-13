@@ -133,7 +133,7 @@ func TestCommandHandlerLocationIncludesOpenStreetMapLinks(t *testing.T) {
 	sb := NewScrollback()
 	h := NewCommandHandler(nil, store, &sb, testResolver{})
 
-	store.UpdateOwnGPS(bramble.GpsEvent{Valid: true, Lat: 12.345678, Lon: -98.765432, AltM: 836, Sats: 12})
+	store.UpdateOwnGPS(bramble.GPSEvent{Valid: true, Lat: 12.345678, Lon: -98.765432, AltM: 836, Sats: 12})
 	store.UpdatePeerLocations([]bramble.LocationPeer{{
 		Addr:     "ABCD1234",
 		Position: &bramble.Position{Lat: 12.345670, Lon: -98.765440},

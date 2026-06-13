@@ -69,7 +69,7 @@ Examples:
 				return fmt.Errorf("bramble pair: get status: %w", err)
 			}
 
-			token, err := client.GetAuthToken(ctx)
+			token, err := client.AuthToken(ctx)
 			if err != nil {
 				return fmt.Errorf("bramble pair: get auth token: %w", err)
 			}

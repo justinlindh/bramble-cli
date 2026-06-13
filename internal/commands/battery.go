@@ -27,7 +27,7 @@ func runBattery(cmd *cobra.Command, args []string) error {
 	}
 	defer client.Close()
 
-	bat, err := client.GetBattery(ctx)
+	bat, err := client.Battery(ctx)
 	if err != nil {
 		return fmt.Errorf("bramble-cli: get battery: %w", err)
 	}

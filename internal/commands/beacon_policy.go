@@ -41,7 +41,7 @@ func runBeaconPolicyGet(cmd *cobra.Command, args []string) error {
 	}
 	defer client.Close()
 
-	policy, err := client.GetBeaconPolicy(ctx)
+	policy, err := client.BeaconPolicy(ctx)
 	if err != nil {
 		return fmt.Errorf("bramble-cli: get beacon policy: %w", err)
 	}

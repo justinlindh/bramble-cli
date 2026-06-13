@@ -810,7 +810,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case NeighborChanged:
 		return m, m.fetchNeighbors()
 
-	case GpsEventReceived:
+	case GPSEventReceived:
 		m.store.UpdateOwnGPS(msg.Event)
 
 	case TrafficEventReceived:

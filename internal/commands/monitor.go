@@ -251,7 +251,7 @@ func runMonitor(cmd *cobra.Command, args []string) error {
 	}
 
 	if showGps {
-		client.OnGpsEvent(func(evt bramble.GpsEvent) {
+		client.OnGPSEvent(func(evt bramble.GPSEvent) {
 			now := time.Now()
 			emit(monitorEvent{Type: "gps", Topic: "gps", Timestamp: now, SearchText: fmt.Sprintf("%s valid=%t", evt.Event, evt.Valid), Payload: evt, Line: fmt.Sprintf("[%s] GPS event=%s valid=%t", now.Format("15:04:05"), evt.Event, evt.Valid)})
 		})
@@ -263,7 +263,7 @@ func runMonitor(cmd *cobra.Command, args []string) error {
 			if evt.TimestampMs > 0 {
 				ts = time.UnixMilli(int64(evt.TimestampMs))
 			}
-			emit(monitorEvent{Type: "location", Topic: "location", Timestamp: ts, SearchText: fmt.Sprintf("%s peer=%s tier=%d", evt.Event, evt.Peer, evt.Tier), Payload: evt, Line: fmt.Sprintf("[%s] LOCATION event=%s peer=%s tier=%d", ts.Format("15:04:05"), evt.Event, evt.Peer, evt.Tier)})
+			emit(monitorEvent{Type: "location", Topic: "location", Timestamp: ts, SearchText: fmt.Sprintf("%s peer=%s tier=%s", evt.Event, evt.Peer, evt.Tier), Payload: evt, Line: fmt.Sprintf("[%s] LOCATION event=%s peer=%s tier=%s", ts.Format("15:04:05"), evt.Event, evt.Peer, evt.Tier)})
 		})
 	}
 

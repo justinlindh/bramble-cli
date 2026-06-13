@@ -355,7 +355,7 @@ func runMeshTest(ctx context.Context, cfg meshTestConfig, verbose bool, validate
 		}
 		text := fmt.Sprintf("mesh-test #%d %d", i, time.Now().Unix())
 		sendCtx, cancel := context.WithTimeout(ctx, meshPerRequestTimeout)
-		sendRes, err := sender.client.Broadcast(sendCtx, text)
+		sendRes, err := sender.client.SendBroadcast(sendCtx, text)
 		cancel()
 		if err != nil {
 			if firstErr == nil {
@@ -549,7 +549,7 @@ func drainDeliveryEvents(ch <-chan bramble.BroadcastDelivery) {
 }
 
 func ensureTrafficDebugEnabled(ctx context.Context, client *bramble.Client) error {
-	status, err := client.GetTrafficDebug(ctx)
+	status, err := client.TrafficDebug(ctx)
 	if err != nil {
 		return err
 	}

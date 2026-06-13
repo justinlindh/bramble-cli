@@ -28,7 +28,7 @@ func runGps(cmd *cobra.Command, args []string) error {
 	}
 	defer client.Close()
 
-	pos, err := client.GetGpsPosition(ctx)
+	pos, err := client.GPSPosition(ctx)
 	if err != nil {
 		return fmt.Errorf("bramble-cli: get gps position: %w", err)
 	}

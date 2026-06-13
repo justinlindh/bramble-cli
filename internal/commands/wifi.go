@@ -35,7 +35,7 @@ func runWifiStatus(cmd *cobra.Command, args []string) error {
 	}
 	defer client.Close()
 
-	status, err := client.GetWifiStatus(ctx)
+	status, err := client.WifiStatus(ctx)
 	if err != nil {
 		return fmt.Errorf("bramble-cli: get wifi status: %w", err)
 	}

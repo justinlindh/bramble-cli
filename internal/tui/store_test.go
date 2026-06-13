@@ -82,7 +82,7 @@ func TestStore_NewAndBasicUpdates(t *testing.T) {
 	if s.GetOwnGPS() != nil {
 		t.Fatalf("expected nil GPS initially")
 	}
-	gps := bramble.GpsEvent{Event: "gps", Valid: true, Lat: 1.23, Lon: 4.56}
+	gps := bramble.GPSEvent{Event: "gps", Valid: true, Lat: 1.23, Lon: 4.56}
 	s.UpdateOwnGPS(gps)
 	gotGPS := s.GetOwnGPS()
 	if gotGPS == nil || gotGPS.Lat != 1.23 || gotGPS.Lon != 4.56 {

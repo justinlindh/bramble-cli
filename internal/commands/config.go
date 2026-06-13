@@ -132,7 +132,7 @@ func runConfigSetRadio(cmd *cobra.Command, args []string) error {
 
 	if cmd.Flags().Changed("freq") {
 		v, _ := cmd.Flags().GetFloat64("freq")
-		config.FreqMhz = &v
+		config.FrequencyMhz = &v
 		changed = true
 	}
 	if cmd.Flags().Changed("sf") {
@@ -145,7 +145,8 @@ func runConfigSetRadio(cmd *cobra.Command, args []string) error {
 	}
 	if cmd.Flags().Changed("bw") {
 		v, _ := cmd.Flags().GetInt("bw")
-		config.BwKhz = &v
+		hz := v * 1000
+		config.BwHz = &hz
 		changed = true
 	}
 	if cmd.Flags().Changed("cr") {
