@@ -124,6 +124,7 @@ func init() {
 		newSleepCmd(),
 		newTelemetryCmd(),
 		newMailboxCmd(),
+		newAnchorCmd(),
 	)
 }
 
