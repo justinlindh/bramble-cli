@@ -185,21 +185,14 @@ func resolveTUITarget(cmd *cobra.Command, args []string) (cancelled bool, err er
 	if err != nil {
 		return false, err
 	}
-	entries := book.List()
-	if len(entries) == 0 {
+	if len(book.List()) == 0 {
 		// Empty book: keep the previous behavior (serial auto-detect).
 		return false, nil
 	}
 
-	choices := make([]tui.DeviceChoice, 0, len(entries))
-	for _, ne := range entries {
-		choices = append(choices, tui.DeviceChoice{
-			Alias: ne.Alias,
-			Name:  ne.Entry.Name,
-			Host:  ne.Entry.Host,
-		})
-	}
-	res, runErr := tea.NewProgram(tui.NewPicker(choices)).Run()
+	// The picker can select, add, and delete devices; it persists changes to
+	// path itself, so getClient re-reads the book when it resolves the alias.
+	res, runErr := tea.NewProgram(tui.NewPicker(book, path)).Run()
 	if runErr != nil {
 		return false, fmt.Errorf("bramble tui: device picker: %w", runErr)
 	}

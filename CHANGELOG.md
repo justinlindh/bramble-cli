@@ -9,6 +9,7 @@ and this project follows [Conventional Commits](https://www.conventionalcommits.
 
 ### Added
 
+- feat(tui): the device picker now manages the address book in place - press `a`/`n` to add a device (inline form; hidden token entry) and `d`/`delete` to remove the highlighted one (with a confirm); the list refreshes and the token is never shown
 - feat(devices): device address book with `bramble devices add/list/rm`, `--device/-d <alias>` and `bramble tui <alias>` connect by alias (tokens masked in all output; stored 0600)
 - feat(tui): graphical device picker when `bramble tui` is launched with no target on an interactive terminal, plus an interactive hidden token prompt that offers to save the token to the address book
 - feat(tui): add up-arrow message history recall (#20) (625341e)
