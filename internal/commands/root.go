@@ -11,6 +11,7 @@ import (
 	"github.com/justinlindh/bramble-go/transport"
 	"github.com/spf13/cobra"
 
+	"github.com/justinlindh/bramble-cli/internal/devices"
 	"github.com/justinlindh/bramble-cli/internal/discovery"
 )
 
@@ -19,9 +20,15 @@ var (
 	flagTransport string
 	flagBLE       string
 	flagAuthToken string
+	flagDevice    string
 	flagJSON      bool
 	flagTimeout   time.Duration
 )
+
+// resolvedDevice holds the address-book entry selected via --device (or a TUI
+// alias/picker), once loadDeviceEntry has run. It is nil when no alias is in
+// play, so the flag/env token precedence is unchanged for existing callers.
+var resolvedDevice *devices.Entry
 
 const (
 	connectTimeout = 30 * time.Second
@@ -89,6 +96,7 @@ func init() {
 	rootCmd.PersistentFlags().StringVarP(&flagTransport, "transport", "t", "", "WebSocket transport URL (e.g. ws://192.168.4.1/ws)")
 	rootCmd.PersistentFlags().StringVarP(&flagBLE, "ble", "b", "", "BLE device name to scan for (e.g. Bramble)")
 	rootCmd.PersistentFlags().StringVar(&flagAuthToken, "token", "", "Auth token for node connection")
+	rootCmd.PersistentFlags().StringVarP(&flagDevice, "device", "d", "", "saved device alias to connect to (see: bramble devices)")
 	rootCmd.PersistentFlags().BoolVar(&flagJSON, "json", false, "output results as JSON")
 	rootCmd.PersistentFlags().DurationVar(&flagTimeout, "timeout", 0, "override command timeout (e.g. 30s, 1m); default is 45s for BLE, 10s otherwise")
 
@@ -125,14 +133,46 @@ func init() {
 		newTelemetryCmd(),
 		newMailboxCmd(),
 		newAnchorCmd(),
+		newDevicesCmd(),
 	)
 }
 
+// loadDeviceEntry resolves --device into resolvedDevice. It is a no-op when no
+// alias is selected; a selected-but-unknown alias is a hard error.
+func loadDeviceEntry() error {
+	resolvedDevice = nil
+	if flagDevice == "" {
+		return nil
+	}
+	path, err := devices.DefaultPath()
+	if err != nil {
+		return err
+	}
+	book, err := devices.Load(path)
+	if err != nil {
+		return err
+	}
+	e, ok := book.Get(flagDevice)
+	if !ok {
+		return fmt.Errorf("unknown device alias %q (see: bramble devices list)", flagDevice)
+	}
+	resolvedDevice = &e
+	return nil
+}
+
+// resolvedAuthToken applies the token precedence:
+// --token flag > BRAMBLE_TOKEN env > selected device-alias token.
 func resolvedAuthToken() string {
 	if flagAuthToken != "" {
 		return flagAuthToken
 	}
-	return os.Getenv("BRAMBLE_TOKEN")
+	if env := os.Getenv("BRAMBLE_TOKEN"); env != "" {
+		return env
+	}
+	if resolvedDevice != nil {
+		return resolvedDevice.Token
+	}
+	return ""
 }
 
 func applyAuthToken(t transport.Transport) {
@@ -146,6 +186,10 @@ func applyAuthToken(t transport.Transport) {
 // getClient resolves the transport and returns a connected Bramble client.
 // Priority: --ble > --transport > --port > auto-detect USB.
 func getClient(ctx context.Context) (*bramble.Client, error) {
+	if err := loadDeviceEntry(); err != nil {
+		return nil, err
+	}
+
 	var t transport.Transport
 
 	switch {
@@ -157,6 +201,9 @@ func getClient(ctx context.Context) (*bramble.Client, error) {
 
 	case flagPort != "":
 		t = transport.NewSerial(flagPort)
+
+	case resolvedDevice != nil:
+		t = transport.NewWebSocket(resolvedDevice.Host)
 
 	default:
 		port, err := discovery.Detect()

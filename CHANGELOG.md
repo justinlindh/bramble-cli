@@ -9,6 +9,8 @@ and this project follows [Conventional Commits](https://www.conventionalcommits.
 
 ### Added
 
+- feat(devices): device address book with `bramble devices add/list/rm`, `--device/-d <alias>` and `bramble tui <alias>` connect by alias (tokens masked in all output; stored 0600)
+- feat(tui): graphical device picker when `bramble tui` is launched with no target on an interactive terminal, plus an interactive hidden token prompt that offers to save the token to the address book
 - feat(tui): add up-arrow message history recall (#20) (625341e)
 - feat(commands): add pair command for serial token retrieval (#15) (93435f8)
 - feat(cli): add BRAMBLE_TOKEN fallback for auth token (#12) (15b9688)
@@ -20,6 +22,7 @@ and this project follows [Conventional Commits](https://www.conventionalcommits.
 
 ### Fixed
 
+- fix(tui): fail fast with a clear "node requires authentication" message instead of an infinite "Connection lost / Reconnecting" flap when a token is missing or wrong
 - fix(cli): address audit findings C35-C36 (f3b9cee)
 - fix(broadcast): replace deprecated Broadcast() with SendBroadcast() (#24) (bfe9a15)
 - fix(probe): wait for ack_window before closing connection (#25) (3f5332c)
