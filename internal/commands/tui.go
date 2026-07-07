@@ -87,7 +87,16 @@ func runTUI(cmd *cobra.Command, args []string) error {
 	fetchCtx, fetchCancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer fetchCancel()
 
-	if identity, err := client.Identity(fetchCtx); err == nil {
+	identity, err := client.Identity(fetchCtx)
+	if err != nil && isAuthError(err) {
+		// The transport connected, but the node rejects authenticated RPCs:
+		// it requires a token we did not supply. Fail fast with an actionable
+		// message instead of launching a TUI that would flap forever between
+		// "Connection lost" and "Reconnecting" as each poll is rejected.
+		return fmt.Errorf("bramble tui: node requires authentication; " +
+			"provide a token with --token or the BRAMBLE_TOKEN environment variable")
+	}
+	if err == nil {
 		node.Address = identity.Address
 		if msgdb != nil {
 			msgdb.SetNodeAddr(identity.Address)
