@@ -177,8 +177,15 @@ func New(client *bramble.Client, node NodeInfo, connectFn ConnectFn, msgdb *MsgD
 
 // ClassifyMessageConvID returns the conversation ID for a bramble.Message.
 func ClassifyMessageConvID(msg bramble.Message, selfAddr string) string {
-	if msg.To == "" || msg.To == "broadcast" || msg.To == "FFFFFFFF" {
+	// Broadcast/Channel are authoritative (the live onMessage notification
+	// carries them but no "to"); the To-based checks are fallbacks for echoed
+	// sends and DB-reconstructed history. An empty To is NOT broadcast, that
+	// was the bug that filed live DMs under Broadcast.
+	if msg.Broadcast || msg.To == "broadcast" || msg.To == "FFFFFFFF" {
 		return "broadcast"
+	}
+	if msg.Channel > 0 {
+		return fmt.Sprintf("ch:%d", msg.Channel)
 	}
 	if len(msg.To) > 3 && msg.To[:3] == "ch:" {
 		return msg.To

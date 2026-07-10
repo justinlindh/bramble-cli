@@ -277,8 +277,16 @@ func (s *Store) GetActiveConversation() *Conversation {
 
 // convIDForMessage derives the conversation ID for a message.
 func (s *Store) convIDForMessage(msg bramble.Message) string {
-	if msg.To == "" || msg.To == "broadcast" || msg.To == "FFFFFFFF" {
+	// Broadcast and Channel are the authoritative routing signals: the live
+	// bramble.onMessage notification sets them but sends no "to", so an empty
+	// To must NOT be read as broadcast (that filed every live DM under
+	// Broadcast). The To-based checks remain as fallbacks for locally echoed
+	// sends and DB-reconstructed history, where To carries the routing.
+	if msg.Broadcast || msg.To == "broadcast" || msg.To == "FFFFFFFF" {
 		return "broadcast"
+	}
+	if msg.Channel > 0 {
+		return fmt.Sprintf("ch:%d", msg.Channel)
 	}
 	if len(msg.To) > 3 && msg.To[:3] == "ch:" {
 		return msg.To

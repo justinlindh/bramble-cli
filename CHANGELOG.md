@@ -23,6 +23,7 @@ and this project follows [Conventional Commits](https://www.conventionalcommits.
 
 ### Fixed
 
+- fix(tui): live incoming DMs were filed under the Broadcast buffer. The bramble.onMessage notification carries no "to" field, and the classifier treated an empty To as broadcast. It now classifies on the message's Broadcast/Channel routing fields (added in bramble-go v0.12.0), keeping the To-based checks only as fallbacks for echoed sends and DB history.
 - fix(tui): fail fast with a clear "node requires authentication" message instead of an infinite "Connection lost / Reconnecting" flap when a token is missing or wrong
 - fix(cli): address audit findings C35-C36 (f3b9cee)
 - fix(broadcast): replace deprecated Broadcast() with SendBroadcast() (#24) (bfe9a15)
