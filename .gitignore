@@ -30,3 +30,6 @@ tmp/
 .tmp/
 *.log
 .DS_Store
+
+# Claude Code machine-local settings (per-developer)
+.claude/
