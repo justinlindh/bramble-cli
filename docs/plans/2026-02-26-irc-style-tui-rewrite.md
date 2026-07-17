@@ -93,7 +93,7 @@ Buffer switching: `Alt+1-9` for first 9 buffers, `Ctrl+N`/`Ctrl+P` next/prev.
 ```
 ┌──────────────────────────────────────────────────────────┐
 │                                                          │ ← scrollback
-│ -- Connected to 82E346A8 via ws://192.0.2.0/ws --   │    (viewport)
+│ -- Connected to 82E346A8 via ws://192.0.2.145/ws --   │    (viewport)
 │ < [12:42] NodeB: hey everyone                            │
 │ > [12:42] Hi all *                                       │
 │ -- A1B2C3D4 (NodeC) joined [RSSI -68, SNR 9.5] --      │
@@ -1997,7 +1997,7 @@ func (m Model) Init() tea.Cmd {
 **Step 3: Build + test manually**
 
 Run: `cd ~/src/bramble-cli && go build -o /tmp/bramble ./cmd/bramble/`
-Then: `/tmp/bramble tui --transport ws://192.0.2.0/ws`
+Then: `/tmp/bramble tui --transport ws://192.0.2.145/ws`
 
 Expected: single-buffer IRC layout, broadcast buffer active, messages flowing, /help works.
 

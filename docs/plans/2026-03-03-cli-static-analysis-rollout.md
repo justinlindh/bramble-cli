@@ -11,7 +11,7 @@
 ---
 
 ## Context Snapshot (from discovery report)
-- Repo: `/home/user/src/bramble-cli`
+- Repo: `bramble-cli`
 - Existing CI: release-only workflow in `.gitea/workflows/release.yml`
 - Existing quality controls: commitlint + semantic-release, manual `go test ./...`, helper script `scripts/check-doc-drift.sh`
 - Gap: no PR/push quality gate for lint/static/security/doc checks

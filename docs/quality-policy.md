@@ -4,7 +4,7 @@ This repository uses a staged quality rollout so we can tighten checks without b
 
 ## Current State (Phase C)
 
-CI workflow: `.gitea/workflows/quality.yml`
+CI workflow: `.github/workflows/quality.yml`
 
 Recent hardening additions:
 - workflow-level concurrency cancellation for superseded runs on the same ref
@@ -82,14 +82,14 @@ If required gates create widespread false positives or materially block delivery
 
 | Lever | How to apply | Scope | Guardrail |
 |---|---|---|---|
-| Downgrade one noisy check | Move that check from `phase-c-quality` to `advisory-quality` (or add `continue-on-error: true` on the step) in `.gitea/workflows/quality.yml` | Single check only | Must keep `go test` and `go vet` in required jobs |
+| Downgrade one noisy check | Move that check from `phase-c-quality` to `advisory-quality` (or add `continue-on-error: true` on the step) in `.github/workflows/quality.yml` | Single check only | Must keep `go test` and `go vet` in required jobs |
 | Temporary govulncheck de-escalation | Mark `Go vuln check` step advisory while triaging upstream/backlog findings | `govulncheck` only | Track owner + target date to re-enforce |
 | Temporary docs gate de-escalation | Mark `Docs drift` and/or `Markdown lint` advisory if docs tooling causes broad false positives | Docs gates only | Keep lint/test/vet/shellcheck required |
 
 ### Rollback execution checklist
 
 1. Record trigger and impact in PR/issue (what failed, how often, and why signal is low).
-2. Apply the narrowest lever possible in `.gitea/workflows/quality.yml`.
+2. Apply the narrowest lever possible in `.github/workflows/quality.yml`.
 3. Keep `go test` + `go vet` required at all times.
 4. Open a follow-up issue with owner and target date for re-enforcement.
 5. Restore required status once baseline cleanup is complete and failure signal is high-confidence.

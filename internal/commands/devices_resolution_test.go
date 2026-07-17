@@ -32,7 +32,7 @@ func resetResolution() {
 }
 
 func TestLoadDeviceEntry_UnknownAliasErrors(t *testing.T) {
-	writeTestBook(t, map[string]devices.Entry{"v4": {Host: "192.0.2.0", Token: "tok"}})
+	writeTestBook(t, map[string]devices.Entry{"v4": {Host: "198.51.100.146", Token: "tok"}})
 	resetResolution()
 	t.Cleanup(resetResolution)
 
@@ -43,7 +43,7 @@ func TestLoadDeviceEntry_UnknownAliasErrors(t *testing.T) {
 }
 
 func TestLoadDeviceEntry_PopulatesResolvedDevice(t *testing.T) {
-	writeTestBook(t, map[string]devices.Entry{"v4": {Host: "192.0.2.0", Token: "tok", Name: "V4"}})
+	writeTestBook(t, map[string]devices.Entry{"v4": {Host: "198.51.100.146", Token: "tok", Name: "V4"}})
 	resetResolution()
 	t.Cleanup(resetResolution)
 
@@ -54,7 +54,7 @@ func TestLoadDeviceEntry_PopulatesResolvedDevice(t *testing.T) {
 	if resolvedDevice == nil {
 		t.Fatal("resolvedDevice is nil")
 	}
-	if resolvedDevice.Host != "ws://192.0.2.0/ws" {
+	if resolvedDevice.Host != "ws://198.51.100.146/ws" {
 		t.Errorf("host = %q, want normalized ws url", resolvedDevice.Host)
 	}
 }

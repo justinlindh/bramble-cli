@@ -54,3 +54,6 @@ require (
 	modernc.org/memory v1.11.0 // indirect
 	tinygo.org/x/bluetooth v0.14.0 // indirect
 )
+
+// TEMP: remove before release once bramble-go is published (go-public plan P3)
+replace github.com/justinlindh/bramble-go => ../bramble-go

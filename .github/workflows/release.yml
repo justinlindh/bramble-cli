@@ -6,32 +6,31 @@ on:
       - main
   workflow_dispatch:
 
+permissions:
+  contents: write
+  issues: write
+  pull-requests: write
+
+defaults:
+  run:
+    shell: bash
+
 env:
   NODE_VERSION: '22'
   COMMITLINT_VERSION: '20.4.3'
   SEMANTIC_RELEASE_VERSION: '25.0.3'
   SEMREL_COMMIT_ANALYZER_VERSION: '13.0.1'
   SEMREL_NOTES_GENERATOR_VERSION: '14.1.0'
-  SEMREL_GITEA_PLUGIN_VERSION: '2.1.0'
-  RUNNER_TOOL_CACHE: /home/runner/.cache/hostedtoolcache
+  SEMREL_GITHUB_PLUGIN_VERSION: '11.0.6'
 
 jobs:
   release:
-    defaults:
-      run:
-        shell: bash
-    # Gitea runner labels in this environment use "linux" (not GitHub's "ubuntu-latest").
-    runs-on: linux
-    container:
-      image: ghcr.io/catthehacker/ubuntu:full-latest
+    runs-on: ubuntu-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
-
-      - name: Prepare writable toolcache directory
-        run: mkdir -p "$RUNNER_TOOL_CACHE"
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -50,7 +49,7 @@ jobs:
             "semantic-release@${SEMANTIC_RELEASE_VERSION}" \
             "@semantic-release/commit-analyzer@${SEMREL_COMMIT_ANALYZER_VERSION}" \
             "@semantic-release/release-notes-generator@${SEMREL_NOTES_GENERATOR_VERSION}" \
-            "@saithodev/semantic-release-gitea@${SEMREL_GITEA_PLUGIN_VERSION}"
+            "@semantic-release/github@${SEMREL_GITHUB_PLUGIN_VERSION}"
 
       - name: Lint latest commit message (Conventional Commits)
         run: |
@@ -61,8 +60,7 @@ jobs:
 
       - name: Run semantic-release
         env:
-          GITEA_TOKEN: ${{ secrets.GITEA_TOKEN }}
-          GITEA_URL: ${{ secrets.GITEA_URL }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           export TOOLS_DIR="$HOME/.cache/bramble-cli/release-tools"
           export PATH="$TOOLS_DIR/node_modules/.bin:$PATH"

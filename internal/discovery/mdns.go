@@ -26,7 +26,7 @@ type Node struct {
 	Hostname string // e.g. "bramble-1ee6"
 	Name     string // instance name, e.g. "Bramble Mesh Node"
 	Address  string // IP:port
-	WSURL    string // WebSocket URL, e.g. "ws://192.0.2.0/ws"
+	WSURL    string // WebSocket URL, e.g. "ws://192.0.2.64/ws"
 }
 
 // DiscoverMDNS scans the local network for Bramble nodes advertising _bramble._tcp

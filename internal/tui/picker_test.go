@@ -14,10 +14,10 @@ func seedPicker(t *testing.T) (PickerModel, string) {
 	t.Helper()
 	path := filepath.Join(t.TempDir(), "devices.json")
 	book := &devices.Book{Devices: map[string]devices.Entry{}}
-	if err := book.Add("v3", devices.Entry{Host: "192.0.2.0", Token: "t3", Name: "V3"}); err != nil {
+	if err := book.Add("v3", devices.Entry{Host: "198.51.100.65", Token: "t3", Name: "V3"}); err != nil {
 		t.Fatal(err)
 	}
-	if err := book.Add("v4", devices.Entry{Host: "192.0.2.0", Token: "t4", Name: "V4"}); err != nil {
+	if err := book.Add("v4", devices.Entry{Host: "198.51.100.146", Token: "t4", Name: "V4"}); err != nil {
 		t.Fatal(err)
 	}
 	if err := book.Save(path); err != nil {
@@ -159,7 +159,7 @@ func TestPicker_AddRejectsDuplicate(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if e, _ := book.Get("v4"); e.Host != "ws://192.0.2.0/ws" {
+	if e, _ := book.Get("v4"); e.Host != "ws://198.51.100.146/ws" {
 		t.Fatalf("v4 host mutated: %q", e.Host)
 	}
 }

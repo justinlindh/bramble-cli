@@ -40,7 +40,7 @@ func newDevicesAddCmd() *cobra.Command {
 		Short: "Save a device alias",
 		Long: `Save a device under a short alias.
 
-<host> may be a bare address (192.0.2.0), a host:port, or a full ws:// URL;
+<host> may be a bare address (198.51.100.65), a host:port, or a full ws:// URL;
 a bare address is expanded to ws://<host>/ws.
 
 If --token is omitted and the terminal is interactive, you are prompted for the

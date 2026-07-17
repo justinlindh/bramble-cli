@@ -1,0 +1,117 @@
+name: Quality
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+concurrency:
+  group: quality-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+defaults:
+  run:
+    shell: bash
+
+env:
+  GO_VERSION: '1.26.x'
+  GOLANGCI_LINT_VERSION: 'v2.1.6'
+  GOVULNCHECK_VERSION: 'v1.1.4'
+  ACTIONLINT_VERSION: 'v1.7.11'
+  MARKDOWNLINT_VERSION: '0.21.0'
+
+jobs:
+  go-baseline:
+    name: Go baseline (required)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Provide bramble-go sibling for local replace
+        # TEMP: remove together with the go.mod replace once bramble-go is published (go-public plan P3).
+        run: git clone --depth 1 "https://x-access-token:${{ secrets.GO_MODULE_TOKEN }}@github.com/justinlindh/bramble-go.git" ../bramble-go
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache-dependency-path: go.sum
+
+      - name: Go test
+        run: go test ./...
+
+      - name: Go vet
+        run: go vet ./...
+
+  quality-required:
+    name: Quality gates (required)
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    needs:
+      - go-baseline
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Provide bramble-go sibling for local replace
+        # TEMP: remove together with the go.mod replace once bramble-go is published (go-public plan P3).
+        run: git clone --depth 1 "https://x-access-token:${{ secrets.GO_MODULE_TOKEN }}@github.com/justinlindh/bramble-go.git" ../bramble-go
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache-dependency-path: go.sum
+
+      - name: Install quality tools
+        run: |
+          set -euo pipefail
+          go install "github.com/golangci/golangci-lint/v2/cmd/golangci-lint@${GOLANGCI_LINT_VERSION}"
+          go install "golang.org/x/vuln/cmd/govulncheck@${GOVULNCHECK_VERSION}"
+          go install "github.com/rhysd/actionlint/cmd/actionlint@${ACTIONLINT_VERSION}"
+          echo "$(go env GOPATH)/bin" >> "$GITHUB_PATH"
+
+      - name: Go lint (required)
+        run: golangci-lint run ./...
+
+      - name: Shellcheck scripts (required)
+        run: |
+          set -euo pipefail
+          if ! command -v shellcheck >/dev/null; then
+            sudo apt-get update
+            sudo apt-get install -y shellcheck
+          fi
+          shellcheck scripts/*.sh scripts/lint/*.sh examples/*.sh
+
+      - name: Build CLI binary for doc drift checks
+        run: go build -o bramble ./cmd/bramble
+
+      - name: Docs drift check (required)
+        run: bash scripts/check-doc-drift.sh
+
+      - name: Markdown lint (required)
+        run: npx --yes "markdownlint-cli2@${MARKDOWNLINT_VERSION}" "**/*.md"
+
+      - name: Go vuln check (required; fail on findings)
+        run: govulncheck ./...
+
+      - name: Workflow lint (required)
+        run: actionlint .github/workflows/*.yml
+
+  no-internal-refs:
+    name: No internal references (required)
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Scan tracked tree for internal references
+        run: bash scripts/lint/check-no-internal-refs.sh

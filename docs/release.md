@@ -1,21 +1,18 @@
 # Release Process (Semantic Release)
 
-This repository uses **semantic-release** with **Conventional Commits** to publish version tags and Gitea releases.
+This repository uses **semantic-release** with **Conventional Commits** to publish version tags and GitHub releases.
 
 ## Trigger
 
-Releases run from Gitea Actions on:
+Releases run from GitHub Actions on:
 - `push` to `main`
 - manual `workflow_dispatch`
 
 ## Required repository secrets
 
-Set these in Gitea repository **Settings → Secrets → Actions**:
-
-- `GITEA_TOKEN` (required): token with permissions to create tags/releases in this repo
-
-Optional:
-- `GITEA_URL` (optional): defaults to `https://github.com`
+No extra secrets are required. The `release` workflow authenticates with the
+built-in `GITHUB_TOKEN`, which has permission to create tags and releases in
+this repository.
 
 ## Commit format
 
@@ -34,4 +31,4 @@ Other commit types (like `docs`, `chore`, `refactor` without `!`) typically do n
 3. If releasable commits exist, semantic-release creates:
    - a tag like `vX.Y.Z`
    - release notes
-   - a Gitea Release
+   - a GitHub Release

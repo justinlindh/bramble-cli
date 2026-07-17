@@ -8,12 +8,12 @@ import (
 
 func TestNormalizeHost(t *testing.T) {
 	cases := map[string]string{
-		"192.0.2.0":      "ws://192.0.2.0/ws",
-		"192.0.2.0:8080": "ws://192.0.2.0:8080/ws",
-		"ws://foo/ws":       "ws://foo/ws",
-		"wss://foo/ws":      "wss://foo/ws",
-		"  10.0.0.1  ":      "ws://10.0.0.1/ws",
-		"":                  "",
+		"198.51.100.65":      "ws://198.51.100.65/ws",
+		"198.51.100.65:8080": "ws://198.51.100.65:8080/ws",
+		"ws://foo/ws":        "ws://foo/ws",
+		"wss://foo/ws":       "wss://foo/ws",
+		"  10.0.0.1  ":       "ws://10.0.0.1/ws",
+		"":                   "",
 	}
 	for in, want := range cases {
 		if got := NormalizeHost(in); got != want {
@@ -76,7 +76,7 @@ func TestAddGetRemoveRoundTrip(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := b.Add("v4", Entry{Host: "192.0.2.0", Token: "tok", Name: "V4"}); err != nil {
+	if err := b.Add("v4", Entry{Host: "198.51.100.146", Token: "tok", Name: "V4"}); err != nil {
 		t.Fatal(err)
 	}
 	if err := b.Save(path); err != nil {
@@ -108,7 +108,7 @@ func TestAddGetRemoveRoundTrip(t *testing.T) {
 	if !ok {
 		t.Fatal("expected v4 entry after reload")
 	}
-	if e.Host != "ws://192.0.2.0/ws" {
+	if e.Host != "ws://198.51.100.146/ws" {
 		t.Errorf("host = %q, want normalized ws url", e.Host)
 	}
 	if e.Token != "tok" {

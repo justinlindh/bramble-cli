@@ -7,7 +7,7 @@
 #
 # Usage:
 #   ./scripts/smoke-test.sh [--port1 /dev/ttyACM0] [--port2 /dev/ttyUSB0]
-#   ./scripts/smoke-test.sh --port1 /dev/ttyUSB0 --port2 ws://192.0.2.0/ws
+#   ./scripts/smoke-test.sh --port1 /dev/ttyUSB0 --port2 ws://192.0.2.112/ws
 #   ./scripts/smoke-test.sh --auto          # auto-detect two nodes (serial + mDNS)
 #   ./scripts/smoke-test.sh --help
 #

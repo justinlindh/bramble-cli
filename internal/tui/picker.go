@@ -98,7 +98,7 @@ func newAddInputs() []textinput.Model {
 	alias.CharLimit = 64
 
 	host := textinput.New()
-	host.Placeholder = "192.0.2.0 or ws://host/ws"
+	host.Placeholder = "198.51.100.65 or ws://host/ws"
 	host.CharLimit = 200
 
 	token := textinput.New()

@@ -78,7 +78,7 @@ bramble --ble Bramble status
 Launch the interactive TUI:
 
 ```bash
-bramble tui --transport ws://192.0.2.0/ws
+bramble tui --transport ws://192.0.2.21/ws
 bramble tui --port /dev/ttyUSB0
 ```
 
@@ -251,15 +251,16 @@ See the [`examples/`](examples/) directory for common usage patterns:
 
 ## Quality Checks
 
-The repository includes a dedicated quality workflow at `.gitea/workflows/quality.yml`.
+The repository includes a dedicated quality workflow at `.github/workflows/quality.yml`.
 See [`docs/README.md`](docs/README.md) for docs index and status.
 
 - **Required checks (Phase C):**
   - `go test ./...`
   - `go vet ./...`
   - `golangci-lint run ./...`
-  - `shellcheck scripts/*.sh examples/*.sh`
+  - `shellcheck scripts/*.sh scripts/lint/*.sh examples/*.sh`
   - `bash scripts/check-doc-drift.sh`
+  - `bash scripts/lint/check-no-internal-refs.sh`
   - `npx --yes markdownlint-cli2 "**/*.md"`
   - `govulncheck ./...`
 - **Advisory checks:**
@@ -278,10 +279,11 @@ go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest
 golangci-lint run ./...
 
 # ShellCheck (install once; package name may vary by distro)
-shellcheck scripts/*.sh examples/*.sh
+shellcheck scripts/*.sh scripts/lint/*.sh examples/*.sh
 
 # Docs correctness + markdown (required in Phase C)
 bash scripts/check-doc-drift.sh
+bash scripts/lint/check-no-internal-refs.sh
 npx --yes markdownlint-cli2 "**/*.md"
 
 # govulncheck is required in CI Phase C

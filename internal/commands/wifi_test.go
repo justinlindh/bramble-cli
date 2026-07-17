@@ -43,8 +43,8 @@ func TestFormatWifiStatus_AP(t *testing.T) {
 func TestFormatWifiStatus_StationIncludesRSSI(t *testing.T) {
 	t.Parallel()
 
-	got := formatWifiStatus(&bramble.WifiStatus{Mode: "station", SSID: "HomeWiFi", IP: "192.0.2.0", RSSI: -61})
-	for _, want := range []string{"Mode: STATION", "SSID: HomeWiFi", "IP: 192.0.2.0", "RSSI: -61 dBm"} {
+	got := formatWifiStatus(&bramble.WifiStatus{Mode: "station", SSID: "HomeWiFi", IP: "192.0.2.50", RSSI: -61})
+	for _, want := range []string{"Mode: STATION", "SSID: HomeWiFi", "IP: 192.0.2.50", "RSSI: -61 dBm"} {
 		if !strings.Contains(got, want) {
 			t.Fatalf("formatWifiStatus(station) = %q, missing %q", got, want)
 		}

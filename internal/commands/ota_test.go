@@ -59,7 +59,7 @@ func TestOTACmd_AcceptsHTTPScheme(t *testing.T) {
 	}
 
 	cmd := newOTACmd()
-	cmd.SetArgs([]string{"--url", "http://192.0.2.0/bramble.bin", "--wait=false"})
+	cmd.SetArgs([]string{"--url", "http://192.0.2.1/bramble.bin", "--wait=false"})
 	if err := cmd.Execute(); err != nil {
 		t.Fatalf("expected no error for http URL, got: %v", err)
 	}

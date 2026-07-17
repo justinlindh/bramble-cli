@@ -22,7 +22,7 @@ const schemaVersion = 1
 
 // Entry is a single saved device.
 type Entry struct {
-	// Host is a fully-normalized transport URL (e.g. "ws://192.0.2.0/ws").
+	// Host is a fully-normalized transport URL (e.g. "ws://198.51.100.65/ws").
 	Host string `json:"host"`
 	// Token is the per-device auth token, or "" if none is stored.
 	Token string `json:"token,omitempty"`

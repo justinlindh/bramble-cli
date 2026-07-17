@@ -33,3 +33,6 @@ tmp/
 
 # Claude Code machine-local settings (per-developer)
 .claude/
+
+# Agent working artifacts (reports, scratch)
+.superpowers/

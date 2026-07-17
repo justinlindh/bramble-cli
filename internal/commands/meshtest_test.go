@@ -28,7 +28,7 @@ func TestLoadMeshTestConfig_ParsesFile(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, ".mesh-test.json")
 	content := `{
-  "sender":"ws://192.0.2.0/ws",
+  "sender":"ws://192.0.2.21/ws",
   "broadcasts":7,
   "spacing_seconds":3,
   "wait_seconds":9,
@@ -43,7 +43,7 @@ func TestLoadMeshTestConfig_ParsesFile(t *testing.T) {
 	if err != nil {
 		t.Fatalf("load config: %v", err)
 	}
-	if cfg.Sender != "ws://192.0.2.0/ws" || cfg.Broadcasts != 7 || len(cfg.Nodes) != 1 {
+	if cfg.Sender != "ws://192.0.2.21/ws" || cfg.Broadcasts != 7 || len(cfg.Nodes) != 1 {
 		t.Fatalf("unexpected config: %+v", cfg)
 	}
 }
@@ -59,7 +59,7 @@ func TestLoadMeshTestConfig_MissingIsAllowed(t *testing.T) {
 }
 
 func TestBuildMeshNodeList_IncludesSenderTransport(t *testing.T) {
-	sender := "ws://192.0.2.0/ws"
+	sender := "ws://192.0.2.21/ws"
 	nodes := buildMeshNodeList(meshTestConfig{Sender: sender})
 	found := false
 	for _, n := range nodes {

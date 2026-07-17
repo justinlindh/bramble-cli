@@ -35,7 +35,7 @@ func TestDiscoverMDNS(t *testing.T) {
 
 	t.Run("discovers and deduplicates", func(t *testing.T) {
 		resp := mdnsPacket(
-			rrA("bramble-node.local", [4]byte{192, 168, 1, 77}),
+			rrA("bramble-node.local", [4]byte{192, 0, 2, 77}),
 			rrSRV("Bramble._bramble._tcp.local", 9090, "bramble-node.local"),
 			rrPTR("_bramble._tcp.local", "Bramble._bramble._tcp.local"),
 		)
@@ -49,7 +49,7 @@ func TestDiscoverMDNS(t *testing.T) {
 		if len(nodes) != 1 {
 			t.Fatalf("expected deduped single node, got %+v", nodes)
 		}
-		if nodes[0].Address != "192.0.2.0:9090" {
+		if nodes[0].Address != "192.0.2.77:9090" {
 			t.Fatalf("unexpected node: %+v", nodes[0])
 		}
 	})
@@ -167,7 +167,7 @@ func TestDetect(t *testing.T) {
 
 func TestParseMDNSResponse_ValidBrambleRecords(t *testing.T) {
 	pkt := mdnsPacket(
-		rrA("bramble-node.local", [4]byte{192, 168, 1, 50}),
+		rrA("bramble-node.local", [4]byte{192, 0, 2, 50}),
 		rrSRV("Bramble._bramble._tcp.local", 8080, "bramble-node.local"),
 		rrPTR("_bramble._tcp.local", "Bramble._bramble._tcp.local"),
 	)
@@ -180,10 +180,10 @@ func TestParseMDNSResponse_ValidBrambleRecords(t *testing.T) {
 	if n.Hostname != "bramble-node.local" {
 		t.Fatalf("hostname mismatch: %+v", n)
 	}
-	if n.Address != "192.0.2.0:8080" {
+	if n.Address != "192.0.2.50:8080" {
 		t.Fatalf("address mismatch: %+v", n)
 	}
-	if n.WSURL != "ws://192.0.2.0:8080/ws" {
+	if n.WSURL != "ws://192.0.2.50:8080/ws" {
 		t.Fatalf("wsurl mismatch: %+v", n)
 	}
 }
