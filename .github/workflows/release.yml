@@ -178,7 +178,10 @@ jobs:
   publish-assets:
     name: Attach binaries to release
     needs: [release, build-cross, build-darwin]
-    if: needs.release.outputs.published == 'true'
+    # The explicit if replaces the implicit success() gate that needs: would
+    # otherwise apply, so the build results must be checked here too or a
+    # failed build leg would still publish a partial asset set.
+    if: needs.release.outputs.published == 'true' && needs.build-cross.result == 'success' && needs.build-darwin.result == 'success'
     runs-on: ubuntu-latest
     permissions:
       contents: write

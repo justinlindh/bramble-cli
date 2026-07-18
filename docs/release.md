@@ -32,3 +32,5 @@ Other commit types (like `docs`, `chore`, `refactor` without `!`) typically do n
    - a tag like `vX.Y.Z`
    - release notes
    - a GitHub Release
+
+Each release also carries prebuilt binaries for linux, macOS, and windows (amd64 and arm64) plus a SHA256SUMS file, attached automatically by the release workflow after semantic-release publishes.
