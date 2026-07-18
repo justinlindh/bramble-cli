@@ -140,6 +140,9 @@ func (h *CommandHandler) Execute(cmd *Command) CmdAction {
 	case "reboot":
 		return CmdAction{Reboot: true}
 	case "clear":
+		// Clear the store-side history too, or the next transcript rebuild
+		// (delivery repaint, conversation switch) resurrects everything.
+		h.store.ClearConversation(h.activeConvID())
 		h.scroll.Clear()
 	case "mouse":
 		return h.cmdMouse(cmd.Args)

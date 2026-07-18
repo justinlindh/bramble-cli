@@ -163,3 +163,91 @@ func plainLines(m Model) []string {
 	}
 	return out
 }
+
+// Live regression: the firmware's sendBroadcast response carries broadcast_id
+// but no message_id. Receipts must still anchor via the broadcast id fallback.
+func TestReceiptAnchorsWhenSendResultHasNoMessageID(t *testing.T) {
+	m := newBroadcastModel(t)
+	m = sendBroadcast(t, m, "Evening check-in", "", "B1") // msgID empty, live shape
+
+	m = deliver(t, m, "B1", "BBBB0002")
+
+	di := deliveryLineIndex(m, "BBBB0002")
+	if di < 1 {
+		t.Fatalf("expected an anchored delivery line, lines: %v", plainLines(m))
+	}
+	prev := m.scroll.lines[di-1]
+	if prev.Kind != LineChatOut || !strings.Contains(prev.Text, "Evening check-in") {
+		t.Fatalf("receipt not anchored beneath the broadcast, line above = %q", stripAnsi(prev.Text))
+	}
+}
+
+// Live regression: a receipt that arrives before the send result is processed
+// must render once the send result registers the correlation.
+func TestReceiptArrivingBeforeSendResultStillRenders(t *testing.T) {
+	m := newBroadcastModel(t)
+
+	// Delivery event races ahead of the send RPC result.
+	m = deliver(t, m, "B1", "BBBB0002")
+	m = sendBroadcast(t, m, "Evening check-in", "", "B1")
+
+	di := deliveryLineIndex(m, "BBBB0002")
+	if di < 1 {
+		t.Fatalf("expected the early receipt to render after registration, lines: %v", plainLines(m))
+	}
+	if prev := m.scroll.lines[di-1]; !strings.Contains(prev.Text, "Evening check-in") {
+		t.Fatalf("early receipt anchored to wrong line: %q", stripAnsi(prev.Text))
+	}
+}
+
+// Live regression: /clear must survive transcript rebuilds. A delivery repaint
+// after /clear must not resurrect the cleared history.
+func TestClearSurvivesDeliveryRepaint(t *testing.T) {
+	m := newBroadcastModel(t)
+
+	// Old session history in the store.
+	old := time.Now().Unix() - 3600
+	updated, _ := m.Update(MsgReceived{Msg: bramble.Message{From: "BBBB0002", Broadcast: true, Text: "stale history line", Timestamp: old}})
+	m = updated.(Model)
+	m = sendBroadcast(t, m, "old broadcast", "", "B0")
+
+	// /clear through the real command path.
+	m.cmdHandler.Execute(ParseCommand("/clear"))
+	if got := m.scroll.LineCount(); got != 0 {
+		t.Fatalf("expected empty scrollback after /clear, got %d lines", got)
+	}
+
+	// New broadcast after the clear, then a delivery event triggers a rebuild.
+	m = sendBroadcast(t, m, "fresh broadcast", "", "B1")
+	m = deliver(t, m, "B1", "BBBB0002")
+
+	for _, l := range plainLines(m) {
+		if strings.Contains(l, "stale history line") || strings.Contains(l, "old broadcast") {
+			t.Fatalf("delivery repaint resurrected cleared history: %v", plainLines(m))
+		}
+	}
+	di := deliveryLineIndex(m, "BBBB0002")
+	if di < 1 {
+		t.Fatalf("expected receipt beneath the fresh broadcast, lines: %v", plainLines(m))
+	}
+	if prev := m.scroll.lines[di-1]; !strings.Contains(prev.Text, "fresh broadcast") {
+		t.Fatalf("receipt anchored to wrong line after clear: %q", stripAnsi(prev.Text))
+	}
+}
+
+// /clear must also survive a conversation switch away and back.
+func TestClearSurvivesConversationSwitch(t *testing.T) {
+	m := newBroadcastModel(t)
+	m = sendBroadcast(t, m, "old broadcast", "", "B0")
+
+	m.cmdHandler.Execute(ParseCommand("/clear"))
+
+	m.switchBuffer("dm:BBBB0002")
+	m.switchBuffer("broadcast")
+
+	for _, l := range plainLines(m) {
+		if strings.Contains(l, "old broadcast") {
+			t.Fatalf("conversation switch resurrected cleared history: %v", plainLines(m))
+		}
+	}
+}

@@ -283,6 +283,22 @@ func (s *Store) DeliveryForMessage(messageID string) *DeliveryReceipt {
 	return r
 }
 
+// ClearConversation empties the rendered history of one conversation so a
+// /clear survives every later transcript rebuild (delivery repaints,
+// conversation switches). The message DB is untouched; only the in-memory
+// view that reloadScrollback replays is cleared.
+func (s *Store) ClearConversation(convID string) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	conv, ok := s.Conversations[convID]
+	if !ok {
+		return
+	}
+	conv.Messages = nil
+	conv.Events = nil
+	conv.Unread = 0
+}
+
 // SetActiveConv switches the active conversation and clears unread.
 func (s *Store) SetActiveConv(id string) {
 	s.mu.Lock()
