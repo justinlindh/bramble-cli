@@ -34,9 +34,6 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Provide bramble-go sibling for local replace
-        # TEMP: remove together with the go.mod replace once bramble-go is published (go-public plan P3).
-        run: git clone --depth 1 "https://x-access-token:${{ secrets.GO_MODULE_TOKEN }}@github.com/justinlindh/bramble-go.git" ../bramble-go
 
       - name: Setup Go
         uses: actions/setup-go@v5
@@ -60,9 +57,6 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Provide bramble-go sibling for local replace
-        # TEMP: remove together with the go.mod replace once bramble-go is published (go-public plan P3).
-        run: git clone --depth 1 "https://x-access-token:${{ secrets.GO_MODULE_TOKEN }}@github.com/justinlindh/bramble-go.git" ../bramble-go
 
       - name: Setup Go
         uses: actions/setup-go@v5
