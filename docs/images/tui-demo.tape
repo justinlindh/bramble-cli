@@ -17,6 +17,11 @@ Type "cd ~/src/bramble-cli && ./bramble tui --port /dev/ttyACM0"
 Enter
 Sleep 5s
 
+# Start from a clean scrollback
+Type "/clear"
+Enter
+Sleep 1s
+
 # Send a broadcast from the TUI
 Type "Evening check-in — anyone on the mesh?"
 Enter
@@ -26,12 +31,12 @@ Sleep 6s
 Sleep 6s
 
 # Slap someone
-Type "/slap Meshtastic"
+Type "/slap Bob"
 Enter
 Sleep 3s
 
-# Show nodes
-Type "/nodes"
+# Sign off
+Type "Copy that. Same time tomorrow"
 Enter
 Sleep 4s
 
