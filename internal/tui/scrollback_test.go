@@ -5,29 +5,22 @@ import (
 	"testing"
 )
 
-func TestAddDeliveryGrouped_SameGroupStaysOnOneLine(t *testing.T) {
+func TestAddDelivery_RendersFaintSummaryLine(t *testing.T) {
 	sb := NewScrollback()
 
-	sb.AddDeliveryGrouped("bcast-1", "alice ✓")
-	sb.AddDeliveryGrouped("bcast-1", "bob ✓")
+	sb.AddDelivery("alice ✓  bob ✓")
 
 	if got := sb.LineCount(); got != 1 {
-		t.Fatalf("expected 1 line for grouped deliveries, got %d", got)
+		t.Fatalf("expected 1 delivery line, got %d", got)
 	}
-
+	if sb.lines[0].Kind != LineDelivery {
+		t.Fatalf("expected LineDelivery kind, got %v", sb.lines[0].Kind)
+	}
 	line := sb.lines[0].Text
 	if !strings.Contains(line, "alice ✓") || !strings.Contains(line, "bob ✓") {
-		t.Fatalf("expected grouped line to contain both recipients, got %q", line)
+		t.Fatalf("expected delivery line to contain both recipients, got %q", line)
 	}
-}
-
-func TestAddDeliveryGrouped_DifferentGroupsCreateSeparateLines(t *testing.T) {
-	sb := NewScrollback()
-
-	sb.AddDeliveryGrouped("bcast-1", "alice ✓")
-	sb.AddDeliveryGrouped("bcast-2", "carol ✓")
-
-	if got := sb.LineCount(); got != 2 {
-		t.Fatalf("expected 2 lines for different delivery groups, got %d", got)
+	if !strings.Contains(line, "--") {
+		t.Fatalf("expected delivery line to be wrapped in dashes, got %q", line)
 	}
 }
