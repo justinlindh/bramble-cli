@@ -32,6 +32,11 @@ env:
 jobs:
   release:
     runs-on: ${{ vars.RUNNER_LABEL || 'ubuntu-latest' }}
+    outputs:
+      # Whether semantic-release actually published a new release on this run,
+      # and the bare semver (no leading "v"). Consumed by the binary jobs below.
+      published: ${{ steps.detect.outputs.published }}
+      version: ${{ steps.detect.outputs.version }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -72,3 +77,133 @@ jobs:
           export PATH="$TOOLS_DIR/node_modules/.bin:$PATH"
           export NODE_PATH="$TOOLS_DIR/node_modules"
           semantic-release
+
+      # semantic-release's CLI does not write step outputs; its observable
+      # contract is that on a release it creates and pushes the git tag
+      # v<version> onto the release commit (HEAD == github.sha, since this
+      # config has no commit/version-bumping plugins) and on a no-op run it
+      # creates no tag and exits 0. So: fetch tags and look for a v-tag at
+      # HEAD. Present -> a release was published this run; absent -> skip the
+      # binary jobs cleanly.
+      - name: Detect published release
+        id: detect
+        run: |
+          set -euo pipefail
+          git fetch --tags --force origin
+          tag="$(git tag --points-at HEAD | grep -E '^v[0-9]' | sort -V | tail -n1 || true)"
+          if [ -n "$tag" ]; then
+            echo "Detected release tag at HEAD: $tag"
+            echo "published=true" >> "$GITHUB_OUTPUT"
+            echo "version=${tag#v}" >> "$GITHUB_OUTPUT"
+          else
+            echo "No release tag at HEAD; semantic-release published nothing."
+            echo "published=false" >> "$GITHUB_OUTPUT"
+          fi
+
+  build-cross:
+    name: Build linux/windows binaries
+    needs: release
+    if: needs.release.outputs.published == 'true'
+    runs-on: ${{ vars.RUNNER_LABEL || 'ubuntu-latest' }}
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: Cross-build (CGO_ENABLED=0, pure Go)
+        env:
+          VERSION: ${{ needs.release.outputs.version }}
+        run: |
+          scripts/release/build-binaries.sh "$VERSION" dist \
+            linux/amd64 linux/arm64 windows/amd64 windows/arm64
+
+      - name: Upload cross binaries
+        uses: actions/upload-artifact@v4
+        with:
+          name: binaries-cross
+          path: dist/*
+          if-no-files-found: error
+          retention-days: 1
+
+  build-darwin:
+    name: Build darwin/${{ matrix.goarch }} binary
+    needs: release
+    if: needs.release.outputs.published == 'true'
+    # darwin's BLE backend (CoreBluetooth) requires cgo, so these cannot be
+    # cross-compiled from linux with CGO_ENABLED=0 like the others; they are
+    # built natively on macOS runners (free for public repos).
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: macos-15-intel
+            goarch: amd64
+          - runner: macos-14
+            goarch: arm64
+    runs-on: ${{ matrix.runner }}
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: Build darwin/${{ matrix.goarch }} (CGO_ENABLED=1, CoreBluetooth)
+        env:
+          VERSION: ${{ needs.release.outputs.version }}
+          GOARCH_TARGET: ${{ matrix.goarch }}
+        run: |
+          scripts/release/build-binaries.sh "$VERSION" dist "darwin/${GOARCH_TARGET}"
+
+      - name: Upload darwin binary
+        uses: actions/upload-artifact@v4
+        with:
+          name: binaries-darwin-${{ matrix.goarch }}
+          path: dist/*
+          if-no-files-found: error
+          retention-days: 1
+
+  publish-assets:
+    name: Attach binaries to release
+    needs: [release, build-cross, build-darwin]
+    if: needs.release.outputs.published == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Download built binaries
+        uses: actions/download-artifact@v4
+        with:
+          path: dist
+          pattern: binaries-*
+          merge-multiple: true
+
+      - name: Generate SHA256SUMS
+        working-directory: dist
+        run: |
+          set -euo pipefail
+          ls -1
+          sha256sum bramble_* > SHA256SUMS
+          echo "---"
+          cat SHA256SUMS
+
+      - name: Attach assets to the GitHub release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          VERSION: ${{ needs.release.outputs.version }}
+        run: |
+          set -euo pipefail
+          gh release upload "v${VERSION}" dist/bramble_* dist/SHA256SUMS \
+            --clobber --repo "$GITHUB_REPOSITORY"
