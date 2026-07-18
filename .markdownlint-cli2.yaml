@@ -16,3 +16,6 @@ globs:
 ignores:
   - ".venv-hooks/**"
   - ".venv/**"
+  # GitHub PR/issue templates open with an HTML comment and H2 sections, so
+  # MD041 (first line must be an H1) does not apply to them.
+  - ".github/PULL_REQUEST_TEMPLATE.md"
