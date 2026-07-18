@@ -43,6 +43,8 @@ Type "Copy that. Same time tomorrow"
 Enter
 Sleep 4s
 
+# Teardown is hidden: the recording ends on the TUI, not the shell.
+Hide
 # Quit
 Type "/quit"
 Enter
