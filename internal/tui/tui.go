@@ -87,14 +87,15 @@ type reconnectResult struct {
 // ── Send result ───────────────────────────────────────────────────────────────
 
 type sendResultMsg struct {
-	convID     string
-	echoConvID string
-	toAddr     string
-	text       string
-	display    string
-	msgID      string
-	inlineDM   bool
-	err        error
+	convID      string
+	echoConvID  string
+	toAddr      string
+	text        string
+	display     string
+	msgID       string
+	broadcastID string
+	inlineDM    bool
+	err         error
 }
 
 // ── Model ─────────────────────────────────────────────────────────────────────
@@ -363,7 +364,31 @@ func (m *Model) reloadScrollback() {
 			badge = "*"
 		}
 		m.scroll.AddChatAt(item.ts, sender, addr, msg.Text, badge, outgoing)
+		// Pin any delivery receipt directly beneath the message it confirms.
+		if outgoing {
+			if receipt := m.store.DeliveryForMessage(msg.MsgID); receipt != nil {
+				m.scroll.AddDelivery(m.renderDeliveryReceipt(receipt))
+			}
+		}
 	}
+}
+
+// renderDeliveryReceipt formats an aggregated broadcast receipt as a compact
+// "name ✓  name ✗" summary, resolving recipient addresses to names.
+func (m *Model) renderDeliveryReceipt(r *DeliveryReceipt) string {
+	parts := make([]string, 0, len(r.Recipients))
+	for _, rc := range r.Recipients {
+		name := rc.Address
+		if m.store != nil && m.store.Resolver != nil {
+			name = m.store.Resolver.Resolve(rc.Address)
+		}
+		mark := "✓"
+		if rc.Status == "failed" {
+			mark = "✗"
+		}
+		parts = append(parts, fmt.Sprintf("%s %s", name, mark))
+	}
+	return strings.Join(parts, "  ")
 }
 
 func (m *Model) updateStatusBar() {
@@ -664,6 +689,10 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					Timestamp: time.Now().Unix(),
 				}
 				m.store.AddMessage(raw)
+				// Anchor future delivery receipts to this specific sent message
+				// via its broadcast correlation id, so confirmations land under
+				// it rather than under whatever is printed next.
+				m.store.RegisterSentBroadcast(msg.msgID, msg.broadcastID)
 			}
 		}
 
@@ -797,21 +826,17 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.store.UpdateAck(msg.Ack)
 
 	case BroadcastDeliveryReceived:
+		d := msg.Delivery
 		if m.store.msgdb != nil {
-			d := msg.Delivery
 			go func() { _ = m.store.msgdb.UpdateStatus(d.BroadcastID, d.Status) }()
 		}
-		if m.activeConv == "broadcast" {
-			d := msg.Delivery
-			status := "✓"
-			if d.Status == "failed" {
-				status = "✗"
-			}
-			peer := d.Recipient
-			if m.store.Resolver != nil {
-				peer = m.store.Resolver.Resolve(peer)
-			}
-			m.scroll.AddDeliveryGrouped(d.BroadcastID, fmt.Sprintf("%s %s", peer, status))
+		// Fold the confirmation into the correlated message's delivery state,
+		// then repaint so the receipt renders anchored beneath the message it
+		// confirms (updating in place as more nodes report), never at the
+		// bottom under an unrelated later message.
+		m.store.RecordBroadcastDelivery(d.BroadcastID, d.Recipient, d.Status)
+		if m.activeConv == "broadcast" || strings.HasPrefix(m.activeConv, "ch:") {
+			m.reloadScrollback()
 		}
 
 	case NeighborChanged:
@@ -926,7 +951,7 @@ func (m Model) sendMessage(text string, critical bool) tea.Cmd {
 		ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 		defer cancel()
 
-		var msgID string
+		var msgID, broadcastID string
 		var err error
 
 		switch {
@@ -939,6 +964,7 @@ func (m Model) sendMessage(text string, critical bool) tea.Cmd {
 			}
 			if err == nil {
 				msgID = res.MessageID
+				broadcastID = res.BroadcastID
 			}
 		case strings.HasPrefix(convID, "ch:"):
 			chStr := strings.TrimPrefix(convID, "ch:")
@@ -956,6 +982,7 @@ func (m Model) sendMessage(text string, critical bool) tea.Cmd {
 			}
 			if err == nil {
 				msgID = res.MessageID
+				broadcastID = res.BroadcastID
 			}
 		case strings.HasPrefix(convID, "dm:"):
 			addrStr := strings.TrimPrefix(convID, "dm:")
@@ -978,7 +1005,7 @@ func (m Model) sendMessage(text string, critical bool) tea.Cmd {
 			err = fmt.Errorf("unknown buffer %q", convID)
 		}
 
-		return sendResultMsg{convID: convID, text: text, msgID: msgID, err: err}
+		return sendResultMsg{convID: convID, text: text, msgID: msgID, broadcastID: broadcastID, err: err}
 	}
 }
 

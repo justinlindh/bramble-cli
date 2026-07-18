@@ -41,9 +41,6 @@ type Scrollback struct {
 	theme      ScrollTheme
 	autoscroll bool // track if user is at bottom
 
-	deliveryGroups map[string]int
-	deliveryItems  map[string][]string
-
 	// clickMap is rebuilt on each rebuildContent for nick hit testing.
 	clickMap ClickMap
 }
@@ -81,11 +78,9 @@ func NewScrollTheme() ScrollTheme {
 func NewScrollback() Scrollback {
 	vp := viewport.New()
 	return Scrollback{
-		viewport:       vp,
-		theme:          NewScrollTheme(),
-		autoscroll:     true,
-		deliveryGroups: make(map[string]int),
-		deliveryItems:  make(map[string][]string),
+		viewport:   vp,
+		theme:      NewScrollTheme(),
+		autoscroll: true,
 	}
 }
 
@@ -201,32 +196,6 @@ func (s *Scrollback) AddDelivery(text string) {
 	s.AddLine(LineDelivery, rendered)
 }
 
-// AddDeliveryGrouped appends delivery details into a stable line per group key.
-func (s *Scrollback) AddDeliveryGrouped(groupKey, text string) {
-	if groupKey == "" {
-		s.AddDelivery(text)
-		return
-	}
-	items := append(s.deliveryItems[groupKey], text)
-	s.deliveryItems[groupKey] = items
-	rendered := s.theme.Delivery.Render("-- " + strings.Join(items, "  ") + " --")
-	if idx, ok := s.deliveryGroups[groupKey]; ok && idx >= 0 && idx < len(s.lines) {
-		s.lines[idx].Text = rendered
-		s.rebuildContent()
-		if s.autoscroll {
-			s.viewport.GotoBottom()
-		}
-		return
-	}
-	line := ScrollLine{Kind: LineDelivery, Timestamp: time.Now(), Text: rendered}
-	s.lines = append(s.lines, line)
-	s.deliveryGroups[groupKey] = len(s.lines) - 1
-	s.rebuildContent()
-	if s.autoscroll {
-		s.viewport.GotoBottom()
-	}
-}
-
 // AddStoredLine appends a pre-rendered line preserving original timestamp/kind.
 func (s *Scrollback) AddStoredLine(line ScrollLine) {
 	s.lines = append(s.lines, line)
@@ -239,8 +208,6 @@ func (s *Scrollback) AddStoredLine(line ScrollLine) {
 // Clear removes all lines.
 func (s *Scrollback) Clear() {
 	s.lines = nil
-	s.deliveryGroups = make(map[string]int)
-	s.deliveryItems = make(map[string][]string)
 	s.rebuildContent()
 }
 

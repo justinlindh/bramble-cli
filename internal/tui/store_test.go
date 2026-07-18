@@ -237,3 +237,57 @@ func TestStore_LoadOlderMessagesAndAck(t *testing.T) {
 		t.Fatalf("expected nil when db missing, got %#v", got)
 	}
 }
+
+func TestRecordBroadcastDelivery_AggregatesInArrivalOrder(t *testing.T) {
+	s := NewStore()
+	s.RegisterSentBroadcast("m1", "B1")
+
+	s.RecordBroadcastDelivery("B1", "BOB", "delivered")
+	s.RecordBroadcastDelivery("B1", "LILY", "delivered")
+	// Duplicate recipient updates status in place, does not re-append.
+	s.RecordBroadcastDelivery("B1", "BOB", "failed")
+
+	r := s.DeliveryForMessage("m1")
+	if r == nil {
+		t.Fatalf("expected a receipt for m1")
+	}
+	if len(r.Recipients) != 2 {
+		t.Fatalf("expected 2 recipients in arrival order, got %d", len(r.Recipients))
+	}
+	if r.Recipients[0].Address != "BOB" || r.Recipients[0].Status != "failed" {
+		t.Fatalf("expected BOB first with updated status, got %+v", r.Recipients[0])
+	}
+	if r.Recipients[1].Address != "LILY" {
+		t.Fatalf("expected LILY second, got %+v", r.Recipients[1])
+	}
+}
+
+func TestDeliveryForMessage_InterleavedBroadcastsStayIndependent(t *testing.T) {
+	s := NewStore()
+	s.RegisterSentBroadcast("m1", "B1")
+	s.RegisterSentBroadcast("m2", "B2")
+
+	s.RecordBroadcastDelivery("B2", "BOB", "delivered")
+	s.RecordBroadcastDelivery("B1", "LILY", "delivered") // late receipt for earlier send
+
+	r1 := s.DeliveryForMessage("m1")
+	r2 := s.DeliveryForMessage("m2")
+	if r1 == nil || len(r1.Recipients) != 1 || r1.Recipients[0].Address != "LILY" {
+		t.Fatalf("m1 should confirm only LILY, got %+v", r1)
+	}
+	if r2 == nil || len(r2.Recipients) != 1 || r2.Recipients[0].Address != "BOB" {
+		t.Fatalf("m2 should confirm only BOB, got %+v", r2)
+	}
+}
+
+func TestDeliveryForMessage_UnknownOrUncorrelated(t *testing.T) {
+	s := NewStore()
+	if r := s.DeliveryForMessage("nope"); r != nil {
+		t.Fatalf("expected nil for unknown message, got %+v", r)
+	}
+	// A correlation with no recorded deliveries yet yields nil.
+	s.RegisterSentBroadcast("m1", "B1")
+	if r := s.DeliveryForMessage("m1"); r != nil {
+		t.Fatalf("expected nil before any receipt, got %+v", r)
+	}
+}

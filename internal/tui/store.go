@@ -18,11 +18,39 @@ type Conversation struct {
 	Unread   int
 }
 
+// deliveryState accumulates per-recipient delivery status for one sent
+// broadcast, keyed by the broadcast's correlation id. Recipients are kept in
+// arrival order so the rendered receipt is stable as confirmations trickle in.
+type deliveryState struct {
+	order  []string          // recipient addresses in first-seen order
+	status map[string]string // recipient address -> status ("delivered"/"failed")
+}
+
+// DeliveryRecipient is one confirmed recipient of a sent broadcast.
+type DeliveryRecipient struct {
+	Address string
+	Status  string
+}
+
+// DeliveryReceipt is the aggregated set of recipient confirmations for a
+// single sent message, in arrival order.
+type DeliveryReceipt struct {
+	Recipients []DeliveryRecipient
+}
+
 // Store is a thread-safe state container for the TUI.
 type Store struct {
 	mu       sync.RWMutex
 	msgdb    *MsgDB
 	Resolver *NameResolver
+
+	// deliveries maps a broadcast correlation id (broadcast_id) to its
+	// accumulated per-recipient confirmations.
+	deliveries map[string]*deliveryState
+	// msgCorrelation maps a sent message's MessageID to the correlation id
+	// (broadcast_id) that delivery events report against. It anchors a receipt
+	// to the specific message it confirms, independent of arrival order.
+	msgCorrelation map[string]string
 
 	Identity      *bramble.IdentityResponse
 	Status        *bramble.StatusResponse
@@ -43,7 +71,9 @@ type Store struct {
 // NewStore creates an initialized Store.
 func NewStore() *Store {
 	s := &Store{
-		Conversations: make(map[string]*Conversation),
+		Conversations:  make(map[string]*Conversation),
+		deliveries:     make(map[string]*deliveryState),
+		msgCorrelation: make(map[string]string),
 	}
 	s.addConvLocked("broadcast", "all")
 	s.ActiveConvID = "broadcast"
@@ -189,6 +219,68 @@ func (s *Store) UpdateAck(ack bramble.Ack) {
 	if db != nil && ack.PacketID != "" {
 		go func() { _ = db.UpdateStatus(ack.PacketID, ack.Status) }()
 	}
+}
+
+// RegisterSentBroadcast records that a locally sent message (identified by its
+// MessageID) correlates with the given broadcast correlation id. This is the
+// link that lets a later delivery event anchor its receipt to the message that
+// was actually sent, regardless of what else has been printed since.
+func (s *Store) RegisterSentBroadcast(messageID, correlationID string) {
+	if messageID == "" || correlationID == "" {
+		return
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.msgCorrelation == nil {
+		s.msgCorrelation = make(map[string]string)
+	}
+	s.msgCorrelation[messageID] = correlationID
+}
+
+// RecordBroadcastDelivery folds one recipient confirmation into the delivery
+// state for a broadcast correlation id. Repeated events for the same recipient
+// update status in place; new recipients append in arrival order.
+func (s *Store) RecordBroadcastDelivery(correlationID, recipient, status string) {
+	if correlationID == "" || recipient == "" {
+		return
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.deliveries == nil {
+		s.deliveries = make(map[string]*deliveryState)
+	}
+	ds := s.deliveries[correlationID]
+	if ds == nil {
+		ds = &deliveryState{status: make(map[string]string)}
+		s.deliveries[correlationID] = ds
+	}
+	if _, seen := ds.status[recipient]; !seen {
+		ds.order = append(ds.order, recipient)
+	}
+	ds.status[recipient] = status
+}
+
+// DeliveryForMessage returns the aggregated delivery receipt for the sent
+// message with the given MessageID, or nil if no confirmations are recorded.
+func (s *Store) DeliveryForMessage(messageID string) *DeliveryReceipt {
+	if messageID == "" {
+		return nil
+	}
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	corr := s.msgCorrelation[messageID]
+	if corr == "" {
+		return nil
+	}
+	ds := s.deliveries[corr]
+	if ds == nil || len(ds.order) == 0 {
+		return nil
+	}
+	r := &DeliveryReceipt{Recipients: make([]DeliveryRecipient, 0, len(ds.order))}
+	for _, addr := range ds.order {
+		r.Recipients = append(r.Recipients, DeliveryRecipient{Address: addr, Status: ds.status[addr]})
+	}
+	return r
 }
 
 // SetActiveConv switches the active conversation and clears unread.
