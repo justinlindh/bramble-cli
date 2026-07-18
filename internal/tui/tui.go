@@ -681,18 +681,30 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.store.AddMessage(raw)
 			} else {
 				m.scroll.AddChat(m.selfDisplayName(), m.node.Address, msg.text, "*", true)
+				// The firmware's sendBroadcast response carries broadcast_id but
+				// no message_id, so fall back to the broadcast id as the anchor
+				// key. An empty key would orphan every receipt.
+				anchorID := msg.msgID
+				if anchorID == "" {
+					anchorID = msg.broadcastID
+				}
 				raw := bramble.Message{
 					From:      m.node.Address,
 					To:        convIDToAddr(m.activeConv),
 					Text:      msg.text,
-					MsgID:     msg.msgID,
+					MsgID:     anchorID,
 					Timestamp: time.Now().Unix(),
 				}
 				m.store.AddMessage(raw)
 				// Anchor future delivery receipts to this specific sent message
 				// via its broadcast correlation id, so confirmations land under
 				// it rather than under whatever is printed next.
-				m.store.RegisterSentBroadcast(msg.msgID, msg.broadcastID)
+				m.store.RegisterSentBroadcast(anchorID, msg.broadcastID)
+				// If a fast receipt raced ahead of this send result, its
+				// confirmations are already recorded; repaint so they render now.
+				if m.store.DeliveryForMessage(anchorID) != nil {
+					m.reloadScrollback()
+				}
 			}
 		}
 
