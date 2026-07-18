@@ -11,6 +11,12 @@ permissions:
   issues: write
   pull-requests: write
 
+# Serialize releases; never cancel an in-flight release (it could abandon a
+# tag or GitHub Release mid-publish).
+concurrency:
+  group: ${{ github.workflow }}
+  cancel-in-progress: false
+
 defaults:
   run:
     shell: bash
@@ -25,7 +31,7 @@ env:
 
 jobs:
   release:
-    runs-on: ubuntu-latest
+    runs-on: ${{ vars.RUNNER_LABEL || 'ubuntu-latest' }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4

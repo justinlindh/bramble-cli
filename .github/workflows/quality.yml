@@ -28,7 +28,7 @@ env:
 jobs:
   go-baseline:
     name: Go baseline (required)
-    runs-on: ubuntu-latest
+    runs-on: ${{ vars.RUNNER_LABEL || 'ubuntu-latest' }}
     timeout-minutes: 20
     steps:
       - name: Checkout
@@ -49,7 +49,7 @@ jobs:
 
   quality-required:
     name: Quality gates (required)
-    runs-on: ubuntu-latest
+    runs-on: ${{ vars.RUNNER_LABEL || 'ubuntu-latest' }}
     timeout-minutes: 25
     needs:
       - go-baseline
@@ -101,7 +101,7 @@ jobs:
 
   no-internal-refs:
     name: No internal references (required)
-    runs-on: ubuntu-latest
+    runs-on: ${{ vars.RUNNER_LABEL || 'ubuntu-latest' }}
     timeout-minutes: 5
     steps:
       - name: Checkout
