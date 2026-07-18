@@ -18,7 +18,7 @@ fail=0
 report() { printf 'check-no-internal-refs: %s:\n%s\n' "$1" "$2" >&2; fail=1; }
 
 # 1. Internal hostnames, fleet secrets dir, personal absolute paths.
-h="$(git grep -nIE 'example|justinlindh|openclaw|bramble-meta|/home/justin' -- . ":!${self}" || true)"
+h="$(git grep -nIE 'idiotica|dumbot|openclaw|bramble-meta|/home/justin' -- . ":!${self}" || true)"
 [[ -n "$h" ]] && report "internal infra references" "$h"
 
 # 2. Private 192.168.x.x except the ESP32 SoftAP 192.168.4.x. The proxy
@@ -38,6 +38,12 @@ h="$(git grep -nIE "\b(Garage|Attic)\b" -- . ":!${self}" || true)"
 # 5. MAC addresses, except clearly-fake documentation placeholders.
 h="$(git grep -nIE '([0-9A-Fa-f]{2}:){5}[0-9A-Fa-f]{2}' -- . ":!${self}" | grep -viE 'AA:BB:CC:DD:EE|00:00:00:00:00:00|DE:AD:BE:EF|FF:FF:FF:FF:FF:FF' || true)"
 [[ -n "$h" ]] && report "MAC address (use a documentation placeholder like AA:BB:CC:DD:EE:FF)" "$h"
+
+
+# 6b. Home location: neighborhood/city names and precise coordinates from the
+#     maintainer's real area. Public fixtures must use fictional places.
+h="$(git grep -nIE 'Inspirada|Henderson|McCullough|Sloan Canyon|Anthem|35\.9[0-9]{4}|36\.0[0-9]{3}|-11[45]\.[0-9]{3,}|openstreetmap\.org/\?mlat' -- . ":!${self}" ':!hardware/' || true)"
+[[ -n "$h" ]] && report "home location / neighborhood / coordinates" "$h"
 
 if [[ "$fail" -ne 0 ]]; then
   exit 1
