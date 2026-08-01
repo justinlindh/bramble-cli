@@ -201,7 +201,8 @@ bramble location get-config --json
 
 - `bramble status` — show node address, firmware, radio, peers, counters, uptime
 - `bramble discover` — scan local network for Bramble nodes via mDNS
-- `bramble wifi` — show WiFi mode and link status
+- `bramble wifi status` — show WiFi mode and link status
+- `bramble wifi set <ssid>`: provision WiFi station credentials
 - `bramble mesh-test` — automated mesh reliability test (multi-node broadcast/delivery)
 - `bramble pair` — retrieve auth token from a serial-connected device for WebSocket auth
 - `bramble ota --url <url>` — trigger OTA firmware update
@@ -211,8 +212,14 @@ bramble location get-config --json
 ```bash
 bramble status
 bramble discover --timeout 10s
+bramble wifi status
+bramble wifi set "Home Network"           # prompts for the password (input hidden)
+bramble wifi set "Guest Network" --open   # no password
+bramble wifi set "Home Network" --reboot  # apply the new credentials immediately
 bramble ota --url http://<ota-host>:8080/firmware/bramble.bin
 ```
+
+`wifi set` never accepts the password as a positional argument: a bare command-line value is visible to every other process on the machine via `ps` and `/proc`, and lands in shell history. Provide it with `--password`, or omit the flag on an interactive terminal to be prompted with input hidden; use `--open` for a network with no password. Credentials are persisted to the node's NVS store but do not take effect until it reboots, so `wifi set` prints a follow-up `bramble reboot` reminder unless you pass `--reboot` to apply them immediately.
 
 ## Shell Completion
 

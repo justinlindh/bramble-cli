@@ -36,6 +36,15 @@ type StatusResult struct {
 	Status string `json:"status"`
 }
 
+// WifiSetResult is the JSON output for the wifi set command. It never
+// includes the password: bramble.setWifiConfig does not echo it back, and
+// this type mirrors that by construction.
+type WifiSetResult struct {
+	SSID     string `json:"ssid"`
+	Applied  string `json:"applied"`
+	Rebooted bool   `json:"rebooted"`
+}
+
 // LocationContactResult is the JSON output for the location set-contact command.
 type LocationContactResult struct {
 	Addr   string `json:"addr"`
