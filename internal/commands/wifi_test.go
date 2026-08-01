@@ -129,6 +129,47 @@ func TestRunWifiSet_OpenAndPasswordMutuallyExclusive(t *testing.T) {
 	}
 }
 
+func TestRunWifiSet_EmptyPasswordRequiresOpen(t *testing.T) {
+	t.Parallel()
+
+	cmd := newWifiSetCmd()
+	if err := cmd.Flags().Set("password", ""); err != nil {
+		t.Fatalf("set --password: %v", err)
+	}
+	err := cmd.RunE(cmd, []string{"HomeWiFi"})
+	if err == nil {
+		t.Fatal("expected error for explicit empty --password without --open")
+	}
+	if !strings.Contains(err.Error(), "--open") {
+		t.Fatalf("expected error to point at --open, got: %v", err)
+	}
+}
+
+func TestRunWifiSet_EmptyPasswordWithOpenAllowed(t *testing.T) {
+	t.Parallel()
+
+	cmd := newWifiSetCmd()
+	if err := cmd.Flags().Set("password", ""); err != nil {
+		t.Fatalf("set --password: %v", err)
+	}
+	if err := cmd.Flags().Set("open", "true"); err != nil {
+		t.Fatalf("set --open: %v", err)
+	}
+	// Explicit --password "" combined with --open is a redundant but
+	// consistent statement of intent, not a conflict: it must not fail our
+	// own validation (it proceeds to connect, which fails in this test
+	// environment).
+	err := cmd.RunE(cmd, []string{"GuestWiFi"})
+	if err == nil {
+		t.Fatal("expected a connection error in the test environment")
+	}
+	for _, unwanted := range []string{"must be 1-32 characters", "mutually exclusive", "password too long", "--password required", "provisions an open network"} {
+		if strings.Contains(err.Error(), unwanted) {
+			t.Fatalf("unexpected validation error leaked through: %v", err)
+		}
+	}
+}
+
 func TestRunWifiSet_PasswordTooLong(t *testing.T) {
 	t.Parallel()
 

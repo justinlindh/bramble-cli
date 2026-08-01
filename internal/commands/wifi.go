@@ -75,11 +75,14 @@ func runWifiSet(cmd *cobra.Command, args []string, password string, open, reboot
 		return fmt.Errorf("bramble-cli: ssid %q invalid: must be 1-%d characters", ssid, wifiSSIDMaxLen)
 	}
 
-	if open && cmd.Flags().Changed("password") {
-		return fmt.Errorf("bramble-cli: --open and --password are mutually exclusive")
-	}
+	passwordChanged := cmd.Flags().Changed("password")
 
-	if !open && !cmd.Flags().Changed("password") {
+	switch {
+	case passwordChanged && open && password != "":
+		return fmt.Errorf("bramble-cli: --open and --password are mutually exclusive")
+	case passwordChanged && !open && password == "":
+		return fmt.Errorf("bramble-cli: --password \"\" provisions an open network; pass --open to confirm")
+	case !passwordChanged && !open:
 		if !isInteractive() {
 			return fmt.Errorf("bramble-cli: --password required (or --open for no password) when not running interactively")
 		}
