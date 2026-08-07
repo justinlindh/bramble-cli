@@ -13,16 +13,10 @@ var globPaths = filepath.Glob
 // Returns the port path if exactly one device is found.
 // Returns an error if zero or more than one device is found.
 func Detect() (string, error) {
-	var ports []string
-
-	for _, pattern := range []string{"/dev/ttyUSB*", "/dev/ttyACM*"} {
-		matches, err := globPaths(pattern)
-		if err != nil {
-			return "", fmt.Errorf("glob %s: %w", pattern, err)
-		}
-		ports = append(ports, matches...)
+	ports, err := List()
+	if err != nil {
+		return "", err
 	}
-	sort.Strings(ports)
 
 	switch len(ports) {
 	case 0:
@@ -44,4 +38,21 @@ func Detect() (string, error) {
 			"multiple USB serial devices found — specify one with --port:%s", list,
 		)
 	}
+}
+
+// List returns every USB serial port that could be a Bramble node, sorted.
+// An empty result is not an error: a caller sweeping a fleet decides for itself
+// what to say about finding nothing, and Detect turns it into its own guidance.
+func List() ([]string, error) {
+	var ports []string
+
+	for _, pattern := range []string{"/dev/ttyUSB*", "/dev/ttyACM*"} {
+		matches, err := globPaths(pattern)
+		if err != nil {
+			return nil, fmt.Errorf("glob %s: %w", pattern, err)
+		}
+		ports = append(ports, matches...)
+	}
+	sort.Strings(ports)
+	return ports, nil
 }

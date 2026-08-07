@@ -54,6 +54,10 @@ check_help_flag "traffic export" "--limit"
 check_help_flag "wifi set" "--password"
 check_help_flag "wifi set" "--open"
 check_help_flag "wifi set" "--reboot"
+check_help_flag "screenshot" "--out"
+check_help_flag "console" "--grep"
+check_help_flag "console" "--raw"
+check_help_flag "fleet" "--ports"
 
 # README coverage checks for critical command snippets.
 check_readme_text "bramble --ble Bramble status"
@@ -63,6 +67,10 @@ check_readme_text "bramble traffic monitor"
 check_readme_text "bramble traffic export"
 check_readme_text "bramble wifi status"
 check_readme_text "bramble wifi set"
+check_readme_text "bramble screenshot --out"
+check_readme_text "bramble console --grep"
+check_readme_text "bramble fleet"
+check_readme_text "bramble location doctor"
 
 if (( failures > 0 )); then
   echo
