@@ -203,6 +203,9 @@ bramble location get-config --json
 - `bramble discover` — scan local network for Bramble nodes via mDNS
 - `bramble wifi status` — show WiFi mode and link status
 - `bramble wifi set <ssid>`: provision WiFi station credentials
+- `bramble ble-security status`: show how the node authenticates BLE pairing
+- `bramble ble-security set-passkey`: set the static 6-digit BLE pairing passkey
+- `bramble ble-security clear-passkey`: clear the passkey, returning the node to pairing with no code
 - `bramble mesh-test` — automated mesh reliability test (multi-node broadcast/delivery)
 - `bramble pair` — retrieve auth token from a serial-connected device for WebSocket auth
 - `bramble ota --url <url>` — trigger OTA firmware update
@@ -217,9 +220,17 @@ bramble wifi set "Home Network"           # prompts for the password (input hidd
 bramble wifi set "Guest Network" --open   # no password
 bramble wifi set "Home Network" --reboot  # apply the new credentials immediately
 bramble ota --url http://<ota-host>:8080/firmware/bramble.bin
+bramble ble-security status
+bramble ble-security set-passkey                    # prompts for the code (input hidden)
+bramble ble-security set-passkey --passkey 314159
+bramble ble-security clear-passkey
 ```
 
 `wifi set` never accepts the password as a positional argument: a bare command-line value is visible to every other process on the machine via `ps` and `/proc`, and lands in shell history. Provide it with `--password`, or omit the flag on an interactive terminal to be prompted with input hidden; use `--open` for a network with no password. Credentials are persisted to the node's NVS store but do not take effect until it reboots, so `wifi set` prints a follow-up `bramble reboot` reminder unless you pass `--reboot` to apply them immediately.
+
+How a node authenticates BLE pairing depends on whether it has a display. A node with one shows a fresh random 6-digit code on its own screen for each pairing attempt, so there is nothing to configure and it rejects a static passkey. A node without one uses the static passkey `ble-security set-passkey` stores, or pairs with no code at all while none is set, which leaves pairing open to a man-in-the-middle. `ble-security status` reports which of the three applies.
+
+Setting, changing, or clearing the passkey wipes the node's stored BLE bonds, so every client that was paired must pair again with the current code. The passkey itself is write-only: the node never reports it back, so a forgotten one is replaced rather than recovered. Like `wifi set`, it is never a positional argument; pass `--passkey`, or omit the flag on an interactive terminal to be prompted with input hidden.
 
 ## Shell Completion
 

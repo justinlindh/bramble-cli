@@ -54,6 +54,7 @@ check_help_flag "traffic export" "--limit"
 check_help_flag "wifi set" "--password"
 check_help_flag "wifi set" "--open"
 check_help_flag "wifi set" "--reboot"
+check_help_flag "ble-security set-passkey" "--passkey"
 
 # README coverage checks for critical command snippets.
 check_readme_text "bramble --ble Bramble status"
@@ -63,6 +64,9 @@ check_readme_text "bramble traffic monitor"
 check_readme_text "bramble traffic export"
 check_readme_text "bramble wifi status"
 check_readme_text "bramble wifi set"
+check_readme_text "bramble ble-security status"
+check_readme_text "bramble ble-security set-passkey"
+check_readme_text "bramble ble-security clear-passkey"
 
 if (( failures > 0 )); then
   echo
