@@ -238,8 +238,14 @@ func TestPrintDiagnosticsPretty_RadioUnsupported(t *testing.T) {
 func TestPrintDiagnosticsPretty_RadioVerdictsAbsentClaimsNoAllClear(t *testing.T) {
 	t.Parallel()
 
-	// A supported radio that reported no verdicts at all must not be rendered
-	// as healthy: not checked is not the same as checked and clean.
+	// Defensive: current firmware cannot produce this shape. All three radio
+	// backends either report supported false (the virtual radio, and the
+	// LR1110 whose mapping is not implemented) or fill every verdict (the
+	// SX1262), and the single RPC emitter gates all the optional fields behind
+	// supported, so today supported true implies every verdict is present.
+	// This covers a backend that later answers only some of them, and any node
+	// the CLI did not build. A supported radio reporting no verdicts must not
+	// render as healthy: not checked is not the same as checked and clean.
 	d := baseDiagnostics()
 	d.RadioHealth = &bramble.DiagnosticsRadioHealth{
 		Supported:  true,
@@ -255,8 +261,10 @@ func TestPrintDiagnosticsPretty_RadioVerdictsAbsentClaimsNoAllClear(t *testing.T
 func TestPrintDiagnosticsPretty_RadioPartialVerdicts(t *testing.T) {
 	t.Parallel()
 
-	// One verdict reported clean and the rest absent is still an all-clear for
-	// what the node answered, and must not invent the checks it skipped.
+	// Also defensive, for the same reason as the case above: no current
+	// backend answers partially. One verdict reported clean and the rest
+	// absent is still an all-clear for what the node did answer, and must not
+	// invent the checks it skipped.
 	d := baseDiagnostics()
 	d.RadioHealth = &bramble.DiagnosticsRadioHealth{
 		Supported:  true,
