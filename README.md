@@ -18,6 +18,7 @@ It is built on [bramble-go](https://github.com/justinlindh/bramble-go), and foll
   - [System and Network](#system-and-network)
   - [Provisioning](#provisioning)
   - [Roll Call](#roll-call)
+  - [Topology Export](#topology-export)
 - [Shell Completion](#shell-completion)
 - [JSON Output](#json-output)
 - [Examples](#examples)
@@ -320,6 +321,31 @@ A roll-call is the most expensive thing the protocol does, so the node rate limi
 What the ledger may claim depends on the node's trust configuration, and both subcommands label it. On an **anchored fleet** the node holds an anchor-certified roster, so the ledger counts against the expected set and names the members that never answered (`bramble anchor status` reports whether a node is anchored). On an **observed only** node the pinned identities are trust-on-first-use, which are free to mint: there is no authoritative roster, so the ledger reports the members it observed answering and names nobody missing.
 
 The ledger stays readable after the collection window closes, so `roll-call status` is also how a finished roll-call is read back. A row can exist without an answer: the broadcast delivery-receipt machinery reported a path for a pinned member that never answered, and the row says so rather than reading as a half answer. A verified answer proves the holder of that address's identity key heard the roll-call and chose to answer; silence proves nothing on its own, and a relay path is a hint about how the announce travelled rather than part of the attestation. Both bounds are printed under the table so a copied ledger cannot lose them.
+
+### Topology Export
+
+`bramble topology export` writes one node's view of the mesh as a single JSON document: who it is, the neighbors it hears and at what link quality, its routing table, and the PHY and frequency plan that price its time-on-air.
+
+- `bramble topology export`: write the export document to stdout
+- `bramble topology export --out <file>`: write it to a file
+
+```bash
+bramble --port /dev/ttyUSB0 topology export --out tower.json
+bramble --port /dev/ttyUSB1 topology export --out ridge.json
+bramble topology export | jq .neighbors
+```
+
+The document is the input to the digital-twin importer in the [bramble](https://github.com/justinlindh/bramble) repo. Collect one file per node and hand them to the simulator's `twin` subcommand, which merges them into a link graph, rebuilds the deployment as a runnable scenario, and runs the firmware's own protocol code over it to report where delivery falls away as offered load rises and which nodes are single points of failure:
+
+```bash
+bramble-gosim twin tower.json ridge.json
+```
+
+Export from as many nodes as you can reach. For a node that never exports, only the direction its neighbors heard is known, and the twin's report names every direction it had to assume.
+
+This is observation, not prediction. Every link is a snapshot taken when the call was made, so a mesh whose links vary with the weather has a different export each time. The file carries the fields the export contract defines, re-encoded as indented JSON: a field a newer firmware adds outside that contract is not carried through, and the importer refuses a schema version it does not know rather than guessing at fields.
+
+Writing to stdout, the document is the only thing on stdout, which is what makes the pipe above work. Writing to a file, the confirmation line goes to stderr, and `--json` turns it into a summary object (path, node address, neighbor and route counts, schema version) rather than a second copy of the document.
 
 ## Shell Completion
 

@@ -136,6 +136,7 @@ func init() {
 		newAnchorCmd(),
 		newNetkeyCmd(),
 		newRollCallCmd(),
+		newTopologyCmd(),
 		newDevicesCmd(),
 		newScreenshotCmd(),
 		newConsoleCmd(),

@@ -60,6 +60,7 @@ check_help_flag "console" "--grep"
 check_help_flag "console" "--raw"
 check_help_flag "fleet" "--ports"
 check_help_flag "roll-call start" "--text"
+check_help_flag "topology export" "--out"
 
 # README coverage checks for critical command snippets.
 check_readme_text "bramble --ble Bramble status"
@@ -78,6 +79,7 @@ check_readme_text "bramble fleet"
 check_readme_text "bramble location doctor"
 check_readme_text "bramble roll-call start"
 check_readme_text "bramble roll-call status"
+check_readme_text "bramble topology export"
 
 if (( failures > 0 )); then
   echo
