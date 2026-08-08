@@ -138,17 +138,20 @@ func runTrafficMonitor(cmd *cobra.Command, args []string) error {
 
 // formatTrafficEventLine renders one traffic event as a human-readable line.
 //
-// A traffic event carries no sender: the firmware's ring records seq, time,
-// packet type, category, tier, length, RSSI and direction, and nothing that
-// identifies who transmitted. RSSI here is therefore an unattributed sample,
-// so per-peer signal strength has to come from `bramble neighbors`, which
-// reports RSSI against an address.
+// The source address is printed next to RSSI, because pairing the two is what
+// makes an RSSI sample attributable to a peer; neighbour RSSI only refreshes
+// on beacons. The firmware records an unknown origin as zero and omits the key
+// rather than sending it, so an absent address is the only "no origin" signal
+// and it is left off the line entirely rather than rendered as a placeholder.
 func formatTrafficEventLine(evt bramble.TrafficEvent) string {
 	direction := "RX"
 	if evt.IsTx {
 		direction = "TX"
 	}
 	var meta string
+	if evt.SrcAddr != "" {
+		meta += " src=" + evt.SrcAddr
+	}
 	if !evt.IsTx && evt.RSSI != 0 {
 		meta += fmt.Sprintf(" RSSI=%ddBm", evt.RSSI)
 	}
@@ -160,7 +163,8 @@ func formatTrafficEventLine(evt bramble.TrafficEvent) string {
 // writeTrafficEventsJSONL writes events as one JSON object per line. Fields
 // the node omitted stay omitted rather than exporting as zero values, so a
 // consumer can tell "the node did not report this" from "the node reported
-// zero".
+// zero". An absent source address in particular never exports as an empty or
+// all-zero one.
 func writeTrafficEventsJSONL(w io.Writer, events []bramble.TrafficEvent) error {
 	for _, evt := range events {
 		b, err := json.Marshal(evt)
