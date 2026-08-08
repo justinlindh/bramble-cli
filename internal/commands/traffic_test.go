@@ -172,3 +172,63 @@ func TestWriteTrafficEventsJSONL_EmptyInput(t *testing.T) {
 		t.Fatalf("expected no output for no events, got %q", buf.String())
 	}
 }
+
+// A reported all-zero address renders like any other. The firmware guards the
+// key on src_addr != 0 so it should never send one, but the schema's pattern
+// admits it, and the renderer's job is to show what arrived rather than to
+// invent a sentinel the wire does not define.
+func TestFormatTrafficEventLine_RendersWhateverAddressArrives(t *testing.T) {
+	t.Parallel()
+
+	line := formatTrafficEventLine(bramble.TrafficEvent{
+		Seq: 9, Category: "routing", AirtimeTier: "normal", PacketLen: 30, RSSI: -80, SrcAddr: "00000000",
+	})
+	if !strings.Contains(line, "src=00000000") {
+		t.Fatalf("expected a reported all-zero address to render, got %q", line)
+	}
+}
+
+// Decodes a whole getTrafficEvents response in the shape the firmware actually
+// sends, then renders it. The other tests here build TrafficEvent values by
+// hand, which proves the renderer works but cannot catch a field that never
+// arrives: that gap is exactly how a src= rendering for a key no firmware sent
+// survived review once already.
+func TestTrafficEventDecodesWireShape(t *testing.T) {
+	t.Parallel()
+
+	const payload = `{
+	  "events": [
+	    {"seq":10241,"timestamp_ms":86400123,"pkt_type":3,"category":"chat",
+	     "airtime_tier":"normal","packet_len":64,"rssi":-91,"is_tx":false,
+	     "src_addr":"1A2B3C4D"},
+	    {"seq":10242,"timestamp_ms":86400456,"pkt_type":3,"category":"chat",
+	     "airtime_tier":"normal","packet_len":64,"rssi":0,"is_tx":true}
+	  ],
+	  "returned": 2,
+	  "total_available": 2
+	}`
+
+	var resp bramble.TrafficEventsResponse
+	if err := json.Unmarshal([]byte(payload), &resp); err != nil {
+		t.Fatalf("unmarshal wire payload: %v", err)
+	}
+	if len(resp.Events) != 2 {
+		t.Fatalf("expected 2 events, got %d", len(resp.Events))
+	}
+
+	// The RX frame's origin has to survive decoding, or the src= rendering is
+	// unreachable no matter how well it is unit-tested.
+	if resp.Events[0].SrcAddr != "1A2B3C4D" {
+		t.Fatalf("src_addr did not decode onto SrcAddr, got %q", resp.Events[0].SrcAddr)
+	}
+	if resp.Events[1].SrcAddr != "" {
+		t.Fatalf("expected an omitted src_addr to decode as empty, got %q", resp.Events[1].SrcAddr)
+	}
+
+	if line := formatTrafficEventLine(resp.Events[0]); !strings.Contains(line, "src=1A2B3C4D") {
+		t.Fatalf("expected the decoded origin to render, got %q", line)
+	}
+	if line := formatTrafficEventLine(resp.Events[1]); strings.Contains(line, "src=") {
+		t.Fatalf("expected no src field for the TX event, got %q", line)
+	}
+}
