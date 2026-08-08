@@ -164,6 +164,7 @@ bramble broadcast --wait-delivery 10 "delivery telemetry please"
 - `bramble routes` — show routing table
 - `bramble ping` — ping connected node
 - `bramble probe` — send network probe
+- `bramble diagnostics`: heap, task stacks, radio health, backpressure, GNSS feed
 - `bramble console`: tail the firmware serial console (ESP-IDF log output)
 - `bramble fleet`: status sweep across every attached node
 - `bramble screenshot`: capture the device display to a PNG
@@ -172,6 +173,7 @@ bramble broadcast --wait-delivery 10 "delivery telemetry please"
 bramble monitor --topic wifi,gps,location
 bramble monitor --messages
 bramble monitor --events
+bramble diagnostics
 bramble console --grep 'location|dm'
 bramble console --duration 30s
 bramble traffic monitor --tx-only
@@ -179,6 +181,22 @@ bramble traffic export --format jsonl > traffic-events.jsonl
 bramble fleet
 bramble screenshot --out shot.png
 ```
+
+`bramble diagnostics` prints only the sections the node reports. Radio health
+covers the transmit path: it pairs the power the driver programmed with the
+faults the radio will admit to. Two of those stop usable transmission and are
+called out as problems: the power amplifier not ramping for a transmit, and
+configuration writes that never reach the chip. A failed synthesizer lock,
+oscillator start or calibration is flagged as a warning, since each costs link
+budget without failing a transmit outright. Chip-specific supporting values
+follow as a single `Detail` line, printed as the driver wrote it. A target
+whose driver cannot interrogate its transmit path reports the programmed power
+only.
+
+`bramble traffic monitor` and `bramble traffic export` carry the claimed source
+address of RX frames whose packet type includes one, which is what makes an
+RSSI sample attributable to a peer. It is omitted, never zeroed, when the frame
+carries none.
 
 `monitor` and `console` are different streams. `monitor` subscribes to RPC
 notifications; `console` reads the ESP-IDF log output, where a good deal of

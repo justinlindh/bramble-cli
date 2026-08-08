@@ -1,8 +1,11 @@
 package commands
 
 import (
+	"bytes"
 	"strings"
 	"testing"
+
+	bramble "github.com/justinlindh/bramble-go"
 )
 
 func TestNewTrafficCmd_HasSubcommands(t *testing.T) {
@@ -62,5 +65,36 @@ func TestRunTrafficExport_RejectsOutOfRangeLimit(t *testing.T) {
 	}
 	if !strings.Contains(err.Error(), "limit must be between 1 and 512") {
 		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
+func TestFormatTrafficEventLine_RXWithRSSI(t *testing.T) {
+	t.Parallel()
+
+	line := formatTrafficEventLine(bramble.TrafficEvent{
+		Seq:         42,
+		PktType:     3,
+		Category:    "chat",
+		AirtimeTier: "normal",
+		PacketLen:   64,
+		RSSI:        -91,
+	})
+
+	for _, needle := range []string{"RX", "chat", "pkt=3", "64b", "RSSI=-91dBm", "tier=normal"} {
+		if !strings.Contains(line, needle) {
+			t.Fatalf("expected %q in %q", needle, line)
+		}
+	}
+}
+
+func TestWriteTrafficEventsJSONL_EmptyInput(t *testing.T) {
+	t.Parallel()
+
+	var buf bytes.Buffer
+	if err := writeTrafficEventsJSONL(&buf, nil); err != nil {
+		t.Fatalf("writeTrafficEventsJSONL: %v", err)
+	}
+	if buf.Len() != 0 {
+		t.Fatalf("expected no output for no events, got %q", buf.String())
 	}
 }

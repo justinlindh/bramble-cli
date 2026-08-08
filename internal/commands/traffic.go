@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"os"
 	"os/signal"
 	"syscall"
@@ -34,7 +35,8 @@ func newTrafficMonitorCmd() *cobra.Command {
 		Use:   "monitor",
 		Short: "Live stream of traffic debug events",
 		Long: `Subscribe to real-time traffic debug events from the connected node.
-Shows TX/RX packet metadata including category, airtime tier, packet length, and RSSI.
+Shows TX/RX packet metadata including category, airtime tier, packet length, RSSI
+and, on RX frames whose packet type carries one, the claimed source address.
 Press Ctrl+C to stop.
 
 Flags:
@@ -121,17 +123,7 @@ func runTrafficMonitor(cmd *cobra.Command, args []string) error {
 			b, _ := json.Marshal(evt)
 			fmt.Fprintln(os.Stdout, string(b))
 		} else {
-			direction := "RX"
-			if evt.IsTx {
-				direction = "TX"
-			}
-			rssiStr := ""
-			if !evt.IsTx && evt.RSSI != 0 {
-				rssiStr = fmt.Sprintf(" RSSI=%ddBm", evt.RSSI)
-			}
-			fmt.Fprintf(os.Stdout, "[%10d] %-2s %-12s %-10s %4db%s (tier=%s)\n",
-				evt.Seq, direction, evt.Category, fmt.Sprintf("pkt=%d", evt.PktType),
-				evt.PacketLen, rssiStr, evt.AirtimeTier)
+			fmt.Fprintln(os.Stdout, formatTrafficEventLine(evt))
 		}
 	})
 
@@ -141,6 +133,42 @@ func runTrafficMonitor(cmd *cobra.Command, args []string) error {
 	<-sigCh
 
 	fmt.Fprintln(os.Stderr, "\nStopping traffic monitor.")
+	return nil
+}
+
+// formatTrafficEventLine renders one traffic event as a human-readable line.
+//
+// A traffic event carries no sender: the firmware's ring records seq, time,
+// packet type, category, tier, length, RSSI and direction, and nothing that
+// identifies who transmitted. RSSI here is therefore an unattributed sample,
+// so per-peer signal strength has to come from `bramble neighbors`, which
+// reports RSSI against an address.
+func formatTrafficEventLine(evt bramble.TrafficEvent) string {
+	direction := "RX"
+	if evt.IsTx {
+		direction = "TX"
+	}
+	var meta string
+	if !evt.IsTx && evt.RSSI != 0 {
+		meta += fmt.Sprintf(" RSSI=%ddBm", evt.RSSI)
+	}
+	return fmt.Sprintf("[%10d] %-2s %-12s %-10s %4db%s (tier=%s)",
+		evt.Seq, direction, evt.Category, fmt.Sprintf("pkt=%d", evt.PktType),
+		evt.PacketLen, meta, evt.AirtimeTier)
+}
+
+// writeTrafficEventsJSONL writes events as one JSON object per line. Fields
+// the node omitted stay omitted rather than exporting as zero values, so a
+// consumer can tell "the node did not report this" from "the node reported
+// zero".
+func writeTrafficEventsJSONL(w io.Writer, events []bramble.TrafficEvent) error {
+	for _, evt := range events {
+		b, err := json.Marshal(evt)
+		if err != nil {
+			return fmt.Errorf("bramble-cli: marshal event: %w", err)
+		}
+		fmt.Fprintln(w, string(b))
+	}
 	return nil
 }
 
@@ -181,14 +209,5 @@ func runTrafficExport(cmd *cobra.Command, args []string) error {
 		fmt.Fprintf(os.Stderr, "Fetched %d/%d events\n", resp.Returned, resp.TotalAvailable)
 	}
 
-	// Write events as JSONL to stdout
-	for _, evt := range resp.Events {
-		b, err := json.Marshal(evt)
-		if err != nil {
-			return fmt.Errorf("bramble-cli: marshal event: %w", err)
-		}
-		fmt.Fprintln(os.Stdout, string(b))
-	}
-
-	return nil
+	return writeTrafficEventsJSONL(os.Stdout, resp.Events)
 }
