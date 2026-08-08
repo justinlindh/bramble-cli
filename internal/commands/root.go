@@ -135,6 +135,7 @@ func init() {
 		newMailboxCmd(),
 		newAnchorCmd(),
 		newNetkeyCmd(),
+		newRollCallCmd(),
 		newDevicesCmd(),
 		newScreenshotCmd(),
 		newConsoleCmd(),

@@ -17,6 +17,7 @@ It is built on [bramble-go](https://github.com/justinlindh/bramble-go), and foll
   - [Location](#location)
   - [System and Network](#system-and-network)
   - [Provisioning](#provisioning)
+  - [Roll Call](#roll-call)
 - [Shell Completion](#shell-completion)
 - [JSON Output](#json-output)
 - [Examples](#examples)
@@ -298,6 +299,27 @@ bramble --port /dev/ttyUSB1 netkey status
 `provision` and `fingerprint` never accept the key as a positional argument, for the same reason `wifi set` refuses a positional password: a bare command-line value is visible to every other process via `ps` and `/proc`, and lands in shell history. Pass `--key-file`, use `--key-file -` to read stdin, or omit the flag on an interactive terminal to be prompted with input hidden. Both accept a `bramble://net/v1?k=...` share string (what the web app's QR code encodes) or a bare 64 hex characters.
 
 Re-keying is destructive: it cuts a node off from every node still on the old key. `generate` on an already-provisioned node, and `provision` with a key whose fingerprint differs from the node's current one, both refuse unless you pass `--force`. After provisioning, `provision` reads the fingerprint back from the node and fails if it did not converge, rather than trusting the write.
+
+### Roll Call
+
+A roll-call answers one fleet-level question: did this reach everyone, and can each answer be proven? The connected node floods a short operator payload, every member that hears it answers with a signature bound to that roll-call and to its own identity key, and the node accumulates a ledger of who answered, how far into the roll-call, and over which relay path.
+
+- `bramble roll-call start`: start a roll-call from the connected node
+- `bramble roll-call status`: render the ledger of the roll-call this node started
+
+```bash
+bramble roll-call start --text "sound off"
+bramble roll-call status
+bramble --json roll-call status | jq '.responders[] | select(.responded)'
+```
+
+The payload is `--text` and never a positional argument, so a stray word on the command line cannot become the text the whole fleet is asked to answer. The node bounds the payload size and rejects an oversized one outright; `roll-call status` reports the bound it enforces.
+
+A roll-call is the most expensive thing the protocol does, so the node rate limits it and lets only one roll-call it started collect at a time. A refusal comes back with its reason and how long to wait, which `start` prints and exits non-zero on, so a script waits a known interval instead of polling: `busy` (a roll-call this node started is still collecting), `rate_limited` (the start landed inside the enforced interval between two roll-calls), or an announce that never reached the air, which is charged nothing and can be retried at once.
+
+What the ledger may claim depends on the node's trust configuration, and both subcommands label it. On an **anchored fleet** the node holds an anchor-certified roster, so the ledger counts against the expected set and names the members that never answered (`bramble anchor status` reports whether a node is anchored). On an **observed only** node the pinned identities are trust-on-first-use, which are free to mint: there is no authoritative roster, so the ledger reports the members it observed answering and names nobody missing.
+
+The ledger stays readable after the collection window closes, so `roll-call status` is also how a finished roll-call is read back. A row can exist without an answer: the broadcast delivery-receipt machinery reported a path for a pinned member that never answered, and the row says so rather than reading as a half answer. A verified answer proves the holder of that address's identity key heard the roll-call and chose to answer; silence proves nothing on its own, and a relay path is a hint about how the announce travelled rather than part of the attestation. Both bounds are printed under the table so a copied ledger cannot lose them.
 
 ## Shell Completion
 
