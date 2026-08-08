@@ -45,6 +45,23 @@ type WifiSetResult struct {
 	Rebooted bool   `json:"rebooted"`
 }
 
+// BleSecurityResult is the JSON output for the ble-security status command.
+type BleSecurityResult struct {
+	Mode             string `json:"mode"`
+	StaticPasskeySet bool   `json:"static_passkey_set"`
+}
+
+// BlePasskeyResult is the JSON output for the ble-security set-passkey and
+// clear-passkey commands. It shares BleSecurityResult's key names so both
+// report the same posture the same way, and it never includes the passkey:
+// the node stores it write-only and reports it to nobody, so this type
+// mirrors that by construction.
+type BlePasskeyResult struct {
+	Mode             string `json:"mode"`
+	StaticPasskeySet bool   `json:"static_passkey_set"`
+	BondsWiped       bool   `json:"bonds_wiped"`
+}
+
 // LocationContactResult is the JSON output for the location set-contact command.
 type LocationContactResult struct {
 	Addr   string `json:"addr"`

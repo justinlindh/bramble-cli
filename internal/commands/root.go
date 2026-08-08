@@ -123,6 +123,7 @@ func init() {
 		newTUICmd(),
 		newPairCmd(),
 		newAuthCmd(),
+		newBleSecurityCmd(),
 		newBatteryCmd(),
 		newGpsCmd(),
 		newAudioCmd(),
