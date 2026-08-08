@@ -164,14 +164,37 @@ bramble broadcast --wait-delivery 10 "delivery telemetry please"
 - `bramble routes` — show routing table
 - `bramble ping` — ping connected node
 - `bramble probe` — send network probe
+- `bramble console`: tail the firmware serial console (ESP-IDF log output)
+- `bramble fleet`: status sweep across every attached node
+- `bramble screenshot`: capture the device display to a PNG
 
 ```bash
 bramble monitor --topic wifi,gps,location
 bramble monitor --messages
 bramble monitor --events
+bramble console --grep 'location|dm'
+bramble console --duration 30s
 bramble traffic monitor --tx-only
 bramble traffic export --format jsonl > traffic-events.jsonl
+bramble fleet
+bramble screenshot --out shot.png
 ```
+
+`monitor` and `console` are different streams. `monitor` subscribes to RPC
+notifications; `console` reads the ESP-IDF log output, where a good deal of
+firmware behavior is reported and nowhere else, including the reason a directed
+send was dropped. Opening the console does not reset the node: DTR and RTS drive
+EN and BOOT on a CP2102 board, so both are left deasserted and attaching is a
+read-only act.
+
+`fleet` sweeps every `/dev/ttyUSB*` and `/dev/ttyACM*` in parallel and prints one
+row per node (address, name, hardware, firmware, uptime, peers, GPS, battery). A
+port that does not answer keeps its row with the error attached, since a node
+that stopped answering is usually the one you are looking for.
+
+`screenshot` issues the capture and pages the whole framebuffer back before
+decoding it, so the PNG is one consistent frame rather than a composite. Only
+boards with a graphical UI can answer it.
 
 ### Configuration
 
@@ -192,11 +215,28 @@ bramble config set-radio --freq 915.0 --sf 10 --bw 125 --cr 5 --txpower 20
 - `bramble location set-contact <address> <tier>` — quick per-peer rule
 - `bramble location remove-contact <address>` — remove per-peer rule
 - `bramble location share-once <address>` — send one-time location update
+- `bramble location doctor`: diagnose why a node is or is not sharing location
 
 ```bash
 bramble location set-config --enabled --default-tier full --interval-s 30 --source gps
 bramble location get-config --json
+bramble location doctor
 ```
+
+The share switch is a permission, not an activity: a node with sharing on and no
+usable target transmits nothing, and reading the config back proves only that a
+target was accepted. `location doctor` checks the whole chain, so it reports
+whether sharing is on, whether a self position resolves (live GPS, else stored
+manual coordinates), what targets are configured, and for each per-contact
+target whether a DM session exists. That last one is the failure that hides: a
+per-contact share is unicast under a DM session key and is dropped silently when
+there is no session, logging only to the serial console. A per-channel target is
+broadcast under the channel key and needs no session or route, so the two kinds
+are judged separately.
+
+`location doctor` reads DM session state through `bramble.getDmSessions`. Against
+firmware without that method it says so and still reports everything else, rather
+than reporting every contact as unreachable.
 
 ### System and Network
 

@@ -55,6 +55,10 @@ check_help_flag "wifi set" "--password"
 check_help_flag "wifi set" "--open"
 check_help_flag "wifi set" "--reboot"
 check_help_flag "ble-security set-passkey" "--passkey"
+check_help_flag "screenshot" "--out"
+check_help_flag "console" "--grep"
+check_help_flag "console" "--raw"
+check_help_flag "fleet" "--ports"
 
 # README coverage checks for critical command snippets.
 check_readme_text "bramble --ble Bramble status"
@@ -67,6 +71,10 @@ check_readme_text "bramble wifi set"
 check_readme_text "bramble ble-security status"
 check_readme_text "bramble ble-security set-passkey"
 check_readme_text "bramble ble-security clear-passkey"
+check_readme_text "bramble screenshot --out"
+check_readme_text "bramble console --grep"
+check_readme_text "bramble fleet"
+check_readme_text "bramble location doctor"
 
 if (( failures > 0 )); then
   echo
