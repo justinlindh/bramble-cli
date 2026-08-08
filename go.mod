@@ -6,8 +6,9 @@ require (
 	charm.land/bubbles/v2 v2.1.0
 	charm.land/bubbletea/v2 v2.0.7
 	charm.land/lipgloss/v2 v2.0.3
-	github.com/justinlindh/bramble-go v0.13.1-0.20260807091658-35a77325cb86
+	github.com/justinlindh/bramble-go v0.16.0
 	github.com/spf13/cobra v1.10.2
+	go.bug.st/serial v1.6.4
 	golang.org/x/term v0.11.0
 	modernc.org/sqlite v1.52.0
 )
@@ -45,7 +46,6 @@ require (
 	github.com/tinygo-org/cbgo v0.0.4 // indirect
 	github.com/tinygo-org/pio v0.2.0 // indirect
 	github.com/xo/terminfo v0.0.0-20220910002029-abceb7e1c41e // indirect
-	go.bug.st/serial v1.6.4 // indirect
 	golang.org/x/exp v0.0.0-20260611194520-c48552f49976 // indirect
 	golang.org/x/sync v0.21.0 // indirect
 	golang.org/x/sys v0.46.0 // indirect
