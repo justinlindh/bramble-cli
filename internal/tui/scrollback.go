@@ -1,4 +1,4 @@
-// Package tui — scrollback.go
+// Package tui: scrollback.go
 // A scrollback buffer that wraps a Bubbles viewport and manages styled lines.
 
 package tui

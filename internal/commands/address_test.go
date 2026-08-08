@@ -94,7 +94,7 @@ func TestConfigSetName_ExactlyThirtyTwoChars(t *testing.T) {
 
 	// 32 chars should be fine (no error from validation, will fail on client connect)
 	err := runConfigSetName(newConfigSetNameCmd(), []string{"12345678901234567890123456789012"})
-	// Should NOT get "too long" error — it will fail on getClient instead
+	// Should NOT get "too long" error: it will fail on getClient instead
 	if err != nil && err.Error() != "" {
 		// Acceptable: either no error or a client connection error
 		if strings.Contains(err.Error(), "too long") {

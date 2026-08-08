@@ -46,7 +46,7 @@ func runPeers(cmd *cobra.Command, args []string) error {
 	for i, n := range neighbors {
 		name := n.Name
 		if name == "" {
-			name = "—"
+			name = "-"
 		}
 		deliveryPct := fmt.Sprintf("%d%%", n.DeliveryRate*100/255)
 		airtimePct := fmt.Sprintf("%d%%", n.AirtimeRemaining)

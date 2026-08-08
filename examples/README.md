@@ -23,4 +23,4 @@ bramble peers
 ```
 
 All examples assume `bramble` is installed and on your `$PATH`.  
-Each script is standalone — source it or run it directly: `bash examples/01-connect.sh`
+Each script is standalone, source it or run it directly: `bash examples/01-connect.sh`

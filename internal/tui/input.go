@@ -72,7 +72,7 @@ func NewInputLine() InputLine {
 	km.InsertNewline.SetKeys("ctrl+enter", "alt+enter")
 	ta.KeyMap = km
 
-	// Focus immediately — textarea must be focused to accept input
+	// Focus immediately: textarea must be focused to accept input
 	ta.Focus()
 
 	return InputLine{
@@ -253,7 +253,7 @@ func (il InputLine) View() string {
 		promptStyle = il.style.PromptLocked
 		indicator := "[airtime depleted"
 		if il.lockout.RefillInSecs > 0 {
-			indicator += fmt.Sprintf(" — refill in %ds", il.lockout.RefillInSecs)
+			indicator += fmt.Sprintf(", refill in %ds", il.lockout.RefillInSecs)
 		}
 		indicator += "]"
 		promptText = promptText + " " + indicator

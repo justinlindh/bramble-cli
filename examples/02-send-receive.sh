@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# 02-send-receive.sh — Basic send and receive
+# 02-send-receive.sh: Basic send and receive
 #
 # Shows unicast send, broadcast, delivery confirmation, and
 # how to receive messages via monitor.

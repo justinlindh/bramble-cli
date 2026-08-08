@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# 03-channels.sh — Channel operations
+# 03-channels.sh: Channel operations
 #
 # Channels let you partition traffic. Channel 0 is always the public
 # broadcast channel. Additional channels can have a PSK for privacy.

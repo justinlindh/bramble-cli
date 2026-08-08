@@ -17,6 +17,8 @@ It is built on [bramble-go](https://github.com/justinlindh/bramble-go), and foll
   - [Location](#location)
   - [System and Network](#system-and-network)
   - [Provisioning](#provisioning)
+  - [Roll Call](#roll-call)
+  - [Topology Export](#topology-export)
 - [Shell Completion](#shell-completion)
 - [JSON Output](#json-output)
 - [Examples](#examples)
@@ -141,12 +143,12 @@ The TUI is designed as an IRC-style operations console for Bramble. It combines 
 
 ### Messaging
 
-- `bramble send <address> <message>` — send a unicast message
-- `bramble broadcast <message>` — send a mesh-wide message
-- `bramble channels list` — list configured channels
-- `bramble channels add <name> [psk]` — add a channel
-- `bramble channels remove <index>` — remove a channel
-- `bramble channels set-default <index>` — set default outgoing channel
+- `bramble send <address> <message>`: send a unicast message
+- `bramble broadcast <message>`: send a mesh-wide message
+- `bramble channels list`: list configured channels
+- `bramble channels add <name> [psk]`: add a channel
+- `bramble channels remove <index>`: remove a channel
+- `bramble channels set-default <index>`: set default outgoing channel
 
 ```bash
 bramble send CAFEBABE "hello there"
@@ -157,6 +159,15 @@ bramble broadcast --wait-delivery 10 "delivery telemetry please"
 
 ### Monitoring and Diagnostics
 
+<<<<<<< HEAD
+- `bramble monitor`: stream real-time node events
+- `bramble traffic monitor`: live TX/RX telemetry stream
+- `bramble traffic export`: export ring-buffer traffic telemetry to JSONL
+- `bramble peers`: list direct radio neighbors
+- `bramble routes`: show routing table
+- `bramble ping`: ping connected node
+- `bramble probe`: send network probe
+=======
 - `bramble monitor` — stream real-time node events
 - `bramble traffic monitor` — live TX/RX telemetry stream
 - `bramble traffic export` — export ring-buffer traffic telemetry to JSONL
@@ -165,6 +176,7 @@ bramble broadcast --wait-delivery 10 "delivery telemetry please"
 - `bramble ping` — ping connected node
 - `bramble probe` — send network probe
 - `bramble diagnostics`: heap, task stacks, radio health, backpressure, GNSS feed
+>>>>>>> origin/main
 - `bramble console`: tail the firmware serial console (ESP-IDF log output)
 - `bramble fleet`: status sweep across every attached node
 - `bramble screenshot`: capture the device display to a PNG
@@ -216,9 +228,9 @@ boards with a graphical UI can answer it.
 
 ### Configuration
 
-- `bramble config get` — print full node configuration
-- `bramble config set-name <name>` — set node display name
-- `bramble config set-radio` — update radio parameters
+- `bramble config get`: print full node configuration
+- `bramble config set-name <name>`: set node display name
+- `bramble config set-radio`: update radio parameters
 
 ```bash
 bramble config set-name my-node
@@ -227,12 +239,12 @@ bramble config set-radio --freq 915.0 --sf 10 --bw 125 --cr 5 --txpower 20
 
 ### Location
 
-- `bramble location status` — show known peer locations
-- `bramble location get-config` — show canonical location config
-- `bramble location set-config` — set canonical location policy
-- `bramble location set-contact <address> <tier>` — quick per-peer rule
-- `bramble location remove-contact <address>` — remove per-peer rule
-- `bramble location share-once <address>` — send one-time location update
+- `bramble location status`: show known peer locations
+- `bramble location get-config`: show canonical location config
+- `bramble location set-config`: set canonical location policy
+- `bramble location set-contact <address> <tier>`: quick per-peer rule
+- `bramble location remove-contact <address>`: remove per-peer rule
+- `bramble location share-once <address>`: send one-time location update
 - `bramble location doctor`: diagnose why a node is or is not sharing location
 
 ```bash
@@ -258,18 +270,18 @@ than reporting every contact as unreachable.
 
 ### System and Network
 
-- `bramble status` — show node address, firmware, radio, peers, counters, uptime
-- `bramble discover` — scan local network for Bramble nodes via mDNS
-- `bramble wifi status` — show WiFi mode and link status
+- `bramble status`: show node address, firmware, radio, peers, counters, uptime
+- `bramble discover`: scan local network for Bramble nodes via mDNS
+- `bramble wifi status`: show WiFi mode and link status
 - `bramble wifi set <ssid>`: provision WiFi station credentials
 - `bramble ble-security status`: show how the node authenticates BLE pairing
 - `bramble ble-security set-passkey`: set the static 6-digit BLE pairing passkey
 - `bramble ble-security clear-passkey`: clear the passkey, returning the node to pairing with no code
-- `bramble mesh-test` — automated mesh reliability test (multi-node broadcast/delivery)
-- `bramble pair` — retrieve auth token from a serial-connected device for WebSocket auth
-- `bramble ota --url <url>` — trigger OTA firmware update
-- `bramble reboot` — reboot node
-- `bramble tui` — launch full-screen interactive terminal UI
+- `bramble mesh-test`: automated mesh reliability test (multi-node broadcast/delivery)
+- `bramble pair`: retrieve auth token from a serial-connected device for WebSocket auth
+- `bramble ota --url <url>`: trigger OTA firmware update
+- `bramble reboot`: reboot node
+- `bramble tui`: launch full-screen interactive terminal UI
 
 ```bash
 bramble status
@@ -317,6 +329,54 @@ bramble --port /dev/ttyUSB1 netkey status
 
 Re-keying is destructive: it cuts a node off from every node still on the old key. `generate` on an already-provisioned node, and `provision` with a key whose fingerprint differs from the node's current one, both refuse unless you pass `--force`. After provisioning, `provision` reads the fingerprint back from the node and fails if it did not converge, rather than trusting the write.
 
+### Roll Call
+
+A roll-call answers one fleet-level question: did this reach everyone, and can each answer be proven? The connected node floods a short operator payload, every member that hears it answers with a signature bound to that roll-call and to its own identity key, and the node accumulates a ledger of who answered, how far into the roll-call, and over which relay path.
+
+- `bramble roll-call start`: start a roll-call from the connected node
+- `bramble roll-call status`: render the ledger of the roll-call this node started
+
+```bash
+bramble roll-call start --text "sound off"
+bramble roll-call status
+bramble --json roll-call status | jq '.responders[] | select(.responded)'
+```
+
+The payload is `--text` and never a positional argument, so a stray word on the command line cannot become the text the whole fleet is asked to answer. The node bounds the payload size and rejects an oversized one outright; `roll-call status` reports the bound it enforces.
+
+A roll-call is the most expensive thing the protocol does, so the node rate limits it and lets only one roll-call it started collect at a time. A refusal comes back with its reason and how long to wait, which `start` prints and exits non-zero on, so a script waits a known interval instead of polling: `busy` (a roll-call this node started is still collecting), `rate_limited` (the start landed inside the enforced interval between two roll-calls), or an announce that never reached the air, which is charged nothing and can be retried at once.
+
+What the ledger may claim depends on the node's trust configuration, and both subcommands label it. On an **anchored fleet** the node holds an anchor-certified roster, so the ledger counts against the expected set and names the members that never answered (`bramble anchor status` reports whether a node is anchored). On an **observed only** node the pinned identities are trust-on-first-use, which are free to mint: there is no authoritative roster, so the ledger reports the members it observed answering and names nobody missing.
+
+The ledger stays readable after the collection window closes, so `roll-call status` is also how a finished roll-call is read back. A row can exist without an answer: the broadcast delivery-receipt machinery reported a path for a pinned member that never answered, and the row says so rather than reading as a half answer. A verified answer proves the holder of that address's identity key heard the roll-call and chose to answer; silence proves nothing on its own, and a relay path is a hint about how the announce travelled rather than part of the attestation. Both caveats are printed under the ledger itself, so a copied ledger cannot lose them.
+
+`roll-call status` also reports for the node rather than for the roll-call: the payload size it accepts, the interval it enforces between the roll-calls it starts, the answers it will emit in any rolling hour, and the answers it dropped or refused while answering somebody else's roll-call. Those come back whether or not this node has ever started one, so a member that only ever answers still reports why it failed to take part, and a node reports the payload bound before the first start rather than only after an oversized payload is rejected.
+
+### Topology Export
+
+`bramble topology export` writes one node's view of the mesh as a single JSON document: who it is, the neighbors it hears and at what link quality, its routing table, and the PHY and frequency plan that price its time-on-air.
+
+- `bramble topology export`: write the export document to stdout
+- `bramble topology export --out <file>`: write it to a file
+
+```bash
+bramble --port /dev/ttyUSB0 topology export --out tower.json
+bramble --port /dev/ttyUSB1 topology export --out ridge.json
+bramble topology export | jq .neighbors
+```
+
+The document is the input to the digital-twin importer in the [bramble](https://github.com/justinlindh/bramble) repo. Collect one file per node and hand them to the simulator's `twin` subcommand, which merges them into a link graph, rebuilds the deployment as a runnable scenario, and runs the firmware's own protocol code over it to report where delivery falls away as offered load rises and which nodes are single points of failure:
+
+```bash
+bramble-gosim twin tower.json ridge.json
+```
+
+Export from as many nodes as you can reach. For a node that never exports, only the direction its neighbors heard is known, and the twin's report names every direction it had to assume.
+
+This is observation, not prediction. Every link is a snapshot taken when the call was made, so a mesh whose links vary with the weather has a different export each time. The file carries the fields the export contract defines, re-encoded as indented JSON: a field a newer firmware adds outside that contract is not carried through, and the importer refuses a schema version it does not know rather than guessing at fields.
+
+Writing to stdout, the document is the only thing on stdout, which is what makes the pipe above work. Writing to a file, the confirmation line goes to stderr, and `--json` turns it into a summary object (path, node address, neighbor and route counts, schema version) rather than a second copy of the document.
+
 ## Shell Completion
 
 Bramble supports shell completions via Cobra:
@@ -346,11 +406,11 @@ bramble monitor --topic location --json
 
 See the [`examples/`](examples/) directory for common usage patterns:
 
-- [`01-connect.sh`](examples/01-connect.sh) — BLE, WiFi, and serial connection flows
-- [`02-send-receive.sh`](examples/02-send-receive.sh) — basic send/receive
-- [`03-channels.sh`](examples/03-channels.sh) — channel operations
-- [`04-location.sh`](examples/04-location.sh) — location sharing
-- [`05-monitor.sh`](examples/05-monitor.sh) — monitor and debug output
+- [`01-connect.sh`](examples/01-connect.sh): BLE, WiFi, and serial connection flows
+- [`02-send-receive.sh`](examples/02-send-receive.sh): basic send/receive
+- [`03-channels.sh`](examples/03-channels.sh): channel operations
+- [`04-location.sh`](examples/04-location.sh): location sharing
+- [`05-monitor.sh`](examples/05-monitor.sh): monitor and debug output
 
 ## Quality Checks
 

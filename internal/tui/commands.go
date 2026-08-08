@@ -1,4 +1,4 @@
-// Package tui — commands.go
+// Package tui: commands.go
 // Slash command parser and dispatcher for the IRC-style TUI.
 
 package tui
@@ -518,7 +518,7 @@ func (h *CommandHandler) cmdProbe() {
 		h.addError(fmt.Sprintf("Probe error: %v", err))
 		return
 	}
-	h.addSystem("Network probe sent — results will appear as they arrive")
+	h.addSystem("Network probe sent: results will appear as they arrive")
 }
 
 func (h *CommandHandler) cmdPing() {

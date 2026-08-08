@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# quality-local.sh — Run the same quality gates locally that CI enforces.
+# quality-local.sh: Run the same quality gates locally that CI enforces.
 # Usage: bash scripts/quality-local.sh [--fix]
 #
 # Prerequisites (installed automatically if missing):
@@ -36,7 +36,7 @@ run_step() {
 skip_step() {
   local name="$1"
   local reason="$2"
-  printf "\n\033[1;33m▶ %s — SKIPPED (%s)\033[0m\n" "$name" "$reason"
+  printf "\n\033[1;33m▶ %s: SKIPPED (%s)\033[0m\n" "$name" "$reason"
   SKIP=$((SKIP + 1))
 }
 
@@ -60,7 +60,7 @@ if command -v golangci-lint >/dev/null 2>&1; then
     run_step "Go lint" golangci-lint run ./...
   fi
 else
-  skip_step "Go lint" "golangci-lint not found — install: go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@latest"
+  skip_step "Go lint" "golangci-lint not found, install: go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@latest"
 fi
 
 # ---------------------------------------------------------------------------
@@ -69,7 +69,7 @@ fi
 if command -v govulncheck >/dev/null 2>&1; then
   run_step "Vuln check" govulncheck ./...
 else
-  skip_step "Vuln check" "govulncheck not found — install: go install golang.org/x/vuln/cmd/govulncheck@latest"
+  skip_step "Vuln check" "govulncheck not found, install: go install golang.org/x/vuln/cmd/govulncheck@latest"
 fi
 
 # ---------------------------------------------------------------------------
@@ -82,7 +82,7 @@ if command -v shellcheck >/dev/null 2>&1; then
     skip_step "Shellcheck" "no scripts found"
   fi
 else
-  skip_step "Shellcheck" "shellcheck not found — install via package manager"
+  skip_step "Shellcheck" "shellcheck not found, install via package manager"
 fi
 
 # ---------------------------------------------------------------------------
@@ -101,7 +101,7 @@ fi
 if command -v markdownlint-cli2 >/dev/null 2>&1; then
   run_step "Markdown lint" markdownlint-cli2 "**/*.md"
 else
-  skip_step "Markdown lint" "markdownlint-cli2 not found — install: npm i -g markdownlint-cli2"
+  skip_step "Markdown lint" "markdownlint-cli2 not found, install: npm i -g markdownlint-cli2"
 fi
 
 # ---------------------------------------------------------------------------

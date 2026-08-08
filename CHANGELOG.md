@@ -57,15 +57,15 @@ _Changes captured from `git log --oneline --since=2026-02-01`._
 - (tui): add inline /msg command for direct DM send (d6ef694)
 - channel refactor (b9d9ce6)
 - /me action messages (IRC CTCP ACTION convention) (5048dba)
-- IRC-style nick tags — <Name[8FE3]> for incoming messages (2773d61)
+- IRC-style nick tags: <Name[8FE3]> for incoming messages (2773d61)
 - add /nick command for changing node name (IRC-style) (41b3f7d)
-- (tui): polish — byte counter, confirm flow, auto-buffers, neighbor departure, scroll indicator (22ab75a)
-- (tui): IRC-style rewrite — single buffer + slash commands (409b63b)
+- (tui): polish, byte counter, confirm flow, auto-buffers, neighbor departure, scroll indicator (22ab75a)
+- (tui): IRC-style rewrite, single buffer + slash commands (409b63b)
 - (tui): add IRC-style scrollback buffer model (0662b4f)
 - (tui): add IRC-style status bar (3859b63)
 - (tui): add IRC-style input line model (0b39b20)
 - (tui): peer name resolution + local aliases + SQLite persistence (9c76382)
-- (tui): Phase 2 — location, config, chat enhancements, stats upgrades (06d8439)
+- (tui): Phase 2, location, config, chat enhancements, stats upgrades (06d8439)
 - (tui): add terminal UI with Bubble Tea v2 (eeb1b18)
 - (cli): surface delivery replay sync capability in status (411950c)
 - (cli): report OTA outcome via reboot/reconnect wait (04d48fe)
@@ -79,7 +79,7 @@ _Changes captured from `git log --oneline --since=2026-02-01`._
 - add traffic debug CLI commands (7b3010a)
 - mDNS discovery + shell completion commands (06c050d)
 - add --ble flag for BLE transport (3ac55db)
-- bramble-cli v0.1.0 — full CLI for Bramble mesh nodes (62392ba)
+- bramble-cli v0.1.0: full CLI for Bramble mesh nodes (62392ba)
 
 ### Fixed
 

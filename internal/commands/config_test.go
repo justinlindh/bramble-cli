@@ -80,7 +80,7 @@ func TestRunConfigSetRadio_SFValidation(t *testing.T) {
 					t.Fatalf("sf=%d: expected error containing %q, got: %v", tc.sf, tc.errMsg, err)
 				}
 			} else {
-				// Valid SF should not fail on range validation (may fail on RPC — that's OK)
+				// Valid SF should not fail on range validation (may fail on RPC, that's OK)
 				if err != nil && strings.Contains(err.Error(), "spreading factor") {
 					t.Fatalf("sf=%d: unexpected range error: %v", tc.sf, err)
 				}

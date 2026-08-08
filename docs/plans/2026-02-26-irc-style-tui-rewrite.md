@@ -2,7 +2,7 @@
 
 > **For Agent:** REQUIRED SUB-SKILL: Use executing-plans to implement this plan task-by-task.
 
-**Goal:** Replace the current tab-based split-pane TUI with a single-buffer IRC-style interface inspired by BitchX — full-screen scrollback, inline system events, always-ready input line, slash commands for non-chat functions.
+**Goal:** Replace the current tab-based split-pane TUI with a single-buffer IRC-style interface inspired by BitchX: full-screen scrollback, inline system events, always-ready input line, slash commands for non-chat functions.
 
 **Architecture:** The root model becomes a single scrollback buffer + input line + status bar. No more tab switching or split panes. Channels/DMs are background "windows" switched via `/join` or `Alt+N`. Non-chat features (nodes, stats, config, location) are accessed via `/slash` commands that either print inline or open temporary overlay panels. The existing `store.go`, `bridge.go`, `msgdb.go`, `names.go`, and `tabs/resolver.go` are preserved. Everything in `tabs/` is deleted or absorbed.
 
@@ -13,22 +13,22 @@
 ## File Map
 
 **Keep as-is:**
-- `internal/tui/store.go` — state container (minor additions for event log)
-- `internal/tui/bridge.go` — SDK push notification wiring
-- `internal/tui/msgdb.go` — SQLite persistence
-- `internal/tui/names.go` — peer name resolution
-- `internal/tui/tabs/resolver.go` — PeerResolver interface
+- `internal/tui/store.go`: state container (minor additions for event log)
+- `internal/tui/bridge.go`: SDK push notification wiring
+- `internal/tui/msgdb.go`: SQLite persistence
+- `internal/tui/names.go`: peer name resolution
+- `internal/tui/tabs/resolver.go`: PeerResolver interface
 
 **Rewrite:**
 - `internal/tui/tui.go` → single-buffer root model (replaces tab shell)
 - `internal/tui/theme.go` → simplified IRC-style theme
 
 **New:**
-- `internal/tui/input.go` — input line model (replaces chat_compose.go)
-- `internal/tui/commands.go` — slash command parser + dispatch
-- `internal/tui/scrollback.go` — scrollback buffer with styled line types
-- `internal/tui/statusbar.go` — IRC-style status bar(s)
-- `internal/tui/panels.go` — overlay panels for /nodes, /stats, /config, /location
+- `internal/tui/input.go`: input line model (replaces chat_compose.go)
+- `internal/tui/commands.go`: slash command parser + dispatch
+- `internal/tui/scrollback.go`: scrollback buffer with styled line types
+- `internal/tui/statusbar.go`: IRC-style status bar(s)
+- `internal/tui/panels.go`: overlay panels for /nodes, /stats, /config, /location
 
 **Delete:**
 - `internal/tui/tabs/chat.go`
@@ -121,7 +121,7 @@ Status bar shows: connection dot, active buffer name, node address/name, peer co
 **Step 1: Write the scrollback model**
 
 ```go
-// Package tui — scrollback.go
+// Package tui: scrollback.go
 // A scrollback buffer that wraps a Bubbles viewport and manages styled lines.
 
 package tui
@@ -963,7 +963,7 @@ func (h *CommandHandler) cmdProbe() {
         h.scroll.AddError(fmt.Sprintf("Probe error: %v", err))
         return
     }
-    h.scroll.AddSystem("Network probe sent — results will appear as they arrive")
+    h.scroll.AddSystem("Network probe sent: results will appear as they arrive")
 }
 
 func (h *CommandHandler) cmdPing() {
@@ -1117,7 +1117,7 @@ git commit -m "feat(tui): add slash command parser + handler"
 - Rewrite: `internal/tui/tui.go`
 - Rewrite: `internal/tui/theme.go`
 
-This is the core task — replaces the entire tab-based shell with the IRC layout.
+This is the core task: replaces the entire tab-based shell with the IRC layout.
 
 **Step 1: Rewrite theme.go**
 
@@ -1933,8 +1933,8 @@ Run: `cd ~/src/bramble-cli && go build -o /tmp/bramble ./cmd/bramble/`
 
 This will likely have a few issues to resolve:
 - Import paths referencing deleted tab types
-- The `cmd/bramble` entry point may reference `tabs.StatsModel` etc — remove those
-- The `PeerResolver` interface lives in `tabs/resolver.go` which we kept — verify imports
+- The `cmd/bramble` entry point may reference `tabs.StatsModel` etc, remove those
+- The `PeerResolver` interface lives in `tabs/resolver.go` which we kept, verify imports
 
 **Step 6: Verify it builds clean**
 
@@ -1945,7 +1945,7 @@ Expected: clean build
 
 ```bash
 git add -A
-git commit -m "feat(tui): IRC-style rewrite — single buffer + slash commands
+git commit -m "feat(tui): IRC-style rewrite, single buffer + slash commands
 
 Replace tab-based split-pane layout with BitchX-inspired design:
 - Full-screen scrollback buffer for messages and events
@@ -2053,7 +2053,7 @@ Run: `cd ~/src/bramble-cli && go build -o /tmp/bramble ./cmd/bramble/`
 
 ```bash
 git add -A
-git commit -m "fix(tui): polish edge cases — byte counter, confirm flow, auto-buffers"
+git commit -m "fix(tui): polish edge cases: byte counter, confirm flow, auto-buffers"
 ```
 
 ---
@@ -2068,7 +2068,7 @@ git commit -m "fix(tui): polish edge cases — byte counter, confirm flow, auto-
 The old `tabs/*.go` files only get deleted in Task 5. Until then, the code has both old and new files; it compiles because Go only complains about unused imports, not unused files.
 
 **Key risk:** The Bubbles v2 `viewport` and `textarea` APIs. If they've changed from what's in the plan, the agent will need to check `go doc` for the exact method signatures. Key things to verify:
-- `viewport.New()` vs `viewport.New(width, height)` — v2 may use setters
+- `viewport.New()` vs `viewport.New(width, height)`: v2 may use setters
 - `viewport.AtBottom()` exists
 - `textarea.SetHeight()` / `textarea.SetWidth()` exist
 - `tea.Every` and `tea.Tick` signatures
