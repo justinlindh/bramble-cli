@@ -32,10 +32,11 @@ func newLocationCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "location",
 		Short: "Location sharing management",
-		Long:  "Subcommands: status, set-contact, remove-contact, share-once, get-config, set-config",
+		Long:  "Subcommands: status, doctor, set-contact, remove-contact, share-once, get-config, set-config",
 	}
 	cmd.AddCommand(
 		newLocationStatusCmd(),
+		newLocationDoctorCmd(),
 		newLocationSetContactCmd(),
 		newLocationRemoveContactCmd(),
 		newLocationShareOnceCmd(),

@@ -16,6 +16,7 @@ It is built on [bramble-go](https://github.com/justinlindh/bramble-go), and foll
   - [Configuration](#configuration)
   - [Location](#location)
   - [System and Network](#system-and-network)
+  - [Provisioning](#provisioning)
 - [Shell Completion](#shell-completion)
 - [JSON Output](#json-output)
 - [Examples](#examples)
@@ -164,14 +165,21 @@ bramble broadcast --wait-delivery 10 "delivery telemetry please"
 - `bramble ping` — ping connected node
 - `bramble probe` — send network probe
 - `bramble diagnostics`: heap, task stacks, radio health, backpressure, GNSS feed
+- `bramble console`: tail the firmware serial console (ESP-IDF log output)
+- `bramble fleet`: status sweep across every attached node
+- `bramble screenshot`: capture the device display to a PNG
 
 ```bash
 bramble monitor --topic wifi,gps,location
 bramble monitor --messages
 bramble monitor --events
 bramble diagnostics
+bramble console --grep 'location|dm'
+bramble console --duration 30s
 bramble traffic monitor --tx-only
 bramble traffic export --format jsonl > traffic-events.jsonl
+bramble fleet
+bramble screenshot --out shot.png
 ```
 
 `bramble diagnostics` prints only the sections the node reports. Radio health
@@ -189,6 +197,22 @@ only.
 address of RX frames whose packet type includes one, which is what makes an
 RSSI sample attributable to a peer. It is omitted, never zeroed, when the frame
 carries none.
+
+`monitor` and `console` are different streams. `monitor` subscribes to RPC
+notifications; `console` reads the ESP-IDF log output, where a good deal of
+firmware behavior is reported and nowhere else, including the reason a directed
+send was dropped. Opening the console does not reset the node: DTR and RTS drive
+EN and BOOT on a CP2102 board, so both are left deasserted and attaching is a
+read-only act.
+
+`fleet` sweeps every `/dev/ttyUSB*` and `/dev/ttyACM*` in parallel and prints one
+row per node (address, name, hardware, firmware, uptime, peers, GPS, battery). A
+port that does not answer keeps its row with the error attached, since a node
+that stopped answering is usually the one you are looking for.
+
+`screenshot` issues the capture and pages the whole framebuffer back before
+decoding it, so the PNG is one consistent frame rather than a composite. Only
+boards with a graphical UI can answer it.
 
 ### Configuration
 
@@ -209,11 +233,28 @@ bramble config set-radio --freq 915.0 --sf 10 --bw 125 --cr 5 --txpower 20
 - `bramble location set-contact <address> <tier>` — quick per-peer rule
 - `bramble location remove-contact <address>` — remove per-peer rule
 - `bramble location share-once <address>` — send one-time location update
+- `bramble location doctor`: diagnose why a node is or is not sharing location
 
 ```bash
 bramble location set-config --enabled --default-tier full --interval-s 30 --source gps
 bramble location get-config --json
+bramble location doctor
 ```
+
+The share switch is a permission, not an activity: a node with sharing on and no
+usable target transmits nothing, and reading the config back proves only that a
+target was accepted. `location doctor` checks the whole chain, so it reports
+whether sharing is on, whether a self position resolves (live GPS, else stored
+manual coordinates), what targets are configured, and for each per-contact
+target whether a DM session exists. That last one is the failure that hides: a
+per-contact share is unicast under a DM session key and is dropped silently when
+there is no session, logging only to the serial console. A per-channel target is
+broadcast under the channel key and needs no session or route, so the two kinds
+are judged separately.
+
+`location doctor` reads DM session state through `bramble.getDmSessions`. Against
+firmware without that method it says so and still reports everything else, rather
+than reporting every contact as unreachable.
 
 ### System and Network
 
@@ -221,6 +262,9 @@ bramble location get-config --json
 - `bramble discover` — scan local network for Bramble nodes via mDNS
 - `bramble wifi status` — show WiFi mode and link status
 - `bramble wifi set <ssid>`: provision WiFi station credentials
+- `bramble ble-security status`: show how the node authenticates BLE pairing
+- `bramble ble-security set-passkey`: set the static 6-digit BLE pairing passkey
+- `bramble ble-security clear-passkey`: clear the passkey, returning the node to pairing with no code
 - `bramble mesh-test` — automated mesh reliability test (multi-node broadcast/delivery)
 - `bramble pair` — retrieve auth token from a serial-connected device for WebSocket auth
 - `bramble ota --url <url>` — trigger OTA firmware update
@@ -235,9 +279,43 @@ bramble wifi set "Home Network"           # prompts for the password (input hidd
 bramble wifi set "Guest Network" --open   # no password
 bramble wifi set "Home Network" --reboot  # apply the new credentials immediately
 bramble ota --url http://<ota-host>:8080/firmware/bramble.bin
+bramble ble-security status
+bramble ble-security set-passkey                    # prompts for the code (input hidden)
+bramble ble-security set-passkey --passkey 314159
+bramble ble-security clear-passkey
 ```
 
 `wifi set` never accepts the password as a positional argument: a bare command-line value is visible to every other process on the machine via `ps` and `/proc`, and lands in shell history. Provide it with `--password`, or omit the flag on an interactive terminal to be prompted with input hidden; use `--open` for a network with no password. Credentials are persisted to the node's NVS store but do not take effect until it reboots, so `wifi set` prints a follow-up `bramble reboot` reminder unless you pass `--reboot` to apply them immediately.
+
+How a node authenticates BLE pairing depends on whether it has a display. A node with one shows a fresh random 6-digit code on its own screen for each pairing attempt, so there is nothing to configure and it rejects a static passkey. A node without one uses the static passkey `ble-security set-passkey` stores, or pairs with no code at all while none is set, which leaves pairing open to a man-in-the-middle. `ble-security status` reports which of the three applies.
+
+Setting, changing, or clearing the passkey wipes the node's stored BLE bonds, so every client that was paired must pair again with the current code. The passkey itself is write-only: the node never reports it back, so a forgotten one is replaced rather than recovered. Like `wifi set`, it is never a positional argument; pass `--passkey`, or omit the flag on an interactive terminal to be prompted with input hidden.
+
+### Provisioning
+
+A node with no network key is **inert**: it neither emits nor accepts authenticated control-plane traffic, so it does not mesh at all. Provisioning is the first thing you do to a new node.
+
+- `bramble netkey status`: is this node provisioned, and on which key (by fingerprint)
+- `bramble netkey generate`: found a new network by minting a key on the node and provisioning it
+- `bramble netkey provision`: join this node to an existing network
+- `bramble netkey fingerprint`: derive a key's fingerprint offline, without a device
+
+```bash
+# Found a network on the first node, and save the key it mints.
+bramble --port /dev/ttyUSB0 netkey generate
+
+# Join every other node to that key.
+bramble --port /dev/ttyUSB1 netkey provision --key-file netkey.hex
+
+# Confirm convergence: every node must report the founder's fingerprint.
+bramble --port /dev/ttyUSB1 netkey status
+```
+
+`generate` mints the key **on the device** from its entropy-gated source and provisions that node atomically, printing the key once. That is the only copy that will ever exist: no API reads a provisioned key back. Record it out of band before relying on it.
+
+`provision` and `fingerprint` never accept the key as a positional argument, for the same reason `wifi set` refuses a positional password: a bare command-line value is visible to every other process via `ps` and `/proc`, and lands in shell history. Pass `--key-file`, use `--key-file -` to read stdin, or omit the flag on an interactive terminal to be prompted with input hidden. Both accept a `bramble://net/v1?k=...` share string (what the web app's QR code encodes) or a bare 64 hex characters.
+
+Re-keying is destructive: it cuts a node off from every node still on the old key. `generate` on an already-provisioned node, and `provision` with a key whose fingerprint differs from the node's current one, both refuse unless you pass `--force`. After provisioning, `provision` reads the fingerprint back from the node and fails if it did not converge, rather than trusting the write.
 
 ## Shell Completion
 

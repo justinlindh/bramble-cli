@@ -123,6 +123,7 @@ func init() {
 		newTUICmd(),
 		newPairCmd(),
 		newAuthCmd(),
+		newBleSecurityCmd(),
 		newBatteryCmd(),
 		newGpsCmd(),
 		newAudioCmd(),
@@ -133,7 +134,11 @@ func init() {
 		newTelemetryCmd(),
 		newMailboxCmd(),
 		newAnchorCmd(),
+		newNetkeyCmd(),
 		newDevicesCmd(),
+		newScreenshotCmd(),
+		newConsoleCmd(),
+		newFleetCmd(),
 	)
 }
 
