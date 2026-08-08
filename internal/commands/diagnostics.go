@@ -149,7 +149,9 @@ func printRadioHealth(w io.Writer, rh *bramble.DiagnosticsRadioHealth) {
 }
 
 // sx1262DeviceErrorFlags maps the GetDeviceErrors bitmask to flag names, in
-// the same order the firmware renders them.
+// the same order the firmware renders them. The bit positions and names come
+// from the SX1262 datasheet, not from a firmware convention, so this table
+// cannot drift out of step with the node.
 var sx1262DeviceErrorFlags = []struct {
 	bit  int
 	name string
