@@ -2,6 +2,7 @@ package commands
 
 import (
 	"bytes"
+	"slices"
 	"strings"
 	"testing"
 
@@ -153,6 +154,38 @@ func TestRenderRollCallLedger_NeverStarted(t *testing.T) {
 	}
 }
 
+// The bounds and the member-side counters are on every result, including one
+// from a node that has never started a roll-call. That node is exactly the one
+// an operator reads before their first start, or after the node refused to
+// answer somebody else's roll-call, so dropping them here loses the only
+// evidence the human path carries.
+func TestRenderRollCallLedger_NeverStartedStillReportsBoundsAndOwnCounters(t *testing.T) {
+	t.Parallel()
+
+	var buf bytes.Buffer
+	renderRollCallLedger(&buf, &bramble.RollCallLedger{
+		Active:           false,
+		MaxTextBytes:     48,
+		MinIntervalMs:    300000,
+		PendingDropped:   7,
+		AnswerLimited:    4,
+		AnswerMaxPerHour: 12,
+	})
+	out := buf.String()
+
+	for _, want := range []string{
+		"accepts up to 48 bytes",
+		"once every 5m0s",
+		"emits at most 12 answer(s) in any rolling hour",
+		"7 answer(s) THIS node could not queue",
+		"4 answer(s) THIS node refused: it had already spent its budget of 12 per rolling hour",
+	} {
+		if !strings.Contains(out, want) {
+			t.Errorf("inactive ledger is missing %q:\n%s", want, out)
+		}
+	}
+}
+
 func anchoredLedger() *bramble.RollCallLedger {
 	return &bramble.RollCallLedger{
 		Active:           true,
@@ -209,11 +242,14 @@ func TestRenderRollCallLedger_RowsCarryTimeRoundAndPath(t *testing.T) {
 	renderRollCallLedger(&buf, anchoredLedger())
 	out := buf.String()
 
-	answered := ledgerRow(t, out, "0A1B2C3D")
-	for _, want := range []string{"verified", "4s", "1", "2", "3D4E5F60 > 0A1B2C3D"} {
-		if !strings.Contains(answered, want) {
-			t.Errorf("the row for 0A1B2C3D is missing %q: %q", want, answered)
-		}
+	// Column by column rather than by substring: the address itself contains
+	// both the round and the hop count, so a containment check on the rendered
+	// row passes even when neither column was written. This also pins the
+	// column order against the header.
+	answered := strings.Fields(ledgerRow(t, out, "0A1B2C3D"))
+	wantFields := []string{"0A1B2C3D", "verified", "4s", "1", "2", "3D4E5F60", ">", "0A1B2C3D"}
+	if !slices.Equal(answered, wantFields) {
+		t.Errorf("the row for 0A1B2C3D rendered as %q, want %q", answered, wantFields)
 	}
 
 	// A receipt named this member; nothing was signed. The row exists because
@@ -388,6 +424,23 @@ func TestFormatRelayPath(t *testing.T) {
 	// No receipt supplied a path, which is not the same as a direct link.
 	if got := formatRelayPath(nil); got != "-" {
 		t.Errorf("absent path rendered as %q, want a dash", got)
+	}
+}
+
+func TestRollCallResponderRow_AnsweredRowCarriesTimeRoundAndHops(t *testing.T) {
+	t.Parallel()
+
+	row := rollCallResponderRow(bramble.RollCallResponder{
+		Address:   "0A1B2C3D",
+		Responded: true,
+		AtMs:      4200,
+		Round:     1,
+		Hops:      2,
+		Path:      []string{"3D4E5F60", "0A1B2C3D"},
+	})
+	want := []string{"0A1B2C3D", "verified", "4s", "1", "2", "3D4E5F60 > 0A1B2C3D"}
+	if !slices.Equal(row, want) {
+		t.Errorf("row is %q, want %q", row, want)
 	}
 }
 

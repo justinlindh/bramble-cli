@@ -81,7 +81,12 @@ func newRollCallStatusCmd() *cobra.Command {
 			"delivery-receipt machinery supplied one, and, on an anchored fleet, the\n" +
 			"members that never answered.\n\n" +
 			"The ledger stays readable after the collection window closes, so this is\n" +
-			"also how a finished roll-call is read back.",
+			"also how a finished roll-call is read back.\n\n" +
+			"It also reports for the node rather than for the roll-call: the payload size\n" +
+			"it accepts, the interval it enforces between the roll-calls it starts, the\n" +
+			"answers it emits in any rolling hour, and the answers it dropped or refused\n" +
+			"while answering somebody else's roll-call. A node that has never started a\n" +
+			"roll-call reports those and nothing else.",
 		Args: cobra.NoArgs,
 		RunE: runRollCallStatus,
 	}
@@ -204,6 +209,17 @@ func renderRollCallLedger(w io.Writer, l *bramble.RollCallLedger) {
 	if !l.Active {
 		fmt.Fprintln(w, "This node has never started a roll-call.")
 		fmt.Fprintln(w, "Start one with: bramble roll-call start")
+		// The bounds and the member-side counters describe the node, not any
+		// roll-call it started, so the firmware reports them here too. A member
+		// that only ever answers somebody else's roll-call never leaves this
+		// branch, and its dropped or refused answers are the whole evidence of
+		// why it failed to take part.
+		fmt.Fprintln(w)
+		if l.MaxTextBytes > 0 {
+			fmt.Fprintf(w, "Payload:    this node accepts up to %d bytes\n", l.MaxTextBytes)
+		}
+		renderRollCallSelfLimits(w, l)
+		renderRollCallCounters(w, l)
 		return
 	}
 
@@ -212,10 +228,7 @@ func renderRollCallLedger(w io.Writer, l *bramble.RollCallLedger) {
 	fmt.Fprintf(w, "Payload:    %s\n", describeRollCallPayload(l))
 	fmt.Fprintf(w, "Fleet:      %s\n", rollCallFleetLine(l.Anchored, l.Expected))
 	fmt.Fprintf(w, "Answered:   %s\n", describeRollCallAnswered(l))
-	if l.MinIntervalMs > 0 {
-		fmt.Fprintf(w, "Interval:   this node starts a roll-call at most once every %s\n",
-			output.FormatMs(int64(l.MinIntervalMs)))
-	}
+	renderRollCallSelfLimits(w, l)
 	fmt.Fprintln(w)
 
 	if len(l.Responders) == 0 {
@@ -238,6 +251,21 @@ func renderRollCallLedger(w io.Writer, l *bramble.RollCallLedger) {
 	fmt.Fprintln(w, "be switched off, out of range, out of airtime budget, or behind a relay that")
 	fmt.Fprintln(w, "dropped the frame. A relay path comes from the delivery-receipt machinery and")
 	fmt.Fprintln(w, "is a hint about how the announce travelled, not part of the attestation.")
+}
+
+// renderRollCallSelfLimits reports the two budgets this node spends on its own
+// behalf: how often it will start a roll-call, and how many answers it will
+// emit for everybody else's. Both are node properties rather than properties of
+// a roll-call, so they read the same whether or not one is running.
+func renderRollCallSelfLimits(w io.Writer, l *bramble.RollCallLedger) {
+	if l.MinIntervalMs > 0 {
+		fmt.Fprintf(w, "Interval:   this node starts a roll-call at most once every %s\n",
+			output.FormatMs(int64(l.MinIntervalMs)))
+	}
+	if l.AnswerMaxPerHour > 0 {
+		fmt.Fprintf(w, "Answers:    this node emits at most %d answer(s) in any rolling hour\n",
+			l.AnswerMaxPerHour)
+	}
 }
 
 // describeRollCallState reports where the roll-call is against its own
