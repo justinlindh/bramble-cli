@@ -150,8 +150,13 @@ func printRadioVerdicts(w io.Writer, rh *bramble.DiagnosticsRadioHealth) {
 	checks := []radioFault{
 		{rh.PAFault, true, true, "the power amplifier did not ramp for a transmit, so nothing usable went on air."},
 		{rh.ConfigVerified, false, true, "configuration writes are not reaching the chip, which caps output well below the commanded level."},
-		{rh.PLLFault, true, false, "the frequency synthesizer did not lock."},
-		{rh.OscillatorFault, true, false, "the reference oscillator did not start."},
+		// A synthesizer that never locked and a reference oscillator that never
+		// started are not degradations: the part has no usable clock or no
+		// frequency to sit on, so nothing goes out at all. They are rarer than
+		// a PA fault, not milder, and reporting them as warnings invites
+		// exactly the wrong reaction from someone reading a dead node's output.
+		{rh.PLLFault, true, true, "the frequency synthesizer did not lock."},
+		{rh.OscillatorFault, true, true, "the reference oscillator did not start."},
 		{rh.CalibrationFault, true, false, "a calibration block failed, which costs link budget without failing a transmit outright."},
 	}
 

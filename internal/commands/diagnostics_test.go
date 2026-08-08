@@ -159,18 +159,48 @@ func TestPrintDiagnosticsPretty_RadioConfigNotVerified(t *testing.T) {
 	mustNotContain(t, out, "No transmit-path faults reported.")
 }
 
-func TestPrintDiagnosticsPretty_RadioQuietFaultsWarnRatherThanAlarm(t *testing.T) {
+// A synthesizer that never locked and an oscillator that never started stop
+// transmission outright, exactly like a PA that never ramped, so they get the
+// blocking label rather than a warning. Reporting a dead radio as a warning is
+// the failure this guards against.
+func TestPrintDiagnosticsPretty_RadioClockFaultsAreBlocking(t *testing.T) {
 	t.Parallel()
 
-	// These cost link budget without failing a transmit outright, so they get
-	// a line of their own but not the blocking-fault label.
 	cases := []struct {
 		name    string
 		mutate  func(*bramble.DiagnosticsRadioHealth)
 		message string
 	}{
-		{"pll", func(rh *bramble.DiagnosticsRadioHealth) { rh.PLLFault = ptr(true) }, "WARNING: the frequency synthesizer did not lock."},
-		{"oscillator", func(rh *bramble.DiagnosticsRadioHealth) { rh.OscillatorFault = ptr(true) }, "WARNING: the reference oscillator did not start."},
+		{"pll", func(rh *bramble.DiagnosticsRadioHealth) { rh.PLLFault = ptr(true) }, "PROBLEM: the frequency synthesizer did not lock."},
+		{"oscillator", func(rh *bramble.DiagnosticsRadioHealth) { rh.OscillatorFault = ptr(true) }, "PROBLEM: the reference oscillator did not start."},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			rh := healthyRadio()
+			tc.mutate(rh)
+			d := baseDiagnostics()
+			d.RadioHealth = rh
+
+			out := renderDiagnostics(d)
+			mustContain(t, out, tc.message)
+			mustNotContain(t, out, "WARNING", "No transmit-path faults reported.")
+		})
+	}
+}
+
+func TestPrintDiagnosticsPretty_RadioQuietFaultsWarnRatherThanAlarm(t *testing.T) {
+	t.Parallel()
+
+	// A failed calibration is the only fault the radio reports that genuinely
+	// costs link budget without stopping a transmit, so it is the only one
+	// that earns a warning rather than the blocking label.
+	cases := []struct {
+		name    string
+		mutate  func(*bramble.DiagnosticsRadioHealth)
+		message string
+	}{
 		{"calibration", func(rh *bramble.DiagnosticsRadioHealth) { rh.CalibrationFault = ptr(true) }, "WARNING: a calibration block failed, which costs link budget without failing a transmit outright."},
 	}
 
@@ -195,7 +225,7 @@ func TestPrintDiagnosticsPretty_RadioBlockingAndQuietFaultsTogether(t *testing.T
 	rh := healthyRadio()
 	rh.PAFault = ptr(true)
 	rh.ConfigVerified = ptr(false)
-	rh.PLLFault = ptr(true)
+	rh.CalibrationFault = ptr(true)
 	d := baseDiagnostics()
 	d.RadioHealth = rh
 
@@ -203,7 +233,7 @@ func TestPrintDiagnosticsPretty_RadioBlockingAndQuietFaultsTogether(t *testing.T
 	mustContain(t, out,
 		"PROBLEM: the power amplifier did not ramp",
 		"PROBLEM: configuration writes are not reaching the chip",
-		"WARNING: the frequency synthesizer did not lock.",
+		"WARNING: a calibration block failed",
 	)
 	// Blocking faults are listed before the quieter ones.
 	if strings.Index(out, "WARNING") < strings.Index(out, "PROBLEM") {
