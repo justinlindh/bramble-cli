@@ -41,7 +41,11 @@ func runRoutes(cmd *cobra.Command, args []string) error {
 		return nil
 	}
 
-	headers := []string{"DEST", "NEXT HOP", "HOPS", "METRIC", "STATE", "LAST USED"}
+	// The columns are exactly the fields a route carries on the wire. There is
+	// no last-used time among them: the node reports how often a route was
+	// used, not when, and a column filled from a field the node never sends
+	// would read as an observation rather than as a zero.
+	headers := []string{"DEST", "NEXT HOP", "HOPS", "METRIC", "STATE", "USES"}
 	rows := make([][]string, len(routes))
 	for i, r := range routes {
 		rows[i] = []string{
@@ -50,7 +54,7 @@ func runRoutes(cmd *cobra.Command, args []string) error {
 			fmt.Sprintf("%d", r.HopCount),
 			fmt.Sprintf("%d", r.Metric),
 			r.State,
-			output.FormatMs(r.LastUsedMs),
+			fmt.Sprintf("%d", r.UseCount),
 		}
 	}
 	output.Table(os.Stdout, headers, rows)
