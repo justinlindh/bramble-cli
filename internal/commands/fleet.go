@@ -50,7 +50,7 @@ looking for.
 Examples:
   bramble fleet
   bramble fleet --json
-  bramble fleet --port /dev/ttyUSB0 --port /dev/ttyUSB1`,
+  bramble fleet --ports /dev/ttyUSB0,/dev/ttyUSB1`,
 		RunE: runFleet,
 	}
 	cmd.Flags().StringSlice("ports", nil, "explicit port list (default: every /dev/ttyUSB* and /dev/ttyACM*)")
@@ -61,6 +61,14 @@ Examples:
 func runFleet(cmd *cobra.Command, args []string) error {
 	ports, _ := cmd.Flags().GetStringSlice("ports")
 	perNode, _ := cmd.Flags().GetDuration("per-node-timeout")
+
+	// An explicitly empty --ports is a caller bug, not a request to sweep the
+	// bench: cobra parses `--ports ""` to an empty slice, indistinguishable by
+	// length alone from the flag being omitted. A script that builds the list
+	// from an empty set would otherwise silently touch every attached node.
+	if cmd.Flags().Changed("ports") && len(ports) == 0 {
+		return fmt.Errorf("--ports was given an empty list; omit the flag to sweep every attached node")
+	}
 
 	if len(ports) == 0 {
 		if flagPort != "" {

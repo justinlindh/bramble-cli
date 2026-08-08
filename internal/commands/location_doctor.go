@@ -160,8 +160,8 @@ func diagnoseLocation(in locationDoctorInput) locationReport {
 		r.Source = *cfg.Source
 	}
 
-	r.SelfPosition, _ = describeSelfPosition(in)
-	hasPosition := !strings.HasPrefix(r.SelfPosition, "none")
+	selfPosition, hasPosition := describeSelfPosition(in)
+	r.SelfPosition = selfPosition
 
 	sessions := sessionsByAddress(in.Sessions)
 	reachable := directlyReachable(in.Neighbors, in.Routes)

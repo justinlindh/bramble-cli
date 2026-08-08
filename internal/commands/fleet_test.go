@@ -2,6 +2,7 @@ package commands
 
 import (
 	"context"
+	"io"
 	"strings"
 	"sync"
 	"testing"
@@ -116,6 +117,42 @@ func TestSweepFleetEmptyPortListIsEmptyResult(t *testing.T) {
 	})
 	if len(got) != 0 {
 		t.Errorf("got %d rows, want 0", len(got))
+	}
+}
+
+// An explicitly empty --ports must fail rather than fall through to the
+// auto-detect path. cobra parses `--ports ""` to an empty slice, so length
+// alone cannot tell it apart from the flag being omitted, and a scripted
+// caller that built the list from an empty set would sweep the whole bench.
+func TestFleetRejectsExplicitlyEmptyPorts(t *testing.T) {
+	cmd := newFleetCmd()
+	cmd.SetArgs([]string{"--ports", ""})
+	cmd.SetOut(io.Discard)
+	cmd.SetErr(io.Discard)
+	cmd.SilenceUsage = true
+	cmd.SilenceErrors = true
+
+	err := cmd.Execute()
+	if err == nil {
+		t.Fatal("--ports \"\" was accepted; it must not fall through to auto-detect")
+	}
+	if !strings.Contains(err.Error(), "empty list") {
+		t.Errorf("error %q does not explain that the list was empty", err)
+	}
+}
+
+// The omitted flag keeps its meaning: no --ports at all is the auto-detect
+// request, and must not trip the guard above.
+func TestFleetOmittedPortsIsNotRejected(t *testing.T) {
+	cmd := newFleetCmd()
+	if cmd.Flags().Changed("ports") {
+		t.Fatal("ports reported as changed before any parse")
+	}
+	if err := cmd.Flags().Parse(nil); err != nil {
+		t.Fatalf("parse: %v", err)
+	}
+	if cmd.Flags().Changed("ports") {
+		t.Error("ports reported as changed when the flag was never passed")
 	}
 }
 
