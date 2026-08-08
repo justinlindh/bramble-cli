@@ -16,6 +16,7 @@ It is built on [bramble-go](https://github.com/justinlindh/bramble-go), and foll
   - [Configuration](#configuration)
   - [Location](#location)
   - [System and Network](#system-and-network)
+  - [Provisioning](#provisioning)
 - [Shell Completion](#shell-completion)
 - [JSON Output](#json-output)
 - [Examples](#examples)
@@ -220,6 +221,32 @@ bramble ota --url http://<ota-host>:8080/firmware/bramble.bin
 ```
 
 `wifi set` never accepts the password as a positional argument: a bare command-line value is visible to every other process on the machine via `ps` and `/proc`, and lands in shell history. Provide it with `--password`, or omit the flag on an interactive terminal to be prompted with input hidden; use `--open` for a network with no password. Credentials are persisted to the node's NVS store but do not take effect until it reboots, so `wifi set` prints a follow-up `bramble reboot` reminder unless you pass `--reboot` to apply them immediately.
+
+### Provisioning
+
+A node with no network key is **inert**: it neither emits nor accepts authenticated control-plane traffic, so it does not mesh at all. Provisioning is the first thing you do to a new node.
+
+- `bramble netkey status`: is this node provisioned, and on which key (by fingerprint)
+- `bramble netkey generate`: found a new network by minting a key on the node and provisioning it
+- `bramble netkey provision`: join this node to an existing network
+- `bramble netkey fingerprint`: derive a key's fingerprint offline, without a device
+
+```bash
+# Found a network on the first node, and save the key it mints.
+bramble --port /dev/ttyUSB0 netkey generate
+
+# Join every other node to that key.
+bramble --port /dev/ttyUSB1 netkey provision --key-file netkey.hex
+
+# Confirm convergence: every node must report the founder's fingerprint.
+bramble --port /dev/ttyUSB1 netkey status
+```
+
+`generate` mints the key **on the device** from its entropy-gated source and provisions that node atomically, printing the key once. That is the only copy that will ever exist: no API reads a provisioned key back. Record it out of band before relying on it.
+
+`provision` and `fingerprint` never accept the key as a positional argument, for the same reason `wifi set` refuses a positional password: a bare command-line value is visible to every other process via `ps` and `/proc`, and lands in shell history. Pass `--key-file`, use `--key-file -` to read stdin, or omit the flag on an interactive terminal to be prompted with input hidden. Both accept a `bramble://net/v1?k=...` share string (what the web app's QR code encodes) or a bare 64 hex characters.
+
+Re-keying is destructive: it cuts a node off from every node still on the old key. `generate` on an already-provisioned node, and `provision` with a key whose fingerprint differs from the node's current one, both refuse unless you pass `--force`. After provisioning, `provision` reads the fingerprint back from the node and fails if it did not converge, rather than trusting the write.
 
 ## Shell Completion
 

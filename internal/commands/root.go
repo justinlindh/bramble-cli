@@ -133,6 +133,7 @@ func init() {
 		newTelemetryCmd(),
 		newMailboxCmd(),
 		newAnchorCmd(),
+		newNetkeyCmd(),
 		newDevicesCmd(),
 	)
 }
