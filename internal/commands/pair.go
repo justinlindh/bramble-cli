@@ -36,7 +36,7 @@ Examples:
 			ctx, cancel := commandContext()
 			defer cancel()
 
-			// Pair only works over serial — ignore WS/BLE flags
+			// Pair only works over serial: ignore WS/BLE flags
 			var port string
 			if flagPort != "" {
 				port = flagPort

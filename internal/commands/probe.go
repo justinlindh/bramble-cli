@@ -20,7 +20,7 @@ func newProbeCmd() *cobra.Command {
 		Short: "Send a network probe and wait for responses",
 		Long: `Broadcast a probe packet and wait for the ack_window to collect responses.
 
-The node broadcasts a probe and returns an ack_window — the duration during
+The node broadcasts a probe and returns an ack_window, the duration during
 which peer responses are expected. This command waits for that window to
 elapse (or for an explicit --timeout), collecting and displaying each
 ProbeResult as it arrives.

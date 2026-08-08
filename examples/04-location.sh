@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# 04-location.sh — Location sharing
+# 04-location.sh: Location sharing
 #
 # Bramble supports tiered location sharing with per-peer contact rules.
 # Tiers: none | coarse | full

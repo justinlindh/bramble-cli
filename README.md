@@ -143,12 +143,12 @@ The TUI is designed as an IRC-style operations console for Bramble. It combines 
 
 ### Messaging
 
-- `bramble send <address> <message>` — send a unicast message
-- `bramble broadcast <message>` — send a mesh-wide message
-- `bramble channels list` — list configured channels
-- `bramble channels add <name> [psk]` — add a channel
-- `bramble channels remove <index>` — remove a channel
-- `bramble channels set-default <index>` — set default outgoing channel
+- `bramble send <address> <message>`: send a unicast message
+- `bramble broadcast <message>`: send a mesh-wide message
+- `bramble channels list`: list configured channels
+- `bramble channels add <name> [psk]`: add a channel
+- `bramble channels remove <index>`: remove a channel
+- `bramble channels set-default <index>`: set default outgoing channel
 
 ```bash
 bramble send CAFEBABE "hello there"
@@ -159,13 +159,13 @@ bramble broadcast --wait-delivery 10 "delivery telemetry please"
 
 ### Monitoring and Diagnostics
 
-- `bramble monitor` — stream real-time node events
-- `bramble traffic monitor` — live TX/RX telemetry stream
-- `bramble traffic export` — export ring-buffer traffic telemetry to JSONL
-- `bramble peers` — list direct radio neighbors
-- `bramble routes` — show routing table
-- `bramble ping` — ping connected node
-- `bramble probe` — send network probe
+- `bramble monitor`: stream real-time node events
+- `bramble traffic monitor`: live TX/RX telemetry stream
+- `bramble traffic export`: export ring-buffer traffic telemetry to JSONL
+- `bramble peers`: list direct radio neighbors
+- `bramble routes`: show routing table
+- `bramble ping`: ping connected node
+- `bramble probe`: send network probe
 - `bramble console`: tail the firmware serial console (ESP-IDF log output)
 - `bramble fleet`: status sweep across every attached node
 - `bramble screenshot`: capture the device display to a PNG
@@ -200,9 +200,9 @@ boards with a graphical UI can answer it.
 
 ### Configuration
 
-- `bramble config get` — print full node configuration
-- `bramble config set-name <name>` — set node display name
-- `bramble config set-radio` — update radio parameters
+- `bramble config get`: print full node configuration
+- `bramble config set-name <name>`: set node display name
+- `bramble config set-radio`: update radio parameters
 
 ```bash
 bramble config set-name my-node
@@ -211,12 +211,12 @@ bramble config set-radio --freq 915.0 --sf 10 --bw 125 --cr 5 --txpower 20
 
 ### Location
 
-- `bramble location status` — show known peer locations
-- `bramble location get-config` — show canonical location config
-- `bramble location set-config` — set canonical location policy
-- `bramble location set-contact <address> <tier>` — quick per-peer rule
-- `bramble location remove-contact <address>` — remove per-peer rule
-- `bramble location share-once <address>` — send one-time location update
+- `bramble location status`: show known peer locations
+- `bramble location get-config`: show canonical location config
+- `bramble location set-config`: set canonical location policy
+- `bramble location set-contact <address> <tier>`: quick per-peer rule
+- `bramble location remove-contact <address>`: remove per-peer rule
+- `bramble location share-once <address>`: send one-time location update
 - `bramble location doctor`: diagnose why a node is or is not sharing location
 
 ```bash
@@ -242,18 +242,18 @@ than reporting every contact as unreachable.
 
 ### System and Network
 
-- `bramble status` — show node address, firmware, radio, peers, counters, uptime
-- `bramble discover` — scan local network for Bramble nodes via mDNS
-- `bramble wifi status` — show WiFi mode and link status
+- `bramble status`: show node address, firmware, radio, peers, counters, uptime
+- `bramble discover`: scan local network for Bramble nodes via mDNS
+- `bramble wifi status`: show WiFi mode and link status
 - `bramble wifi set <ssid>`: provision WiFi station credentials
 - `bramble ble-security status`: show how the node authenticates BLE pairing
 - `bramble ble-security set-passkey`: set the static 6-digit BLE pairing passkey
 - `bramble ble-security clear-passkey`: clear the passkey, returning the node to pairing with no code
-- `bramble mesh-test` — automated mesh reliability test (multi-node broadcast/delivery)
-- `bramble pair` — retrieve auth token from a serial-connected device for WebSocket auth
-- `bramble ota --url <url>` — trigger OTA firmware update
-- `bramble reboot` — reboot node
-- `bramble tui` — launch full-screen interactive terminal UI
+- `bramble mesh-test`: automated mesh reliability test (multi-node broadcast/delivery)
+- `bramble pair`: retrieve auth token from a serial-connected device for WebSocket auth
+- `bramble ota --url <url>`: trigger OTA firmware update
+- `bramble reboot`: reboot node
+- `bramble tui`: launch full-screen interactive terminal UI
 
 ```bash
 bramble status
@@ -376,11 +376,11 @@ bramble monitor --topic location --json
 
 See the [`examples/`](examples/) directory for common usage patterns:
 
-- [`01-connect.sh`](examples/01-connect.sh) — BLE, WiFi, and serial connection flows
-- [`02-send-receive.sh`](examples/02-send-receive.sh) — basic send/receive
-- [`03-channels.sh`](examples/03-channels.sh) — channel operations
-- [`04-location.sh`](examples/04-location.sh) — location sharing
-- [`05-monitor.sh`](examples/05-monitor.sh) — monitor and debug output
+- [`01-connect.sh`](examples/01-connect.sh): BLE, WiFi, and serial connection flows
+- [`02-send-receive.sh`](examples/02-send-receive.sh): basic send/receive
+- [`03-channels.sh`](examples/03-channels.sh): channel operations
+- [`04-location.sh`](examples/04-location.sh): location sharing
+- [`05-monitor.sh`](examples/05-monitor.sh): monitor and debug output
 
 ## Quality Checks
 

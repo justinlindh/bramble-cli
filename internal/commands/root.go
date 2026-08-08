@@ -40,7 +40,7 @@ const (
 // commandContext returns a context with an appropriate deadline for the active
 // transport.  Resolution order:
 //  1. --timeout flag (explicit user override)
-//  2. BLE transport: bleTimeout (45s) — scan alone can take up to 10s
+//  2. BLE transport: bleTimeout (45s): scan alone can take up to 10s
 //  3. All other transports: requestTimeout (10s)
 func commandContext() (context.Context, context.CancelFunc) {
 	d := effectiveTimeout()
@@ -71,7 +71,7 @@ var rootCmd = &cobra.Command{
 	Use:     "bramble",
 	Version: version,
 	Short:   "CLI for Bramble mesh nodes",
-	Long: `bramble — command-line interface for Bramble LoRa mesh nodes.
+	Long: `bramble: command-line interface for Bramble LoRa mesh nodes.
 
 Connects via USB serial (auto-detected or --port), WebSocket (--transport),
 or Bluetooth Low Energy (--ble).

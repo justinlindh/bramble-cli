@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# 05-monitor.sh — Monitor and debug output patterns
+# 05-monitor.sh: Monitor and debug output patterns
 #
 # bramble monitor streams live node events. This script shows
 # filtering, grep, JSON output, and traffic debug patterns.

@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# smoke-test.sh — Bramble CLI live integration smoke test
+# smoke-test.sh: Bramble CLI live integration smoke test
 #
 # Requires 2+ nodes connected via USB serial. Tests all major CLI functions
 # with real hardware, outputs structured JSON results for automated parsing.
@@ -108,7 +108,7 @@ done
 
 # ── Binary check ─────────────────────────────────────────────────────────
 
-[[ -x "$CLI" ]] || die "CLI binary not found at $CLI — run: go build -o bramble ./cmd/bramble/"
+[[ -x "$CLI" ]] || die "CLI binary not found at $CLI, run: go build -o bramble ./cmd/bramble/"
 
 # ── Auto-detect nodes ────────────────────────────────────────────────────
 
@@ -736,7 +736,7 @@ test_radio_symmetry() {
   if [[ "$r1" == "$r2" ]]; then
     record_test "radio_symmetry" pass "both=$r1" "$dur"
   else
-    record_test "radio_symmetry" fail "node1=$r1 node2=$r2 (radio params mismatch — nodes may not hear each other)" "$dur"
+    record_test "radio_symmetry" fail "node1=$r1 node2=$r2 (radio params mismatch, nodes may not hear each other)" "$dur"
   fi
 }
 

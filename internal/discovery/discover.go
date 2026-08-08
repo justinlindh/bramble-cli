@@ -35,7 +35,7 @@ func Detect() (string, error) {
 			list += "\n    " + p
 		}
 		return "", fmt.Errorf(
-			"multiple USB serial devices found — specify one with --port:%s", list,
+			"multiple USB serial devices found: specify one with --port:%s", list,
 		)
 	}
 }

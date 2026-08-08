@@ -26,7 +26,7 @@ Sleep 1s
 Show
 
 # Send a broadcast from the TUI
-Type "Evening check-in — anyone on the mesh?"
+Type "Evening check-in, anyone on the mesh?"
 Enter
 Sleep 6s
 

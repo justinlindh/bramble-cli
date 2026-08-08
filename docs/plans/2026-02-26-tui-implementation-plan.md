@@ -25,7 +25,7 @@ Add a `bramble tui` subcommand that provides a terminal UI for interacting with 
 | Broadcast delivery panel | Expand on outgoing broadcast messages | 2 |
 | Route visibility toggle | Global toggle `R` key | 2 |
 | Share location button | Compose bar shortcut `Ctrl+L` | 2 |
-| QR code share/scan | Skip — not useful in terminal | — |
+| QR code share/scan | Skip, not useful in terminal | - |
 | New message jump button | Status line "↓ N new" when scrolled up | 1 |
 
 ### Nodes Tab
@@ -44,7 +44,7 @@ Add a `bramble tui` subcommand that provides a terminal UI for interacting with 
 
 | Web Feature | TUI Mapping | Phase |
 |-------------|-------------|-------|
-| Leaflet map with markers | Skip — no map tiles in terminal | — |
+| Leaflet map with markers | Skip, no map tiles in terminal | - |
 | Own position display | Text: lat/lon/accuracy/altitude | 2 |
 | Peer position list | Table: peer, lat/lon or grid square, distance, bearing | 2 |
 | Route overlay on map | Textual: hop count + state per peer | 2 |
@@ -59,7 +59,7 @@ Add a `bramble tui` subcommand that provides a terminal UI for interacting with 
 | Identity section (name, address, pubkey, mailbox) | Form: editable name + mailbox toggle, read-only address/pubkey | 2 |
 | Radio settings (freq, SF, BW, TX power) | Form with validated inputs | 2 |
 | Channel manager (add/remove/set default) | List with `a`dd/`d`elete/`s`et-default actions | 2 |
-| Peer manager (names, block/trust) | Skip for MVP — complex multi-field | 3 |
+| Peer manager (names, block/trust) | Skip for MVP, complex multi-field | 3 |
 | Location config (sharing policy, contacts) | Form: mode toggle + interval + contact list | 3 |
 | Traffic debug toggle | Simple on/off toggle | 2 |
 | Clear message history | Confirm dialog action | 2 |
@@ -203,7 +203,7 @@ On tick: refresh Status, Neighbors (5s), Routes (10s), Airtime (10s), PeerLocati
 
 ## Phased Delivery
 
-### Phase 0 — Skeleton (1-2 tasks)
+### Phase 0: Skeleton (1-2 tasks)
 
 **Task 0.1: TUI command plumbing + tab shell**
 - Add `internal/tui/` package
@@ -223,14 +223,14 @@ On tick: refresh Status, Neighbors (5s), Routes (10s), Airtime (10s), PeerLocati
 - Poll tick infrastructure (5s/10s intervals)
 - Reconnect logic with backoff + header state
 
-### Phase 1 — Core MVP (4-5 tasks)
+### Phase 1: Core MVP (4-5 tasks)
 
 **Task 1.1: Stats tab**
 - Counter grid panel: TX/RX packets with delta indicators (▲/▼)
 - Airtime budget bars per tier (horizontal bar chars)
 - System info panel: uptime, heap, firmware version, address, pubkey
 - Auto-refresh on tick, manual `r` refresh
-- *Rationale: Stats is the simplest tab — good for validating the full stack (store → bridge → view)*
+- *Rationale: Stats is the simplest tab, good for validating the full stack (store → bridge → view)*
 
 **Task 1.2: Nodes tab**
 - Neighbor table: status dot, address, name, RSSI, SNR, last seen
@@ -239,7 +239,7 @@ On tick: refresh Status, Neighbors (5s), Routes (10s), Airtime (10s), PeerLocati
 - Sortable by column (tab through sort keys)
 - Auto-refresh on tick + neighbor change notification
 
-**Task 1.3: Chat tab — message display**
+**Task 1.3: Chat tab: message display**
 - Conversation list (left pane): Broadcast, Channels, DMs with unread counts
 - Message viewport (right pane): sender, timestamp, text, delivery badge
 - Auto-scroll when at bottom, "↓ N new" indicator when scrolled up
@@ -247,7 +247,7 @@ On tick: refresh Status, Neighbors (5s), Routes (10s), Airtime (10s), PeerLocati
 - Messages populated from initial fetch + live OnMessage notifications
 - Ack updates reflected in real-time (delivery badges update)
 
-**Task 1.4: Chat tab — compose + send**
+**Task 1.4: Chat tab: compose + send**
 - Textarea input at bottom of chat pane
 - Live byte counter with fragmentation warning at >200 bytes
 - `Enter` sends (broadcast or DM depending on active conversation)
@@ -255,12 +255,12 @@ On tick: refresh Status, Neighbors (5s), Routes (10s), Airtime (10s), PeerLocati
 - `Esc` clears compose, `/` focuses compose from anywhere
 - Send result feedback (success/failure toast)
 
-**Task 1.5: Global polish — help + toasts + reconnect**
+**Task 1.5: Global polish: help + toasts + reconnect**
 - `?` key opens help overlay listing all keybindings per tab
 - Toast messages (bottom status line): send success, errors, reconnect events
 - Reconnect UX: header shows state, auto-retry, manual `Ctrl+R` retry
 
-### Phase 2 — Feature Parity (5-6 tasks)
+### Phase 2: Feature Parity (5-6 tasks)
 
 **Task 2.1: Chat enhancements**
 - Route annotations toggle (`r` key): show relay path inline below messages
@@ -274,13 +274,13 @@ On tick: refresh Status, Neighbors (5s), Routes (10s), Airtime (10s), PeerLocati
 - GPS status indicator in header
 - `o` key: open browser with coordinates for selected peer
 
-**Task 2.3: Config tab — identity + radio**
+**Task 2.3: Config tab: identity + radio**
 - Identity form: editable node name (with save), read-only address/pubkey, mailbox toggle
 - Radio form: frequency, spreading factor, bandwidth, TX power (validated ranges)
 - Save with confirmation dialog
 - Reboot action with confirmation
 
-**Task 2.4: Config tab — channels**
+**Task 2.4: Config tab: channels**
 - Channel list with index, name, PSK status, default indicator
 - `a` add channel (name + optional PSK input)
 - `d` remove channel (with confirmation)
@@ -296,9 +296,9 @@ On tick: refresh Status, Neighbors (5s), Routes (10s), Airtime (10s), PeerLocati
 - Peer location column (distance/bearing if location shared)
 - `l` key jumps to Location tab filtered to selected node
 
-### Phase 3 — Polish (2-3 tasks)
+### Phase 3: Polish (2-3 tasks)
 
-**Task 3.1: Config tab — advanced**
+**Task 3.1: Config tab: advanced**
 - Peer manager (names, annotations)
 - Location config (sharing policy, contacts, intervals)
 - Clear message history with confirmation
@@ -377,7 +377,7 @@ Existing: `github.com/spf13/cobra`, `github.com/justinlindh/bramble-go`
 
 ## Risks
 
-1. **Charm v2 is fresh** — v2.0.0 just released. May hit edge cases. Mitigate: pin versions, report upstream.
-2. **Concurrent state** — notifications arrive async. Mitigate: single-writer store, all mutations via tea.Msg.
-3. **Terminal variance** — colors/keys differ. Mitigate: fallback keybindings, test in common terminals.
-4. **Scope** — 5 tabs is a lot. Mitigate: strict phase gates, Stats + Nodes first for quick validation.
+1. **Charm v2 is fresh**: v2.0.0 just released. May hit edge cases. Mitigate: pin versions, report upstream.
+2. **Concurrent state**: notifications arrive async. Mitigate: single-writer store, all mutations via tea.Msg.
+3. **Terminal variance**: colors/keys differ. Mitigate: fallback keybindings, test in common terminals.
+4. **Scope**: 5 tabs is a lot. Mitigate: strict phase gates, Stats + Nodes first for quick validation.

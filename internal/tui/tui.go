@@ -557,12 +557,12 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			statusBarRow := sbH // row right after scrollback content
 
 			if msg.Y == statusBarRow {
-				// Click on status bar — check tab hit regions.
+				// Click on status bar: check tab hit regions.
 				if bufID := m.statusBar.HitTest(msg.X); bufID != "" && bufID != m.activeConv {
 					m.switchBuffer(bufID)
 				}
 			} else if msg.Y < statusBarRow {
-				// Click in scrollback area — check for nickname.
+				// Click in scrollback area: check for nickname.
 				if addr := m.scroll.HitTestNick(msg.Y, msg.X); addr != "" && addr != m.node.Address {
 					convID := fmt.Sprintf("dm:%s", addr)
 					if convID != m.activeConv {

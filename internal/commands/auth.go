@@ -80,7 +80,7 @@ func newAuthStatusCmd() *cobra.Command {
 func newAuthDisableCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:   "disable",
-		Short: "Disable WebSocket auth (open access — use for debugging)",
+		Short: "Disable WebSocket auth (open access, use for debugging)",
 		Long: `Clears the device's auth token, allowing any WebSocket client to connect
 without authentication. Useful for debugging and development.
 
@@ -103,7 +103,7 @@ Re-enable with: bramble auth enable`,
 				return output.PrintJSON(os.Stdout, map[string]any{"enabled": false})
 			}
 
-			fmt.Fprintln(cmd.OutOrStdout(), "✅ Auth disabled — WebSocket connections no longer require a token.")
+			fmt.Fprintln(cmd.OutOrStdout(), "✅ Auth disabled: WebSocket connections no longer require a token.")
 			fmt.Fprintln(cmd.OutOrStdout(), "Re-enable with: bramble auth enable")
 			return nil
 		},

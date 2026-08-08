@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# 01-connect.sh — BLE vs WiFi vs Serial connection examples
+# 01-connect.sh: BLE vs WiFi vs Serial connection examples
 #
 # Bramble CLI supports three transport modes. This script shows each.
 # Run with: bash examples/01-connect.sh
