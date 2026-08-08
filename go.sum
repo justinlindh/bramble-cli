@@ -54,6 +54,8 @@ github.com/justinlindh/bramble-go v0.13.0 h1:kdQlgdbR/d7ZkD0qZvSNvYYo/p0qWLSl1k8
 github.com/justinlindh/bramble-go v0.13.0/go.mod h1:8E5tLCyJggUFMvLLNhIWH+ah5Vu93cggc7qJMVJEi00=
 github.com/justinlindh/bramble-go v0.13.1-0.20260808094030-c60cfdfe021a h1:JUUj1y0pXz+4valGdk8ocdQIcc18T+e4pAk1AigaUWk=
 github.com/justinlindh/bramble-go v0.13.1-0.20260808094030-c60cfdfe021a/go.mod h1:8E5tLCyJggUFMvLLNhIWH+ah5Vu93cggc7qJMVJEi00=
+github.com/justinlindh/bramble-go v0.14.0 h1:2qRwO5vCQqpARB1174tWponPXGtV35y4htq4fGxzfx0=
+github.com/justinlindh/bramble-go v0.14.0/go.mod h1:8E5tLCyJggUFMvLLNhIWH+ah5Vu93cggc7qJMVJEi00=
 github.com/konsorten/go-windows-terminal-sequences v1.0.1/go.mod h1:T0+1ngSBFLxvqU3pZ+m/2kptfBszLMUkC4ZK/EgS/cQ=
 github.com/kylelemons/godebug v1.1.0 h1:RPNrshWIDI6G2gRW9EHilWtl7Z6Sb1BR0xunSBf0SNc=
 github.com/kylelemons/godebug v1.1.0/go.mod h1:9/0rRGxNHcop5bhtWyNeEfOS8JIWk580+fNqagV/RAw=
