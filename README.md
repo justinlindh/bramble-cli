@@ -163,14 +163,29 @@ bramble broadcast --wait-delivery 10 "delivery telemetry please"
 - `bramble routes` — show routing table
 - `bramble ping` — ping connected node
 - `bramble probe` — send network probe
+- `bramble diagnostics`: heap, task stacks, radio health, backpressure, GNSS feed
 
 ```bash
 bramble monitor --topic wifi,gps,location
 bramble monitor --messages
 bramble monitor --events
+bramble diagnostics
 bramble traffic monitor --tx-only
 bramble traffic export --format jsonl > traffic-events.jsonl
 ```
+
+`bramble diagnostics` prints only the sections the node reports. Radio health
+covers the transmit path: it pairs the power the driver programmed with the
+evidence the chip exposes, and calls out the two readings that mean
+transmission is broken, a latched `PA_RAMP` (the amplifier never ramped, so
+nothing usable went on air) and an OCP readback mismatch (PA configuration
+writes are not reaching the chip). Targets with no SX1262 to interrogate
+report the programmed power only.
+
+`bramble traffic monitor` and `bramble traffic export` carry the claimed source
+address of RX frames whose packet type includes one, which is what makes an
+RSSI sample attributable to a peer. It is omitted, never zeroed, when the frame
+carries none.
 
 ### Configuration
 

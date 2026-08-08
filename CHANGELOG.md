@@ -9,6 +9,8 @@ and this project follows [Conventional Commits](https://www.conventionalcommits.
 
 ### Added
 
+- feat(commands): `bramble diagnostics` surfaces the radio's transmit-path health, the airtime backpressure counters and the GNSS raw-feed counters. Radio health names the decoded device-error flags and leads with the two readings that mean transmission is broken: a latched `PA_RAMP` (the amplifier never ramped, so nothing usable went on air) and an OCP readback mismatch (PA configuration writes are not reaching the chip). Targets with no SX1262 to interrogate print the programmed power and say the rest is unavailable, and sections the node omits are skipped rather than rendered as zeros
+- feat(commands): `bramble traffic monitor` and `bramble traffic export` carry the claimed source address of RX frames, which is what makes an RSSI sample attributable to a peer. It is omitted, never rendered as an all-zero address, on TX events and on packet types that carry no origin
 - feat(tui): the device picker now manages the address book in place - press `a`/`n` to add a device (inline form; hidden token entry) and `d`/`delete` to remove the highlighted one (with a confirm); the list refreshes and the token is never shown
 - feat(devices): device address book with `bramble devices add/list/rm`, `--device/-d <alias>` and `bramble tui <alias>` connect by alias (tokens masked in all output; stored 0600)
 - feat(tui): graphical device picker when `bramble tui` is launched with no target on an interactive terminal, plus an interactive hidden token prompt that offers to save the token to the address book
