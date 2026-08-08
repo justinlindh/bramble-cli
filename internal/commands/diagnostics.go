@@ -5,7 +5,6 @@ import (
 	"io"
 	"os"
 	"strconv"
-	"strings"
 
 	bramble "github.com/justinlindh/bramble-go"
 	"github.com/spf13/cobra"
@@ -90,6 +89,25 @@ func printDiagnosticsPretty(w io.Writer, d *bramble.DiagnosticsResponse) {
 	printGPSFeed(w, d)
 }
 
+// radioFault pairs a verdict from the node with the sentence a reader needs to
+// act on it. The verdicts are generic by design, so the wording explains the
+// consequence rather than naming any one part's registers.
+type radioFault struct {
+	// verdict is the node's answer, nil when it did not report this check.
+	verdict *bool
+	// faultWhen is the value that means something is wrong: PAFault reports a
+	// fault as true, ConfigVerified reports one as false.
+	faultWhen bool
+	// blocking marks a fault that stops usable transmission outright, as
+	// opposed to one that quietly costs link budget.
+	blocking bool
+	message  string
+}
+
+func (f radioFault) triggered() bool {
+	return f.verdict != nil && *f.verdict == f.faultWhen
+}
+
 // printRadioHealth renders the radio's self-reported transmit-path evidence.
 // The section is skipped entirely when the firmware omitted it, because an
 // absent section and a healthy one must not look the same.
@@ -101,117 +119,67 @@ func printRadioHealth(w io.Writer, rh *bramble.DiagnosticsRadioHealth) {
 	fmt.Fprintln(w)
 	fmt.Fprintln(w, "Radio health")
 
-	// Lead with the two readings that mean something is actually broken, so
-	// they are not buried in the field dump below.
-	faults := 0
-	if rh.PARampError != nil && *rh.PARampError {
-		fmt.Fprintln(w, "PROBLEM: PA_RAMP is latched. The power amplifier did not ramp for a transmit, so nothing usable went on air.")
-		faults++
+	rows := [][]string{}
+	if rh.Chip != nil && *rh.Chip != "" {
+		rows = append(rows, []string{"Radio", *rh.Chip})
 	}
-	if rh.OCPOK != nil && !*rh.OCPOK {
-		fmt.Fprintln(w, "PROBLEM: the OCP register does not read back what the driver programmed. PA configuration writes are not reaching the chip, which caps output well below the commanded level.")
-		faults++
-	}
-	if faults > 0 {
-		fmt.Fprintln(w)
-	}
-
-	rows := [][]string{
-		{"Programmed TX power", fmt.Sprintf("%d dBm (intent, not measurement)", rh.TxPowerDBm)},
-	}
+	rows = append(rows, []string{"Programmed TX power", fmt.Sprintf("%d dBm (intent, not measurement)", rh.TxPowerDBm)})
 
 	if !rh.Supported {
 		output.Table(w, []string{"Metric", "Value"}, rows)
-		fmt.Fprintln(w, "No SX1262 to interrogate on this target, so chip-level transmit evidence is unavailable.")
+		fmt.Fprintln(w, "This target's radio driver cannot report transmit-path evidence, so only the programmed power is available.")
 		return
 	}
 
-	if rh.DeviceErrors != nil {
-		rows = append(rows, []string{"Device errors", fmt.Sprintf("0x%04X (%s)", uint16(*rh.DeviceErrors), deviceErrorNames(*rh.DeviceErrors, rh.DeviceErrorsStr))})
-	}
-	if rh.Status != nil {
-		rows = append(rows, []string{"Status byte", fmt.Sprintf("0x%02X", uint8(*rh.Status))})
-	}
-	if rh.ChipMode != nil {
-		rows = append(rows, []string{"Chip mode", *rh.ChipMode})
-	}
-	if rh.CmdStatus != nil {
-		rows = append(rows, []string{"Last command status", *rh.CmdStatus})
-	}
-	if rh.OCP != nil {
-		rows = append(rows, []string{"OCP readback", formatOCP(*rh.OCP, rh.OCPExpected, rh.OCPOK)})
-	}
-	if paPoint := formatPAOperatingPoint(rh); paPoint != "" {
-		rows = append(rows, []string{"PA operating point", paPoint})
-	}
-
+	printRadioVerdicts(w, rh)
 	output.Table(w, []string{"Metric", "Value"}, rows)
-}
 
-// sx1262DeviceErrorFlags maps the GetDeviceErrors bitmask to flag names, in
-// the same order the firmware renders them. The bit positions and names come
-// from the SX1262 datasheet, not from a firmware convention, so this table
-// cannot drift out of step with the node.
-var sx1262DeviceErrorFlags = []struct {
-	bit  int
-	name string
-}{
-	{1 << 8, "PA_RAMP"},
-	{1 << 6, "PLL_LOCK"},
-	{1 << 5, "XOSC_START"},
-	{1 << 4, "IMG_CALIB"},
-	{1 << 3, "ADC_CALIB"},
-	{1 << 2, "PLL_CALIB"},
-	{1 << 1, "RC13M_CALIB"},
-	{1 << 0, "RC64K_CALIB"},
-}
-
-// deviceErrorNames names the set bits of a GetDeviceErrors mask. The firmware
-// already decodes them, so its string wins when present; decoding locally
-// keeps a raw mask readable when it is not.
-func deviceErrorNames(errors int, firmwareStr *string) string {
-	if firmwareStr != nil && *firmwareStr != "" {
-		return *firmwareStr
+	// Chip-specific supporting values, printed verbatim on their own line. The
+	// format belongs to the driver and differs per radio part, so it is never
+	// parsed and never split back into fields.
+	if rh.Detail != nil && *rh.Detail != "" {
+		fmt.Fprintln(w)
+		fmt.Fprintf(w, "Detail: %s\n", *rh.Detail)
 	}
-	names := make([]string, 0, len(sx1262DeviceErrorFlags))
-	for _, f := range sx1262DeviceErrorFlags {
-		if errors&f.bit != 0 {
-			names = append(names, f.name)
+}
+
+// printRadioVerdicts leads with what is wrong, so a fault is not buried under
+// the values below it. Faults that stop transmission outright are separated
+// from the quieter ones that only cost link budget.
+func printRadioVerdicts(w io.Writer, rh *bramble.DiagnosticsRadioHealth) {
+	checks := []radioFault{
+		{rh.PAFault, true, true, "the power amplifier did not ramp for a transmit, so nothing usable went on air."},
+		{rh.ConfigVerified, false, true, "configuration writes are not reaching the chip, which caps output well below the commanded level."},
+		{rh.PLLFault, true, false, "the frequency synthesizer did not lock."},
+		{rh.OscillatorFault, true, false, "the reference oscillator did not start."},
+		{rh.CalibrationFault, true, false, "a calibration block failed, which costs link budget without failing a transmit outright."},
+	}
+
+	reported, triggered := 0, 0
+	for _, c := range checks {
+		if c.verdict != nil {
+			reported++
 		}
+		if !c.triggered() {
+			continue
+		}
+		triggered++
+		label := "WARNING"
+		if c.blocking {
+			label = "PROBLEM"
+		}
+		fmt.Fprintf(w, "%s: %s\n", label, c.message)
 	}
-	if len(names) == 0 {
-		return "none"
-	}
-	return strings.Join(names, " ")
-}
 
-func formatOCP(ocp int, expected *int, ok *bool) string {
-	s := fmt.Sprintf("0x%02X", uint8(ocp))
-	if expected != nil {
-		s += fmt.Sprintf(", expected 0x%02X", uint8(*expected))
-	}
 	switch {
-	case ok == nil:
-	case *ok:
-		s += " (ok)"
-	default:
-		s += " (MISMATCH)"
+	case triggered > 0:
+		fmt.Fprintln(w)
+	case reported > 0:
+		// Only claim an all-clear the node actually gave. With every verdict
+		// absent, silence here means "not checked", not "checked and clean".
+		fmt.Fprintln(w, "No transmit-path faults reported.")
+		fmt.Fprintln(w)
 	}
-	return s
-}
-
-func formatPAOperatingPoint(rh *bramble.DiagnosticsRadioHealth) string {
-	parts := make([]string, 0, 3)
-	if rh.PADutyCycle != nil {
-		parts = append(parts, fmt.Sprintf("duty cycle %d", *rh.PADutyCycle))
-	}
-	if rh.PAHPMax != nil {
-		parts = append(parts, fmt.Sprintf("hp max %d", *rh.PAHPMax))
-	}
-	if rh.PARatedDBm != nil {
-		parts = append(parts, fmt.Sprintf("rated %d dBm", *rh.PARatedDBm))
-	}
-	return strings.Join(parts, ", ")
 }
 
 // printBackpressure renders the airtime backpressure counters, which record

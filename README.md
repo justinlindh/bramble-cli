@@ -176,11 +176,14 @@ bramble traffic export --format jsonl > traffic-events.jsonl
 
 `bramble diagnostics` prints only the sections the node reports. Radio health
 covers the transmit path: it pairs the power the driver programmed with the
-evidence the chip exposes, and calls out the two readings that mean
-transmission is broken, a latched `PA_RAMP` (the amplifier never ramped, so
-nothing usable went on air) and an OCP readback mismatch (PA configuration
-writes are not reaching the chip). Targets with no SX1262 to interrogate
-report the programmed power only.
+faults the radio will admit to. Two of those stop usable transmission and are
+called out as problems: the power amplifier not ramping for a transmit, and
+configuration writes that never reach the chip. A failed synthesizer lock,
+oscillator start or calibration is flagged as a warning, since each costs link
+budget without failing a transmit outright. Chip-specific supporting values
+follow as a single `Detail` line, printed as the driver wrote it. A target
+whose driver cannot interrogate its transmit path reports the programmed power
+only.
 
 `bramble traffic monitor` and `bramble traffic export` carry the claimed source
 address of RX frames whose packet type includes one, which is what makes an

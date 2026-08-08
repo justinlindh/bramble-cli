@@ -68,23 +68,18 @@ func baseDiagnostics() *bramble.DiagnosticsResponse {
 
 func ptr[T any](v T) *T { return &v }
 
-// healthyRadio is a supported SX1262 with nothing latched.
+// healthyRadio is a supported radio reporting every verdict clean.
 func healthyRadio() *bramble.DiagnosticsRadioHealth {
 	return &bramble.DiagnosticsRadioHealth{
-		Supported:       true,
-		TxPowerDBm:      22,
-		DeviceErrors:    ptr(0),
-		DeviceErrorsStr: ptr("none"),
-		PARampError:     ptr(false),
-		Status:          ptr(0x2C),
-		ChipMode:        ptr("STBY_RC"),
-		CmdStatus:       ptr("tx-done"),
-		OCP:             ptr(0x38),
-		OCPExpected:     ptr(0x38),
-		OCPOK:           ptr(true),
-		PADutyCycle:     ptr(4),
-		PAHPMax:         ptr(7),
-		PARatedDBm:      ptr(22),
+		Supported:        true,
+		TxPowerDBm:       22,
+		Chip:             ptr("SX1262"),
+		PAFault:          ptr(false),
+		PLLFault:         ptr(false),
+		OscillatorFault:  ptr(false),
+		CalibrationFault: ptr(false),
+		ConfigVerified:   ptr(true),
+		Detail:           ptr("errors [none], mode STBY_RC, cmd tx-done, OCP 0x38, PA duty 0x04 hpMax 0x07 rated 22 dBm"),
 	}
 }
 
@@ -121,54 +116,99 @@ func TestPrintDiagnosticsPretty_RadioHealthy(t *testing.T) {
 	out := renderDiagnostics(d)
 	mustContain(t, out,
 		"Radio health",
+		"SX1262",
 		"Programmed TX power",
 		"22 dBm (intent, not measurement)",
-		"0x0000 (none)",
-		"STBY_RC",
-		"tx-done",
-		"0x38, expected 0x38 (ok)",
-		"duty cycle 4, hp max 7, rated 22 dBm",
+		"No transmit-path faults reported.",
+		"Detail: errors [none], mode STBY_RC, cmd tx-done, OCP 0x38, PA duty 0x04 hpMax 0x07 rated 22 dBm",
 	)
-	mustNotContain(t, out, "PROBLEM")
+	mustNotContain(t, out, "PROBLEM", "WARNING")
 }
 
-func TestPrintDiagnosticsPretty_RadioPARampError(t *testing.T) {
+func TestPrintDiagnosticsPretty_RadioPAFault(t *testing.T) {
 	t.Parallel()
 
 	rh := healthyRadio()
-	rh.DeviceErrors = ptr(0x0100)
-	rh.DeviceErrorsStr = ptr("PA_RAMP")
-	rh.PARampError = ptr(true)
+	rh.PAFault = ptr(true)
 	d := baseDiagnostics()
 	d.RadioHealth = rh
 
 	out := renderDiagnostics(d)
 	mustContain(t, out,
-		"PROBLEM: PA_RAMP is latched.",
-		"nothing usable went on air",
-		"0x0100 (PA_RAMP)",
+		"PROBLEM: the power amplifier did not ramp for a transmit, so nothing usable went on air.",
 	)
-	// The fault has to precede the field dump, not hide inside it.
+	mustNotContain(t, out, "No transmit-path faults reported.")
+	// The fault has to precede the values, not hide under them.
 	if strings.Index(out, "PROBLEM") > strings.Index(out, "Programmed TX power") {
 		t.Fatalf("expected the fault line before the field table, got:\n%s", out)
 	}
 }
 
-func TestPrintDiagnosticsPretty_RadioOCPMismatch(t *testing.T) {
+func TestPrintDiagnosticsPretty_RadioConfigNotVerified(t *testing.T) {
 	t.Parallel()
 
 	rh := healthyRadio()
-	rh.OCP = ptr(0x18)
-	rh.OCPOK = ptr(false)
+	rh.ConfigVerified = ptr(false)
 	d := baseDiagnostics()
 	d.RadioHealth = rh
 
 	out := renderDiagnostics(d)
 	mustContain(t, out,
-		"PROBLEM: the OCP register does not read back what the driver programmed.",
-		"PA configuration writes are not reaching the chip",
-		"0x18, expected 0x38 (MISMATCH)",
+		"PROBLEM: configuration writes are not reaching the chip, which caps output well below the commanded level.",
 	)
+	mustNotContain(t, out, "No transmit-path faults reported.")
+}
+
+func TestPrintDiagnosticsPretty_RadioQuietFaultsWarnRatherThanAlarm(t *testing.T) {
+	t.Parallel()
+
+	// These cost link budget without failing a transmit outright, so they get
+	// a line of their own but not the blocking-fault label.
+	cases := []struct {
+		name    string
+		mutate  func(*bramble.DiagnosticsRadioHealth)
+		message string
+	}{
+		{"pll", func(rh *bramble.DiagnosticsRadioHealth) { rh.PLLFault = ptr(true) }, "WARNING: the frequency synthesizer did not lock."},
+		{"oscillator", func(rh *bramble.DiagnosticsRadioHealth) { rh.OscillatorFault = ptr(true) }, "WARNING: the reference oscillator did not start."},
+		{"calibration", func(rh *bramble.DiagnosticsRadioHealth) { rh.CalibrationFault = ptr(true) }, "WARNING: a calibration block failed, which costs link budget without failing a transmit outright."},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			rh := healthyRadio()
+			tc.mutate(rh)
+			d := baseDiagnostics()
+			d.RadioHealth = rh
+
+			out := renderDiagnostics(d)
+			mustContain(t, out, tc.message)
+			mustNotContain(t, out, "PROBLEM", "No transmit-path faults reported.")
+		})
+	}
+}
+
+func TestPrintDiagnosticsPretty_RadioBlockingAndQuietFaultsTogether(t *testing.T) {
+	t.Parallel()
+
+	rh := healthyRadio()
+	rh.PAFault = ptr(true)
+	rh.ConfigVerified = ptr(false)
+	rh.PLLFault = ptr(true)
+	d := baseDiagnostics()
+	d.RadioHealth = rh
+
+	out := renderDiagnostics(d)
+	mustContain(t, out,
+		"PROBLEM: the power amplifier did not ramp",
+		"PROBLEM: configuration writes are not reaching the chip",
+		"WARNING: the frequency synthesizer did not lock.",
+	)
+	// Blocking faults are listed before the quieter ones.
+	if strings.Index(out, "WARNING") < strings.Index(out, "PROBLEM") {
+		t.Fatalf("expected blocking faults before warnings, got:\n%s", out)
+	}
 }
 
 func TestPrintDiagnosticsPretty_RadioUnsupported(t *testing.T) {
@@ -181,35 +221,80 @@ func TestPrintDiagnosticsPretty_RadioUnsupported(t *testing.T) {
 	mustContain(t, out,
 		"Radio health",
 		"17 dBm (intent, not measurement)",
-		"No SX1262 to interrogate on this target",
+		"This target's radio driver cannot report transmit-path evidence",
 	)
-	// No wall of zeros for registers that were never read.
+	// The message must not name a part, since an unsupported payload covers
+	// both the emulator's virtual radio and a real part with no mapping yet.
+	mustNotContain(t, out, "SX1262")
+	// Nothing invented for verdicts that were never reported.
 	mustNotContain(t, out,
-		"Device errors",
-		"Status byte",
-		"Chip mode",
-		"Last command status",
-		"OCP readback",
-		"PA operating point",
 		"PROBLEM",
+		"WARNING",
+		"No transmit-path faults reported.",
+		"Detail:",
 	)
 }
 
-func TestPrintDiagnosticsPretty_RadioPartialFields(t *testing.T) {
+func TestPrintDiagnosticsPretty_RadioVerdictsAbsentClaimsNoAllClear(t *testing.T) {
 	t.Parallel()
 
-	// A supported radio whose optional readbacks are missing must show the
-	// rows it has and drop the rest, never substitute zeros.
+	// A supported radio that reported no verdicts at all must not be rendered
+	// as healthy: not checked is not the same as checked and clean.
 	d := baseDiagnostics()
 	d.RadioHealth = &bramble.DiagnosticsRadioHealth{
 		Supported:  true,
 		TxPowerDBm: 22,
-		ChipMode:   ptr("RX"),
+		Chip:       ptr("SX1262"),
 	}
 
 	out := renderDiagnostics(d)
-	mustContain(t, out, "Chip mode", "RX")
-	mustNotContain(t, out, "Device errors", "OCP readback", "PA operating point", "Status byte")
+	mustContain(t, out, "Radio health", "SX1262", "22 dBm (intent, not measurement)")
+	mustNotContain(t, out, "No transmit-path faults reported.", "PROBLEM", "WARNING", "Detail:")
+}
+
+func TestPrintDiagnosticsPretty_RadioPartialVerdicts(t *testing.T) {
+	t.Parallel()
+
+	// One verdict reported clean and the rest absent is still an all-clear for
+	// what the node answered, and must not invent the checks it skipped.
+	d := baseDiagnostics()
+	d.RadioHealth = &bramble.DiagnosticsRadioHealth{
+		Supported:  true,
+		TxPowerDBm: 22,
+		PAFault:    ptr(false),
+	}
+
+	out := renderDiagnostics(d)
+	mustContain(t, out, "No transmit-path faults reported.")
+	mustNotContain(t, out, "PROBLEM", "WARNING")
+}
+
+func TestPrintDiagnosticsPretty_RadioDetailPrintedVerbatim(t *testing.T) {
+	t.Parallel()
+
+	// The detail string belongs to the driver: printed as-is, never parsed
+	// back into fields.
+	detail := "errors [PA_RAMP PLL_LOCK], mode STBY_RC, cmd exec-failed, OCP 0x18, PA duty 0x04 hpMax 0x07 rated 22 dBm"
+	rh := healthyRadio()
+	rh.Detail = ptr(detail)
+	d := baseDiagnostics()
+	d.RadioHealth = rh
+
+	out := renderDiagnostics(d)
+	mustContain(t, out, "Detail: "+detail)
+}
+
+func TestPrintDiagnosticsPretty_RadioDetailAbsent(t *testing.T) {
+	t.Parallel()
+
+	rh := healthyRadio()
+	rh.Detail = nil
+	d := baseDiagnostics()
+	d.RadioHealth = rh
+
+	out := renderDiagnostics(d)
+	mustContain(t, out, "Radio health")
+	mustNotContain(t, out, "Detail:")
 }
 
 func TestPrintDiagnosticsPretty_BackpressureAbsentAndPresent(t *testing.T) {
@@ -288,44 +373,34 @@ func TestPrintDiagnosticsPretty_GPSChipBanner(t *testing.T) {
 	mustNotContain(t, out, "RX overruns", "RX re-arm failures")
 }
 
-func TestDeviceErrorNames(t *testing.T) {
+func TestRadioFaultTriggered(t *testing.T) {
 	t.Parallel()
 
 	cases := []struct {
-		name        string
-		errors      int
-		firmwareStr *string
-		want        string
+		name      string
+		verdict   *bool
+		faultWhen bool
+		want      bool
 	}{
-		{name: "firmware string wins", errors: 0x0100, firmwareStr: ptr("PA_RAMP"), want: "PA_RAMP"},
-		{name: "empty firmware string falls back to local decode", errors: 0x0100, firmwareStr: ptr(""), want: "PA_RAMP"},
-		{name: "absent firmware string falls back to local decode", errors: 0x0041, want: "PLL_LOCK RC64K_CALIB"},
-		{name: "clear mask", errors: 0, want: "none"},
-		{name: "all flags", errors: 0x017F, want: "PA_RAMP PLL_LOCK XOSC_START IMG_CALIB ADC_CALIB PLL_CALIB RC13M_CALIB RC64K_CALIB"},
+		{name: "fault-on-true reported true", verdict: ptr(true), faultWhen: true, want: true},
+		{name: "fault-on-true reported false", verdict: ptr(false), faultWhen: true, want: false},
+		{name: "fault-on-false reported false", verdict: ptr(false), faultWhen: false, want: true},
+		{name: "fault-on-false reported true", verdict: ptr(true), faultWhen: false, want: false},
+		{name: "fault-on-true absent", verdict: nil, faultWhen: true, want: false},
+		// An absent verdict must never fire a fault, which is the whole reason
+		// these arrive as pointers: a missing key decoding to false would
+		// otherwise report a config-verification failure the node never gave.
+		{name: "fault-on-false absent", verdict: nil, faultWhen: false, want: false},
 	}
 
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
-			if got := deviceErrorNames(tc.errors, tc.firmwareStr); got != tc.want {
-				t.Fatalf("deviceErrorNames(%#x)=%q want %q", tc.errors, got, tc.want)
+			f := radioFault{verdict: tc.verdict, faultWhen: tc.faultWhen}
+			if got := f.triggered(); got != tc.want {
+				t.Fatalf("triggered()=%v want %v", got, tc.want)
 			}
 		})
-	}
-}
-
-func TestFormatOCP(t *testing.T) {
-	t.Parallel()
-
-	if got := formatOCP(0x38, ptr(0x38), ptr(true)); got != "0x38, expected 0x38 (ok)" {
-		t.Fatalf("unexpected ok rendering: %q", got)
-	}
-	if got := formatOCP(0x18, ptr(0x38), ptr(false)); got != "0x18, expected 0x38 (MISMATCH)" {
-		t.Fatalf("unexpected mismatch rendering: %q", got)
-	}
-	// An absent expected value or verdict must not invent one.
-	if got := formatOCP(0x38, nil, nil); got != "0x38" {
-		t.Fatalf("unexpected bare rendering: %q", got)
 	}
 }
 
