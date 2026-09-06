@@ -159,7 +159,6 @@ bramble broadcast --wait-delivery 10 "delivery telemetry please"
 
 ### Monitoring and Diagnostics
 
-<<<<<<< HEAD
 - `bramble monitor`: stream real-time node events
 - `bramble traffic monitor`: live TX/RX telemetry stream
 - `bramble traffic export`: export ring-buffer traffic telemetry to JSONL
@@ -167,16 +166,7 @@ bramble broadcast --wait-delivery 10 "delivery telemetry please"
 - `bramble routes`: show routing table
 - `bramble ping`: ping connected node
 - `bramble probe`: send network probe
-=======
-- `bramble monitor` — stream real-time node events
-- `bramble traffic monitor` — live TX/RX telemetry stream
-- `bramble traffic export` — export ring-buffer traffic telemetry to JSONL
-- `bramble peers` — list direct radio neighbors
-- `bramble routes` — show routing table
-- `bramble ping` — ping connected node
-- `bramble probe` — send network probe
 - `bramble diagnostics`: heap, task stacks, radio health, backpressure, GNSS feed
->>>>>>> origin/main
 - `bramble console`: tail the firmware serial console (ESP-IDF log output)
 - `bramble fleet`: status sweep across every attached node
 - `bramble screenshot`: capture the device display to a PNG
